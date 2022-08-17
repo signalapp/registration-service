@@ -1,0 +1,19 @@
+syntax = "proto3";
+
+option java_multiple_files = true;
+option java_package = "org.signal.registration";
+option java_outer_classname = "RegistrationService";
+
+package org.signal.registration;
+
+service RegistrationServiceService {
+  rpc send (RegistrationServiceRequest) returns (RegistrationServiceReply) {}
+}
+
+message RegistrationServiceRequest {
+  string name = 1;
+}
+
+message RegistrationServiceReply {
+  string message = 1;
+}
