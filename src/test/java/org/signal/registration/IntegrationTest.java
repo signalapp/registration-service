@@ -9,6 +9,7 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.google.protobuf.ByteString;
+import io.micronaut.test.annotation.MockBean;
 import io.micronaut.test.extensions.junit5.annotation.MicronautTest;
 import jakarta.inject.Inject;
 import org.junit.jupiter.api.Test;
@@ -18,12 +19,21 @@ import org.signal.registration.rpc.MessageTransport;
 import org.signal.registration.rpc.RegistrationServiceGrpc;
 import org.signal.registration.rpc.SendVerificationCodeRequest;
 import org.signal.registration.rpc.SendVerificationCodeResponse;
+import org.signal.registration.sender.LastDigitsOfPhoneNumberSenderSelectionStrategy;
+import org.signal.registration.sender.LastDigitsOfPhoneNumberVerificationCodeSender;
+import org.signal.registration.sender.SenderSelectionStrategy;
 
 @MicronautTest
 public class IntegrationTest {
 
   @Inject
   private RegistrationServiceGrpc.RegistrationServiceBlockingStub blockingStub;
+
+  @MockBean
+  SenderSelectionStrategy senderSelectionStrategy() {
+    return new LastDigitsOfPhoneNumberSenderSelectionStrategy(
+        new LastDigitsOfPhoneNumberVerificationCodeSender());
+  }
 
   @Test
   void register() {

@@ -17,14 +17,14 @@ import java.util.Locale;
  * never be used in a production environment.
  */
 @Singleton
-@Requires(env = {"dev", "test"})
+@Requires(env = {"dev"})
 @Requires(missingBeans = SenderSelectionStrategy.class)
 public class LastDigitsOfPhoneNumberSenderSelectionStrategy implements SenderSelectionStrategy {
 
-  private final LastDigitsOfPhoneNumberVerificationCodeSender loggingSender;
+  private final LastDigitsOfPhoneNumberVerificationCodeSender lastDigitsSender;
 
-  public LastDigitsOfPhoneNumberSenderSelectionStrategy(final LastDigitsOfPhoneNumberVerificationCodeSender loggingSender) {
-    this.loggingSender = loggingSender;
+  public LastDigitsOfPhoneNumberSenderSelectionStrategy(final LastDigitsOfPhoneNumberVerificationCodeSender lastDigitsSender) {
+    this.lastDigitsSender = lastDigitsSender;
   }
 
   @Override
@@ -33,6 +33,6 @@ public class LastDigitsOfPhoneNumberSenderSelectionStrategy implements SenderSel
       final List<Locale.LanguageRange> languageRanges,
       final ClientType clientType) {
 
-    return loggingSender;
+    return lastDigitsSender;
   }
 }

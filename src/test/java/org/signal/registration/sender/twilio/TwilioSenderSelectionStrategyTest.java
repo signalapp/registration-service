@@ -13,9 +13,10 @@ import io.micronaut.test.annotation.MockBean;
 import io.micronaut.test.extensions.junit5.annotation.MicronautTest;
 import jakarta.inject.Inject;
 import org.junit.jupiter.api.Test;
+import org.signal.registration.RegistrationService;
 import org.signal.registration.sender.ClientType;
 import org.signal.registration.sender.MessageTransport;
-import org.signal.registration.RegistrationService;
+import org.signal.registration.sender.prescribed.PrescribedVerificationCodeSender;
 import org.signal.registration.sender.twilio.classic.TwilioMessagingServiceSmsSender;
 import org.signal.registration.sender.twilio.classic.TwilioVoiceSender;
 import org.signal.registration.sender.twilio.verify.TwilioVerifySmsSender;
@@ -39,6 +40,7 @@ import static org.mockito.Mockito.mock;
 @Property(name = "twilio.voice.phone-numbers", value = "+12025550123")
 @Property(name = "twilio.voice.cdn-uri", value = "https://test.signal.org/")
 @Property(name = "twilio.voice.supported-languages", value = "en,de")
+@Property(name = "prescribed-verification-codes.verification-codes.+12025554321", value = "123456")
 class TwilioSenderSelectionStrategyTest {
 
   @MockBean(RegistrationService.class)
@@ -68,5 +70,10 @@ class TwilioSenderSelectionStrategyTest {
     assertTrue(selectionStrategy.chooseVerificationCodeSender(
         MessageTransport.VOICE, phoneNumber, Locale.LanguageRange.parse("fr"), ClientType.IOS)
         instanceof TwilioVoiceSender);
+
+    assertTrue(selectionStrategy.chooseVerificationCodeSender(
+        MessageTransport.SMS, PhoneNumberUtil.getInstance().parse("+12025554321", null),
+        Locale.LanguageRange.parse("en"), ClientType.IOS)
+        instanceof PrescribedVerificationCodeSender);
   }
 }

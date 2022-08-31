@@ -11,6 +11,7 @@ import org.signal.registration.sender.ClientType;
 import org.signal.registration.sender.MessageTransport;
 import org.signal.registration.sender.SenderSelectionStrategy;
 import org.signal.registration.sender.VerificationCodeSender;
+import org.signal.registration.sender.prescribed.PrescribedVerificationCodeSender;
 import org.signal.registration.sender.twilio.classic.TwilioMessagingServiceSmsSender;
 import org.signal.registration.sender.twilio.classic.TwilioVoiceSender;
 import org.signal.registration.sender.twilio.verify.TwilioVerifyVoiceSender;
@@ -26,16 +27,19 @@ import java.util.Locale;
 @Singleton
 public class TwilioSenderSelectionStrategy implements SenderSelectionStrategy {
 
+  private final PrescribedVerificationCodeSender prescribedVerificationCodeSender;
   private final TwilioVerifySmsSender twilioVerifySmsSender;
   private final TwilioVerifyVoiceSender twilioVerifyVoiceSender;
   private final TwilioMessagingServiceSmsSender twilioMessagingServiceSmsSender;
   private final TwilioVoiceSender twilioVoiceSender;
 
-  public TwilioSenderSelectionStrategy(final TwilioVerifySmsSender twilioVerifySmsSender,
+  public TwilioSenderSelectionStrategy(final PrescribedVerificationCodeSender prescribedVerificationCodeSender,
+      final TwilioVerifySmsSender twilioVerifySmsSender,
       final TwilioVerifyVoiceSender twilioVerifyVoiceSender,
       final TwilioMessagingServiceSmsSender twilioMessagingServiceSmsSender,
       final TwilioVoiceSender twilioVoiceSender) {
 
+    this.prescribedVerificationCodeSender = prescribedVerificationCodeSender;
     this.twilioVerifySmsSender = twilioVerifySmsSender;
     this.twilioVerifyVoiceSender = twilioVerifyVoiceSender;
     this.twilioMessagingServiceSmsSender = twilioMessagingServiceSmsSender;
@@ -48,13 +52,20 @@ public class TwilioSenderSelectionStrategy implements SenderSelectionStrategy {
       final List<Locale.LanguageRange> languageRanges,
       final ClientType clientType) {
 
-    return switch (transport) {
+    final VerificationCodeSender sender;
 
-      case SMS -> twilioVerifySmsSender.supportsDestination(phoneNumber, languageRanges, clientType) ?
-          twilioVerifySmsSender : twilioMessagingServiceSmsSender;
+    if (prescribedVerificationCodeSender.supportsDestination(phoneNumber, languageRanges, clientType)) {
+      sender = prescribedVerificationCodeSender;
+    } else {
+      sender = switch (transport) {
+        case SMS -> twilioVerifySmsSender.supportsDestination(phoneNumber, languageRanges, clientType) ?
+            twilioVerifySmsSender : twilioMessagingServiceSmsSender;
 
-      case VOICE -> twilioVerifyVoiceSender.supportsDestination(phoneNumber, languageRanges, clientType) ?
-          twilioVerifyVoiceSender : twilioVoiceSender;
-    };
+        case VOICE -> twilioVerifyVoiceSender.supportsDestination(phoneNumber, languageRanges, clientType) ?
+            twilioVerifyVoiceSender : twilioVoiceSender;
+      };
+    }
+
+    return sender;
   }
 }

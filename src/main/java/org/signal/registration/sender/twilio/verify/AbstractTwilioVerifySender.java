@@ -97,7 +97,7 @@ abstract class AbstractTwilioVerifySender extends AbstractTwilioSender implement
           .whenComplete((verificationCheck, throwable) ->
               incrementApiCallCounter("verification_check.create", throwable));
     } catch (final InvalidProtocolBufferException e) {
-      logger.error("Failed to parse stored session sessionData", e);
+      logger.error("Failed to parse stored session data", e);
       return CompletableFuture.failedFuture(e);
     }
   }

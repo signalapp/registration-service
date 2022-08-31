@@ -21,9 +21,8 @@ import java.util.concurrent.CompletableFuture;
  * be used in a production environment.
  */
 @Singleton
-@Requires(env = {"dev", "test"})
-@Requires(missingBeans = VerificationCodeSender.class)
-class LastDigitsOfPhoneNumberVerificationCodeSender implements VerificationCodeSender {
+@Requires(env = {"dev"})
+public class LastDigitsOfPhoneNumberVerificationCodeSender implements VerificationCodeSender {
 
   @Override
   public MessageTransport getTransport() {
