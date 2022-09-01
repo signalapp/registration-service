@@ -1,4 +1,9 @@
 <?xml version="1.0" encoding="UTF-8"?>
+<!--
+  ~ Copyright 2022 Signal Messenger, LLC
+  ~ SPDX-License-Identifier: AGPL-3.0-only
+  -->
+
 <project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
   <modelVersion>4.0.0</modelVersion>
@@ -17,7 +22,7 @@
     <packaging>jar</packaging>
     <jdk.version>17</jdk.version>
     <release.version>17</release.version>
-    <micronaut.version>3.6.0</micronaut.version>
+    <micronaut.version>3.6.1</micronaut.version>
     <exec.mainClass>org.signal.registration.Application</exec.mainClass>
   </properties>
 
@@ -30,58 +35,90 @@
 
   <dependencies>
     <dependency>
+      <groupId>ch.qos.logback</groupId>
+      <artifactId>logback-classic</artifactId>
+      <scope>runtime</scope>
+    </dependency>
+
+    <dependency>
+      <groupId>com.googlecode.libphonenumber</groupId>
+      <artifactId>libphonenumber</artifactId>
+      <version>8.12.54</version>
+    </dependency>
+
+    <dependency>
+      <groupId>com.twilio.sdk</groupId>
+      <artifactId>twilio</artifactId>
+      <version>8.34.1</version>
+    </dependency>
+
+    <dependency>
+      <groupId>io.lettuce</groupId>
+      <artifactId>lettuce-core</artifactId>
+      <version>6.2.0.RELEASE</version>
+    </dependency>
+
+    <dependency>
+      <groupId>io.micronaut.grpc</groupId>
+      <artifactId>micronaut-grpc-runtime</artifactId>
+    </dependency>
+    <dependency>
       <groupId>io.micronaut</groupId>
       <artifactId>micronaut-inject</artifactId>
-      <scope>compile</scope>
     </dependency>
     <dependency>
       <groupId>io.micronaut</groupId>
       <artifactId>micronaut-validation</artifactId>
-      <scope>compile</scope>
     </dependency>
+
     <dependency>
-      <groupId>io.micronaut</groupId>
-      <artifactId>micronaut-http-client</artifactId>
-      <scope>test</scope>
+      <groupId>jakarta.annotation</groupId>
+      <artifactId>jakarta.annotation-api</artifactId>
     </dependency>
+
     <dependency>
-      <groupId>org.junit.jupiter</groupId>
-      <artifactId>junit-jupiter-api</artifactId>
-      <scope>test</scope>
+      <groupId>org.apache.commons</groupId>
+      <artifactId>commons-lang3</artifactId>
+      <version>3.12.0</version>
     </dependency>
-    <dependency>
-      <groupId>org.junit.jupiter</groupId>
-      <artifactId>junit-jupiter-engine</artifactId>
-      <scope>test</scope>
-    </dependency>
+
+    <!-- Test dependencies -->
+
     <dependency>
       <groupId>io.micronaut.test</groupId>
       <artifactId>micronaut-test-junit5</artifactId>
       <scope>test</scope>
     </dependency>
+
     <dependency>
-      <groupId>io.micronaut</groupId>
-      <artifactId>micronaut-jackson-databind</artifactId>
-      <scope>compile</scope>
+      <groupId>org.junit.jupiter</groupId>
+      <artifactId>junit-jupiter</artifactId>
+      <scope>test</scope>
     </dependency>
+
     <dependency>
-      <groupId>io.micronaut.grpc</groupId>
-      <artifactId>micronaut-grpc-runtime</artifactId>
-      <scope>compile</scope>
+      <groupId>org.mockito</groupId>
+      <artifactId>mockito-core</artifactId>
+      <scope>test</scope>
     </dependency>
+
     <dependency>
-      <groupId>jakarta.annotation</groupId>
-      <artifactId>jakarta.annotation-api</artifactId>
-      <scope>compile</scope>
-    </dependency>
-    <dependency>
-      <groupId>ch.qos.logback</groupId>
-      <artifactId>logback-classic</artifactId>
-      <scope>runtime</scope>
+      <groupId>org.signal</groupId>
+      <artifactId>embedded-redis</artifactId>
+      <version>0.8.3</version>
+      <scope>test</scope>
     </dependency>
   </dependencies>
 
   <build>
+    <extensions>
+      <extension>
+        <groupId>kr.motd.maven</groupId>
+        <artifactId>os-maven-plugin</artifactId>
+        <version>1.7.0</version>
+      </extension>
+    </extensions>
+
     <plugins>
       <plugin>
         <groupId>io.micronaut.build</groupId>
@@ -103,11 +140,53 @@
           </compilerArgs>
         </configuration>
       </plugin>
+
       <plugin>
-        <groupId>com.github.os72</groupId>
-        <artifactId>protoc-jar-maven-plugin</artifactId>
+        <groupId>org.xolstice.maven.plugins</groupId>
+        <artifactId>protobuf-maven-plugin</artifactId>
+        <version>0.6.1</version>
+
+        <configuration>
+          <checkStaleness>false</checkStaleness>
+          <clearOutputDirectory>false</clearOutputDirectory>
+          <outputDirectory>${project.build.directory}/generated-sources/java</outputDirectory>
+          <protocArtifact>com.google.protobuf:protoc:${protobuf.version}:exe:${os.detected.classifier}</protocArtifact>
+          <pluginId>grpc</pluginId>
+          <pluginArtifact>io.grpc:protoc-gen-grpc-java:${grpc.version}:exe:${os.detected.classifier}</pluginArtifact>
+        </configuration>
+
+        <executions>
+          <execution>
+            <goals>
+              <goal>compile</goal>
+              <goal>compile-custom</goal>
+            </goals>
+          </execution>
+        </executions>
+      </plugin>
+
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-enforcer-plugin</artifactId>
+        <version>3.1.0</version>
+
+        <executions>
+          <execution>
+            <goals>
+              <goal>enforce</goal>
+            </goals>
+
+            <configuration>
+              <rules>
+                <dependencyConvergence/>
+                <requireMavenVersion>
+                  <version>3.8.6</version>
+                </requireMavenVersion>
+              </rules>
+            </configuration>
+          </execution>
+        </executions>
       </plugin>
     </plugins>
   </build>
-
 </project>
