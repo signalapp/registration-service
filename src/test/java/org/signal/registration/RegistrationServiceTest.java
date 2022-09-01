@@ -73,7 +73,7 @@ class RegistrationServiceTest {
 
   @Test
   void sendRegistrationCode() {
-    when(sender.sendVerificationCode(PHONE_NUMBER, LANGUAGE_RANGES, CLIENT_TYPE))
+    when(sender.sendVerificationCode(MessageTransport.SMS, PHONE_NUMBER, LANGUAGE_RANGES, CLIENT_TYPE))
         .thenReturn(CompletableFuture.completedFuture(VERIFICATION_CODE_BYTES));
 
     when(sessionRepository.createSession(eq(PHONE_NUMBER), eq(sender), any(), eq(VERIFICATION_CODE_BYTES)))
@@ -82,7 +82,7 @@ class RegistrationServiceTest {
     assertEquals(SESSION_ID,
         registrationService.sendRegistrationCode(MessageTransport.SMS, PHONE_NUMBER, LANGUAGE_RANGES, CLIENT_TYPE).join());
 
-    verify(sender).sendVerificationCode(PHONE_NUMBER, LANGUAGE_RANGES, CLIENT_TYPE);
+    verify(sender).sendVerificationCode(MessageTransport.SMS, PHONE_NUMBER, LANGUAGE_RANGES, CLIENT_TYPE);
     verify(sessionRepository).createSession(PHONE_NUMBER, sender, SESSION_TTL, VERIFICATION_CODE_BYTES);
   }
 

@@ -45,22 +45,25 @@ public abstract class AbstractSessionRepositoryTest {
   private static class NoopVerificationCodeSender implements VerificationCodeSender {
 
     @Override
-    public MessageTransport getTransport() {
-      return MessageTransport.SMS;
-    }
-
-    @Override
     public Duration getSessionTtl() {
       return Duration.ZERO;
     }
 
     @Override
-    public boolean supportsDestination(final Phonenumber.PhoneNumber phoneNumber, final List<Locale.LanguageRange> languageRanges, final ClientType clientType) {
+    public boolean supportsDestination(final MessageTransport messageTransport,
+        final Phonenumber.PhoneNumber phoneNumber,
+        final List<Locale.LanguageRange> languageRanges,
+        final ClientType clientType) {
+
       return false;
     }
 
     @Override
-    public CompletableFuture<byte[]> sendVerificationCode(final Phonenumber.PhoneNumber phoneNumber, final List<Locale.LanguageRange> languageRanges, final ClientType clientType) {
+    public CompletableFuture<byte[]> sendVerificationCode(final MessageTransport messageTransport,
+        final Phonenumber.PhoneNumber phoneNumber,
+        final List<Locale.LanguageRange> languageRanges,
+        final ClientType clientType) {
+
       return CompletableFuture.failedFuture(new UnsupportedOperationException());
     }
 

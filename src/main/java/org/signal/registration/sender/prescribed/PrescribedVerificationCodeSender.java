@@ -35,18 +35,13 @@ public class PrescribedVerificationCodeSender implements VerificationCodeSender 
   }
 
   @Override
-  public MessageTransport getTransport() {
-    // This is a bit of a lie, since we never actually SEND a code anywhere
-    return MessageTransport.SMS;
-  }
-
-  @Override
   public Duration getSessionTtl() {
     return Duration.ofMinutes(10);
   }
 
   @Override
-  public boolean supportsDestination(final Phonenumber.PhoneNumber phoneNumber,
+  public boolean supportsDestination(final MessageTransport messageTransport,
+      final Phonenumber.PhoneNumber phoneNumber,
       final List<Locale.LanguageRange> languageRanges,
       final ClientType clientType) {
 
@@ -54,7 +49,8 @@ public class PrescribedVerificationCodeSender implements VerificationCodeSender 
   }
 
   @Override
-  public CompletableFuture<byte[]> sendVerificationCode(final Phonenumber.PhoneNumber phoneNumber,
+  public CompletableFuture<byte[]> sendVerificationCode(final MessageTransport messageTransport,
+      final Phonenumber.PhoneNumber phoneNumber,
       final List<Locale.LanguageRange> languageRanges,
       final ClientType clientType) {
 

@@ -12,6 +12,7 @@ import org.apache.commons.lang3.RandomStringUtils;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.signal.registration.sender.ClientType;
+import org.signal.registration.sender.MessageTransport;
 import java.util.Collections;
 import java.util.Map;
 import java.util.concurrent.CompletionException;
@@ -43,8 +44,8 @@ class PrescribedVerificationCodeSenderTest {
 
   @Test
   void supportsDestination() {
-    assertTrue(sender.supportsDestination(PRESCRIBED_CODE_NUMBER, Collections.emptyList(), ClientType.UNKNOWN));
-    assertFalse(sender.supportsDestination(NON_PRESCRIBED_CODE_NUMBER, Collections.emptyList(), ClientType.UNKNOWN));
+    assertTrue(sender.supportsDestination(MessageTransport.SMS, PRESCRIBED_CODE_NUMBER, Collections.emptyList(), ClientType.UNKNOWN));
+    assertFalse(sender.supportsDestination(MessageTransport.SMS, NON_PRESCRIBED_CODE_NUMBER, Collections.emptyList(), ClientType.UNKNOWN));
   }
 
   @Test
@@ -52,14 +53,14 @@ class PrescribedVerificationCodeSenderTest {
     {
       final PrescribedVerificationCodeSessionData sessionData =
           PrescribedVerificationCodeSessionData.parseFrom(
-              sender.sendVerificationCode(PRESCRIBED_CODE_NUMBER, Collections.emptyList(), ClientType.UNKNOWN).join());
+              sender.sendVerificationCode(MessageTransport.SMS, PRESCRIBED_CODE_NUMBER, Collections.emptyList(), ClientType.UNKNOWN).join());
 
       assertEquals(VERIFICATION_CODE, sessionData.getVerificationCode());
     }
 
     {
       final CompletionException completionException = assertThrows(CompletionException.class, () ->
-          sender.sendVerificationCode(NON_PRESCRIBED_CODE_NUMBER, Collections.emptyList(), ClientType.UNKNOWN).join());
+          sender.sendVerificationCode(MessageTransport.SMS, NON_PRESCRIBED_CODE_NUMBER, Collections.emptyList(), ClientType.UNKNOWN).join());
 
       assertTrue(completionException.getCause() instanceof IllegalArgumentException);
     }

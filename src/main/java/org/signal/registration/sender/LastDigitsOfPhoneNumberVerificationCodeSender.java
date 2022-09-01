@@ -25,17 +25,13 @@ import java.util.concurrent.CompletableFuture;
 public class LastDigitsOfPhoneNumberVerificationCodeSender implements VerificationCodeSender {
 
   @Override
-  public MessageTransport getTransport() {
-    return MessageTransport.SMS;
-  }
-
-  @Override
   public Duration getSessionTtl() {
     return Duration.ofMinutes(10);
   }
 
   @Override
-  public boolean supportsDestination(final Phonenumber.PhoneNumber phoneNumber,
+  public boolean supportsDestination(final MessageTransport messageTransport,
+      final Phonenumber.PhoneNumber phoneNumber,
       final List<Locale.LanguageRange> languageRanges,
       final ClientType clientType) {
 
@@ -43,7 +39,8 @@ public class LastDigitsOfPhoneNumberVerificationCodeSender implements Verificati
   }
 
   @Override
-  public CompletableFuture<byte[]> sendVerificationCode(final Phonenumber.PhoneNumber phoneNumber,
+  public CompletableFuture<byte[]> sendVerificationCode(final MessageTransport messageTransport,
+      final Phonenumber.PhoneNumber phoneNumber,
       final List<Locale.LanguageRange> languageRanges,
       final ClientType clientType) {
 

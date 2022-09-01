@@ -7,8 +7,11 @@ package org.signal.registration.sender.twilio.classic;
 
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import com.google.i18n.phonenumbers.PhoneNumberUtil;
+import java.util.Collections;
 import java.util.List;
 import java.util.Locale;
 import java.util.stream.Stream;
@@ -18,6 +21,8 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 import org.signal.registration.sender.ClientType;
+import org.signal.registration.sender.MessageTransport;
+import org.signal.registration.sender.UnsupportedMessageTransportException;
 
 class TwilioMessagingServiceSmsSenderTest {
 
@@ -32,6 +37,14 @@ class TwilioMessagingServiceSmsSenderTest {
     configuration.setSupportedLanguages(List.of("en"));
 
     sender = new TwilioMessagingServiceSmsSender(new TwilioVerificationCodeGenerator(), configuration);
+  }
+
+  @Test
+  void sendVerificationCodeUnsupportedTransport() {
+    assertThrows(UnsupportedMessageTransportException.class, () -> sender.sendVerificationCode(MessageTransport.VOICE,
+        PhoneNumberUtil.getInstance().getExampleNumber("US"),
+        Collections.emptyList(),
+        ClientType.UNKNOWN).join());
   }
 
   @ParameterizedTest

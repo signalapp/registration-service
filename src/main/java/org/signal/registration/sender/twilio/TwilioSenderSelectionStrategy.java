@@ -14,8 +14,8 @@ import org.signal.registration.sender.VerificationCodeSender;
 import org.signal.registration.sender.prescribed.PrescribedVerificationCodeSender;
 import org.signal.registration.sender.twilio.classic.TwilioMessagingServiceSmsSender;
 import org.signal.registration.sender.twilio.classic.TwilioVoiceSender;
-import org.signal.registration.sender.twilio.verify.TwilioVerifyVoiceSender;
-import org.signal.registration.sender.twilio.verify.TwilioVerifySmsSender;
+import org.signal.registration.sender.twilio.verify.TwilioVerifySender;
+
 import java.util.List;
 import java.util.Locale;
 
@@ -28,20 +28,17 @@ import java.util.Locale;
 public class TwilioSenderSelectionStrategy implements SenderSelectionStrategy {
 
   private final PrescribedVerificationCodeSender prescribedVerificationCodeSender;
-  private final TwilioVerifySmsSender twilioVerifySmsSender;
-  private final TwilioVerifyVoiceSender twilioVerifyVoiceSender;
+  private final TwilioVerifySender twilioVerifySender;
   private final TwilioMessagingServiceSmsSender twilioMessagingServiceSmsSender;
   private final TwilioVoiceSender twilioVoiceSender;
 
   public TwilioSenderSelectionStrategy(final PrescribedVerificationCodeSender prescribedVerificationCodeSender,
-      final TwilioVerifySmsSender twilioVerifySmsSender,
-      final TwilioVerifyVoiceSender twilioVerifyVoiceSender,
+      final TwilioVerifySender twilioVerifySender,
       final TwilioMessagingServiceSmsSender twilioMessagingServiceSmsSender,
       final TwilioVoiceSender twilioVoiceSender) {
 
     this.prescribedVerificationCodeSender = prescribedVerificationCodeSender;
-    this.twilioVerifySmsSender = twilioVerifySmsSender;
-    this.twilioVerifyVoiceSender = twilioVerifyVoiceSender;
+    this.twilioVerifySender = twilioVerifySender;
     this.twilioMessagingServiceSmsSender = twilioMessagingServiceSmsSender;
     this.twilioVoiceSender = twilioVoiceSender;
   }
@@ -54,15 +51,14 @@ public class TwilioSenderSelectionStrategy implements SenderSelectionStrategy {
 
     final VerificationCodeSender sender;
 
-    if (prescribedVerificationCodeSender.supportsDestination(phoneNumber, languageRanges, clientType)) {
+    if (prescribedVerificationCodeSender.supportsDestination(transport, phoneNumber, languageRanges, clientType)) {
       sender = prescribedVerificationCodeSender;
+    } else if (twilioVerifySender.supportsDestination(transport, phoneNumber, languageRanges, clientType)) {
+      sender = twilioVerifySender;
     } else {
       sender = switch (transport) {
-        case SMS -> twilioVerifySmsSender.supportsDestination(phoneNumber, languageRanges, clientType) ?
-            twilioVerifySmsSender : twilioMessagingServiceSmsSender;
-
-        case VOICE -> twilioVerifyVoiceSender.supportsDestination(phoneNumber, languageRanges, clientType) ?
-            twilioVerifyVoiceSender : twilioVoiceSender;
+        case SMS -> twilioMessagingServiceSmsSender;
+        case VOICE -> twilioVoiceSender;
       };
     }
 

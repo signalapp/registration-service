@@ -23,6 +23,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ThreadLocalRandom;
 import org.signal.registration.sender.ClientType;
 import org.signal.registration.sender.MessageTransport;
+import org.signal.registration.sender.UnsupportedMessageTransportException;
 import org.signal.registration.sender.VerificationCodeSender;
 
 /**
@@ -48,27 +49,29 @@ public class TwilioVoiceSender extends AbstractTwilioProvidedCodeSender implemen
   }
 
   @Override
-  public MessageTransport getTransport() {
-    return MessageTransport.VOICE;
-  }
-
-  @Override
   public Duration getSessionTtl() {
     return configuration.getSessionTtl();
   }
 
   @Override
-  public boolean supportsDestination(final Phonenumber.PhoneNumber phoneNumber,
+  public boolean supportsDestination(final MessageTransport messageTransport,
+      final Phonenumber.PhoneNumber phoneNumber,
       final List<Locale.LanguageRange> languageRanges,
       final ClientType clientType) {
 
-    return Locale.lookupTag(languageRanges, configuration.getSupportedLanguages()) != null;
+    return messageTransport == MessageTransport.VOICE &&
+        Locale.lookupTag(languageRanges, configuration.getSupportedLanguages()) != null;
   }
 
   @Override
-  public CompletableFuture<byte[]> sendVerificationCode(final Phonenumber.PhoneNumber phoneNumber,
+  public CompletableFuture<byte[]> sendVerificationCode(final MessageTransport messageTransport,
+      final Phonenumber.PhoneNumber phoneNumber,
       final List<Locale.LanguageRange> languageRanges,
-      final ClientType clientType) {
+      final ClientType clientType) throws UnsupportedMessageTransportException {
+
+    if (messageTransport != MessageTransport.VOICE) {
+      throw new UnsupportedMessageTransportException();
+    }
 
     final PhoneNumber fromPhoneNumber = configuration.getPhoneNumbers().get(ThreadLocalRandom.current()
         .nextInt(configuration.getPhoneNumbers().size()));

@@ -19,6 +19,7 @@ import java.util.concurrent.CompletableFuture;
 import org.apache.commons.lang3.StringUtils;
 import org.signal.registration.sender.ClientType;
 import org.signal.registration.sender.MessageTransport;
+import org.signal.registration.sender.UnsupportedMessageTransportException;
 import org.signal.registration.sender.VerificationCodeSender;
 
 /**
@@ -44,27 +45,28 @@ public class TwilioMessagingServiceSmsSender extends AbstractTwilioProvidedCodeS
   }
 
   @Override
-  public MessageTransport getTransport() {
-    return MessageTransport.SMS;
-  }
-
-  @Override
   public Duration getSessionTtl() {
     return configuration.getSessionTtl();
   }
 
   @Override
-  public boolean supportsDestination(final Phonenumber.PhoneNumber phoneNumber,
+  public boolean supportsDestination(final MessageTransport messageTransport,
+      final Phonenumber.PhoneNumber phoneNumber,
       final List<Locale.LanguageRange> languageRanges,
       final ClientType clientType) {
 
-    return true;
+    return messageTransport == MessageTransport.SMS;
   }
 
   @Override
-  public CompletableFuture<byte[]> sendVerificationCode(final Phonenumber.PhoneNumber phoneNumber,
+  public CompletableFuture<byte[]> sendVerificationCode(final MessageTransport messageTransport,
+      final Phonenumber.PhoneNumber phoneNumber,
       final List<Locale.LanguageRange> languageRanges,
-      final ClientType clientType) {
+      final ClientType clientType) throws UnsupportedMessageTransportException {
+
+    if (messageTransport != MessageTransport.SMS) {
+      throw new UnsupportedMessageTransportException();
+    }
 
     final Locale locale;
     {

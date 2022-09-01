@@ -27,7 +27,8 @@ class LastDigitsOfPhoneNumberVerificationCodeSenderTest {
   void sendVerificationCode() throws NumberParseException {
 
     assertArrayEquals("550123".getBytes(StandardCharsets.UTF_8),
-        sender.sendVerificationCode(PhoneNumberUtil.getInstance().parse("+12025550123", null),
+        sender.sendVerificationCode(MessageTransport.SMS,
+            PhoneNumberUtil.getInstance().parse("+12025550123", null),
             Collections.emptyList(),
             null).join());
   }

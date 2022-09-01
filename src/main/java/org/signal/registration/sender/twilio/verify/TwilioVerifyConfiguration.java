@@ -9,6 +9,7 @@ import io.micronaut.context.annotation.ConfigurationProperties;
 import io.micronaut.context.annotation.Context;
 import javax.annotation.Nullable;
 import javax.validation.constraints.NotBlank;
+import java.util.Collections;
 import java.util.List;
 
 @Context
@@ -24,7 +25,7 @@ class TwilioVerifyConfiguration {
   @NotBlank
   private String androidAppHash;
 
-  private List<@NotBlank String> supportedLanguages;
+  private List<@NotBlank String> supportedLanguages = Collections.emptyList();
 
   public String getServiceSid() {
     return serviceSid;

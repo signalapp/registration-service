@@ -19,8 +19,7 @@ import org.signal.registration.sender.MessageTransport;
 import org.signal.registration.sender.prescribed.PrescribedVerificationCodeSender;
 import org.signal.registration.sender.twilio.classic.TwilioMessagingServiceSmsSender;
 import org.signal.registration.sender.twilio.classic.TwilioVoiceSender;
-import org.signal.registration.sender.twilio.verify.TwilioVerifySmsSender;
-import org.signal.registration.sender.twilio.verify.TwilioVerifyVoiceSender;
+import org.signal.registration.sender.twilio.verify.TwilioVerifySender;
 
 import java.util.Locale;
 
@@ -57,7 +56,7 @@ class TwilioSenderSelectionStrategyTest {
 
     assertTrue(selectionStrategy.chooseVerificationCodeSender(
         MessageTransport.SMS, phoneNumber, Locale.LanguageRange.parse("de"), ClientType.IOS)
-        instanceof TwilioVerifySmsSender);
+        instanceof TwilioVerifySender);
 
     assertTrue(selectionStrategy.chooseVerificationCodeSender(
         MessageTransport.SMS, phoneNumber, Locale.LanguageRange.parse("fr"), ClientType.IOS)
@@ -65,7 +64,7 @@ class TwilioSenderSelectionStrategyTest {
 
     assertTrue(selectionStrategy.chooseVerificationCodeSender(
         MessageTransport.VOICE, phoneNumber, Locale.LanguageRange.parse("de"), ClientType.IOS)
-        instanceof TwilioVerifyVoiceSender);
+        instanceof TwilioVerifySender);
 
     assertTrue(selectionStrategy.chooseVerificationCodeSender(
         MessageTransport.VOICE, phoneNumber, Locale.LanguageRange.parse("fr"), ClientType.IOS)

@@ -67,7 +67,7 @@ public class RegistrationService {
     final VerificationCodeSender sender =
         senderSelectionStrategy.chooseVerificationCodeSender(messageTransport, phoneNumber, languageRanges, clientType);
 
-    return sender.sendVerificationCode(phoneNumber, languageRanges, clientType)
+    return sender.sendVerificationCode(messageTransport, phoneNumber, languageRanges, clientType)
         .thenCompose(sessionData -> sessionRepository.createSession(phoneNumber, sender, sender.getSessionTtl(), sessionData));
   }
 

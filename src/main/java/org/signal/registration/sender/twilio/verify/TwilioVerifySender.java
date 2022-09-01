@@ -17,8 +17,10 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
+import jakarta.inject.Singleton;
 import org.signal.registration.sender.ClientType;
 import org.signal.registration.sender.MessageTransport;
+import org.signal.registration.sender.UnsupportedMessageTransportException;
 import org.signal.registration.sender.VerificationCodeSender;
 import org.signal.registration.sender.twilio.AbstractTwilioSender;
 import org.slf4j.Logger;
@@ -27,7 +29,8 @@ import org.slf4j.LoggerFactory;
 /**
  * A Twilio Verify sender sends verification codes to end users via Twilio Verify.
  */
-abstract class AbstractTwilioVerifySender extends AbstractTwilioSender implements VerificationCodeSender {
+@Singleton
+public class TwilioVerifySender extends AbstractTwilioSender implements VerificationCodeSender {
 
   private final TwilioVerifyConfiguration configuration;
 
@@ -36,18 +39,20 @@ abstract class AbstractTwilioVerifySender extends AbstractTwilioSender implement
       MessageTransport.VOICE, Verification.Channel.CALL
   ));
 
-  private final Logger logger = LoggerFactory.getLogger(getClass());
+  private static final Logger logger = LoggerFactory.getLogger(TwilioVerifySender.class);
 
-  protected AbstractTwilioVerifySender(final TwilioVerifyConfiguration configuration) {
+  protected TwilioVerifySender(final TwilioVerifyConfiguration configuration) {
     this.configuration = configuration;
   }
 
   @Override
-  public boolean supportsDestination(final Phonenumber.PhoneNumber phoneNumber,
+  public boolean supportsDestination(final MessageTransport messageTransport,
+      final Phonenumber.PhoneNumber phoneNumber,
       final List<Locale.LanguageRange> languageRanges,
       final ClientType clientType) {
 
-    return Locale.lookupTag(languageRanges, configuration.getSupportedLanguages()) != null;
+    return CHANNELS_BY_TRANSPORT.containsKey(messageTransport) &&
+        Locale.lookupTag(languageRanges, configuration.getSupportedLanguages()) != null;
   }
 
   @Override
@@ -58,14 +63,21 @@ abstract class AbstractTwilioVerifySender extends AbstractTwilioSender implement
   }
 
   @Override
-  public CompletableFuture<byte[]> sendVerificationCode(final Phonenumber.PhoneNumber phoneNumber,
+  public CompletableFuture<byte[]> sendVerificationCode(final MessageTransport messageTransport,
+      final Phonenumber.PhoneNumber phoneNumber,
       final List<Locale.LanguageRange> languageRanges,
-      final ClientType clientType) {
+      final ClientType clientType) throws UnsupportedMessageTransportException {
+
+    final Verification.Channel channel = CHANNELS_BY_TRANSPORT.get(messageTransport);
+
+    if (channel == null) {
+      throw new UnsupportedMessageTransportException();
+    }
 
     final VerificationCreator verificationCreator =
         Verification.creator(configuration.getServiceSid(),
                 PhoneNumberUtil.getInstance().format(phoneNumber, PhoneNumberUtil.PhoneNumberFormat.E164),
-                CHANNELS_BY_TRANSPORT.get(getTransport()).toString())
+                channel.toString())
             .setCustomFriendlyName(configuration.getServiceFriendlyName())
             .setLocale(Locale.lookupTag(languageRanges, configuration.getSupportedLanguages()));
 
@@ -79,7 +91,7 @@ abstract class AbstractTwilioVerifySender extends AbstractTwilioSender implement
             .build()
             .toByteArray())
         .whenComplete((sessionData, throwable) -> {
-              final String endpointName = "verification." + getTransport().name().toLowerCase() + ".create";
+              final String endpointName = "verification." + messageTransport.name().toLowerCase() + ".create";
               incrementApiCallCounter(endpointName, throwable);
             });
   }

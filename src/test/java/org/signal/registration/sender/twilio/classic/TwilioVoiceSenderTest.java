@@ -5,28 +5,29 @@
 
 package org.signal.registration.sender.twilio.classic;
 
-import com.google.i18n.phonenumbers.NumberParseException;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
 import com.google.i18n.phonenumbers.PhoneNumberUtil;
 import com.google.i18n.phonenumbers.Phonenumber;
+import java.net.URI;
+import java.util.Collections;
+import java.util.List;
+import java.util.Locale;
+import java.util.stream.Stream;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 import org.signal.registration.sender.ClientType;
-
-import java.net.URI;
-import java.util.Collections;
-import java.util.List;
-import java.util.Locale;
-import java.util.stream.Stream;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import org.signal.registration.sender.MessageTransport;
+import org.signal.registration.sender.UnsupportedMessageTransportException;
 
 class TwilioVoiceSenderTest {
 
-  private TwilioVoiceSender twilioVoiceSender;
+  private TwilioVoiceSender sender;
 
   @BeforeEach
   void setUp() {
@@ -35,17 +36,14 @@ class TwilioVoiceSenderTest {
     configuration.setCdnUri(URI.create("https://example.com/"));
     configuration.setSupportedLanguages(List.of("en", "de"));
 
-    twilioVoiceSender = new TwilioVoiceSender(new TwilioVerificationCodeGenerator(), configuration);
+    sender = new TwilioVoiceSender(new TwilioVerificationCodeGenerator(), configuration);
   }
 
   @ParameterizedTest
   @MethodSource
-  void supportsDestination(final List<Locale.LanguageRange> languageRanges,
-      final boolean expectSupported) throws NumberParseException {
-
-    final Phonenumber.PhoneNumber phoneNumber = PhoneNumberUtil.getInstance().parse("+12025559876", null);
-    assertEquals(expectSupported,
-        twilioVoiceSender.supportsDestination(phoneNumber, languageRanges, ClientType.UNKNOWN));
+  void supportsDestination(final List<Locale.LanguageRange> languageRanges, final boolean expectSupported) {
+    final Phonenumber.PhoneNumber phoneNumber = PhoneNumberUtil.getInstance().getExampleNumber("US");
+    assertEquals(expectSupported, sender.supportsDestination(MessageTransport.VOICE, phoneNumber, languageRanges, ClientType.UNKNOWN));
   }
 
   private static Stream<Arguments> supportsDestination() {
@@ -57,8 +55,16 @@ class TwilioVoiceSenderTest {
   }
 
   @Test
+  void sendVerificationCodeUnsupportedTransport() {
+    assertThrows(UnsupportedMessageTransportException.class, () -> sender.sendVerificationCode(MessageTransport.SMS,
+        PhoneNumberUtil.getInstance().getExampleNumber("US"),
+        Collections.emptyList(),
+        ClientType.UNKNOWN).join());
+  }
+
+  @Test
   void buildCallTwiml() {
-    final String twiml = twilioVoiceSender.buildCallTwiml("123456", "es").toString();
+    final String twiml = sender.buildCallTwiml("123456", "es").toString();
 
     assertTrue(twiml.contains("https://example.com/es/verification.mp3"));
     assertTrue(twiml.contains("https://example.com/es/1_middle.mp3"));
