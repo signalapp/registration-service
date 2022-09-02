@@ -39,7 +39,6 @@ import org.signal.registration.session.RegistrationSession;
 import org.signal.registration.session.SessionCompletedEvent;
 import org.signal.registration.session.SessionNotFoundException;
 import org.signal.registration.session.SessionRepository;
-import redis.embedded.Redis;
 import redis.embedded.RedisServer;
 
 class RedisSessionRepositoryTest extends AbstractSessionRepositoryTest {
