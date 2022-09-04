@@ -15,14 +15,14 @@
   <parent>
     <groupId>io.micronaut</groupId>
     <artifactId>micronaut-parent</artifactId>
-    <version>3.6.0</version>
+    <version>3.6.2</version>
   </parent>
 
   <properties>
     <packaging>jar</packaging>
     <jdk.version>17</jdk.version>
     <release.version>17</release.version>
-    <micronaut.version>3.6.1</micronaut.version>
+    <micronaut.version>${pom.parent.version}</micronaut.version>
     <exec.mainClass>org.signal.registration.Application</exec.mainClass>
   </properties>
 
