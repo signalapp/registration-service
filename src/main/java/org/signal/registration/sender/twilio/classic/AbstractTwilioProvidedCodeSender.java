@@ -12,6 +12,7 @@ import com.twilio.type.PhoneNumber;
 import java.util.concurrent.CompletableFuture;
 import org.apache.commons.lang3.StringUtils;
 import org.signal.registration.sender.VerificationCodeSender;
+import org.signal.registration.sender.twilio.AbstractTwilioSender;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -19,7 +20,7 @@ import org.slf4j.LoggerFactory;
  * An abstract base class for verification code senders that use Twilio services, but generate their own verification
  * codes (i.e. Twilio services other than Verify).
  */
-abstract class AbstractTwilioProvidedCodeSender implements VerificationCodeSender {
+abstract class AbstractTwilioProvidedCodeSender extends AbstractTwilioSender implements VerificationCodeSender {
 
   private final Logger logger = LoggerFactory.getLogger(getClass());
 

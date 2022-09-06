@@ -5,24 +5,28 @@
 
 package org.signal.registration.session.redis;
 
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
 import io.lettuce.core.RedisClient;
 import io.lettuce.core.api.StatefulRedisConnection;
 import io.lettuce.core.codec.ByteArrayCodec;
 import io.micronaut.core.io.socket.SocketUtils;
-import org.junit.jupiter.api.*;
-import org.signal.registration.session.AbstractSessionRepositoryTest;
-import org.signal.registration.session.SessionNotFoundException;
-import org.signal.registration.session.SessionRepository;
-import redis.embedded.RedisServer;
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.CompletionException;
-
-import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.signal.registration.session.AbstractSessionRepositoryTest;
+import org.signal.registration.session.SessionNotFoundException;
+import org.signal.registration.session.SessionRepository;
+import redis.embedded.RedisServer;
 
 class RedisSessionRepositoryTest extends AbstractSessionRepositoryTest {
 

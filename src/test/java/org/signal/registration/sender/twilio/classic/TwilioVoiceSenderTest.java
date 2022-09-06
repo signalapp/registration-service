@@ -5,14 +5,6 @@
 
 package org.signal.registration.sender.twilio.classic;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertTrue;
-
-import java.net.URI;
-import java.util.Collections;
-import java.util.List;
-import java.util.Locale;
-import java.util.stream.Stream;
 import com.google.i18n.phonenumbers.NumberParseException;
 import com.google.i18n.phonenumbers.PhoneNumberUtil;
 import com.google.i18n.phonenumbers.Phonenumber;
@@ -22,6 +14,15 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 import org.signal.registration.sender.ClientType;
+
+import java.net.URI;
+import java.util.Collections;
+import java.util.List;
+import java.util.Locale;
+import java.util.stream.Stream;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class TwilioVoiceSenderTest {
 
@@ -43,7 +44,8 @@ class TwilioVoiceSenderTest {
       final boolean expectSupported) throws NumberParseException {
 
     final Phonenumber.PhoneNumber phoneNumber = PhoneNumberUtil.getInstance().parse("+12025559876", null);
-    assertEquals(expectSupported, twilioVoiceSender.supportsDestination(phoneNumber, languageRanges, ClientType.UNKNOWN));
+    assertEquals(expectSupported,
+        twilioVoiceSender.supportsDestination(phoneNumber, languageRanges, ClientType.UNKNOWN));
   }
 
   private static Stream<Arguments> supportsDestination() {

@@ -87,6 +87,7 @@ public class TwilioMessagingServiceSmsSender extends AbstractTwilioProvidedCodeS
     return Message.creator(twilioNumberFromPhoneNumber(phoneNumber), messagingServiceSid,
             getMessageBody(countryCode, clientType, verificationCode, locale))
         .createAsync()
+        .whenComplete((message, throwable) -> incrementApiCallCounter("message.create", throwable))
         .thenApply(ignored -> buildSessionData(verificationCode));
   }
 

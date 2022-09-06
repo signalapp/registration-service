@@ -20,13 +20,14 @@ import java.util.concurrent.CompletableFuture;
 import org.signal.registration.sender.ClientType;
 import org.signal.registration.sender.MessageTransport;
 import org.signal.registration.sender.VerificationCodeSender;
+import org.signal.registration.sender.twilio.AbstractTwilioSender;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
  * A Twilio Verify sender sends verification codes to end users via Twilio Verify.
  */
-abstract class AbstractTwilioVerifySender implements VerificationCodeSender {
+abstract class AbstractTwilioVerifySender extends AbstractTwilioSender implements VerificationCodeSender {
 
   private final TwilioVerifyConfiguration configuration;
 
@@ -76,7 +77,11 @@ abstract class AbstractTwilioVerifySender implements VerificationCodeSender {
         .thenApply(verification -> TwilioVerifySessionData.newBuilder()
             .setVerificationSid(verification.getSid())
             .build()
-            .toByteArray());
+            .toByteArray())
+        .whenComplete((sessionData, throwable) -> {
+              final String endpointName = "verification." + getTransport().name().toLowerCase() + ".create";
+              incrementApiCallCounter(endpointName, throwable);
+            });
   }
 
   @Override
@@ -88,7 +93,9 @@ abstract class AbstractTwilioVerifySender implements VerificationCodeSender {
           .setVerificationSid(verificationSid)
           .setCode(verificationCode)
           .createAsync()
-          .thenApply(VerificationCheck::getValid);
+          .thenApply(VerificationCheck::getValid)
+          .whenComplete((verificationCheck, throwable) ->
+              incrementApiCallCounter("verification_check.create", throwable));
     } catch (final InvalidProtocolBufferException e) {
       logger.error("Failed to parse stored session sessionData", e);
       return CompletableFuture.failedFuture(e);

@@ -32,6 +32,9 @@ public class RegistrationServiceGrpcEndpoint extends RegistrationServiceGrpc.Reg
 
   final RegistrationService registrationService;
 
+  static int ORDER_METRICS = 1;
+  static int ORDER_AUTHENTICATION = 2;
+
   private static final Logger logger = LoggerFactory.getLogger(RegistrationServiceGrpcEndpoint.class);
 
   public RegistrationServiceGrpcEndpoint(final RegistrationService registrationService) {

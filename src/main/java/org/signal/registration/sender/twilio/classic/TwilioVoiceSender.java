@@ -73,13 +73,16 @@ public class TwilioVoiceSender extends AbstractTwilioProvidedCodeSender implemen
     final PhoneNumber fromPhoneNumber = configuration.getPhoneNumbers().get(ThreadLocalRandom.current()
         .nextInt(configuration.getPhoneNumbers().size()));
 
-    final String languageTag = Optional.ofNullable(Locale.lookupTag(languageRanges, configuration.getSupportedLanguages()))
+    final String languageTag = Optional.ofNullable(
+            Locale.lookupTag(languageRanges, configuration.getSupportedLanguages()))
         .orElse(DEFAULT_LANGUAGE);
 
     final String verificationCode = verificationCodeGenerator.generateVerificationCode();
 
-    return Call.creator(twilioNumberFromPhoneNumber(phoneNumber), fromPhoneNumber, buildCallTwiml(verificationCode, languageTag))
+    return Call.creator(twilioNumberFromPhoneNumber(phoneNumber), fromPhoneNumber,
+            buildCallTwiml(verificationCode, languageTag))
         .createAsync()
+        .whenComplete((call, throwable) -> incrementApiCallCounter("call.create", throwable))
         .thenApply(ignored -> buildSessionData(verificationCode));
   }
 
@@ -89,13 +92,13 @@ public class TwilioVoiceSender extends AbstractTwilioProvidedCodeSender implemen
 
     return new Twiml(twimlMessageSource.getRequiredMessage("twilio.voice.twiml",
         MessageSource.MessageContext.of(Map.of(
-        "verification", cdnUriWithLocale.resolve("verification.mp3"),
-        "code0", cdnUriWithLocale.resolve(verificationCode.charAt(0) + "_middle.mp3"),
-        "code1", cdnUriWithLocale.resolve(verificationCode.charAt(1) + "_middle.mp3"),
-        "code2", cdnUriWithLocale.resolve(verificationCode.charAt(2) + "_middle.mp3"),
-        "code3", cdnUriWithLocale.resolve(verificationCode.charAt(3) + "_middle.mp3"),
-        "code4", cdnUriWithLocale.resolve(verificationCode.charAt(4) + "_middle.mp3"),
-        "code5", cdnUriWithLocale.resolve(verificationCode.charAt(5) + "_falling.mp3")
-    ))));
+            "verification", cdnUriWithLocale.resolve("verification.mp3"),
+            "code0", cdnUriWithLocale.resolve(verificationCode.charAt(0) + "_middle.mp3"),
+            "code1", cdnUriWithLocale.resolve(verificationCode.charAt(1) + "_middle.mp3"),
+            "code2", cdnUriWithLocale.resolve(verificationCode.charAt(2) + "_middle.mp3"),
+            "code3", cdnUriWithLocale.resolve(verificationCode.charAt(3) + "_middle.mp3"),
+            "code4", cdnUriWithLocale.resolve(verificationCode.charAt(4) + "_middle.mp3"),
+            "code5", cdnUriWithLocale.resolve(verificationCode.charAt(5) + "_falling.mp3")
+        ))));
   }
 }

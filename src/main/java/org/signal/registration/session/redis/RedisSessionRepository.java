@@ -11,6 +11,8 @@ import com.google.i18n.phonenumbers.PhoneNumberUtil;
 import com.google.i18n.phonenumbers.Phonenumber;
 import io.lettuce.core.ScriptOutputType;
 import io.lettuce.core.api.StatefulRedisConnection;
+import io.micrometer.core.instrument.Metrics;
+import io.micrometer.core.instrument.Timer;
 import jakarta.inject.Singleton;
 import java.io.IOException;
 import java.io.InputStream;
@@ -23,6 +25,7 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.stream.Collectors;
+import org.signal.registration.metrics.MetricsUtil;
 import org.signal.registration.sender.VerificationCodeSender;
 import org.signal.registration.session.RegistrationSession;
 import org.signal.registration.session.SessionNotFoundException;
@@ -40,6 +43,10 @@ class RedisSessionRepository implements SessionRepository {
 
   private final String createSessionScriptSha;
   private final String setVerifiedCodeScript;
+
+  private final Timer createSessionTimer;
+  private final Timer getSessionTimer;
+  private final Timer setSessionVerifiedTimer;
 
   private static final String KEY_E164 = "e164";
   private static final String KEY_SESSION_DATA = "session-data";
@@ -63,6 +70,10 @@ class RedisSessionRepository implements SessionRepository {
     try (final InputStream scriptInputStream = Objects.requireNonNull(getClass().getResourceAsStream("set-verified-code.lua"))) {
       this.setVerifiedCodeScript = redisConnection.sync().scriptLoad(scriptInputStream.readAllBytes());
     }
+
+    createSessionTimer = Metrics.timer(MetricsUtil.name(getClass(), "createSession"));
+    getSessionTimer = Metrics.timer(MetricsUtil.name(getClass(), "getSession"));
+    setSessionVerifiedTimer = Metrics.timer(MetricsUtil.name(getClass(), "setSessionVerified"));
   }
 
   @Override
@@ -71,6 +82,7 @@ class RedisSessionRepository implements SessionRepository {
       final Duration ttl,
       final byte[] sessionData) {
 
+    final Timer.Sample sample = Timer.start();
     final UUID sessionId = UUID.randomUUID();
 
     return redisConnection.async().evalsha(createSessionScriptSha, ScriptOutputType.VALUE,
@@ -80,11 +92,14 @@ class RedisSessionRepository implements SessionRepository {
             sessionData,
             String.valueOf(ttl.getSeconds()).getBytes(StandardCharsets.UTF_8))
         .thenApply(ignored -> sessionId)
+        .whenComplete((id, throwable) -> sample.stop(createSessionTimer))
         .toCompletableFuture();
   }
 
   @Override
   public CompletableFuture<RegistrationSession> getSession(final UUID sessionId) {
+    final Timer.Sample sample = Timer.start();
+
     return redisConnection.async().hgetall(getSessionKey(sessionId))
         .thenApply(rawSessionMap -> {
           if (rawSessionMap != null && !rawSessionMap.isEmpty()) {
@@ -115,11 +130,14 @@ class RedisSessionRepository implements SessionRepository {
             throw new CompletionException(new SessionNotFoundException());
           }
         })
+        .whenComplete((session, throwable) -> sample.stop(getSessionTimer))
         .toCompletableFuture();
   }
 
   @Override
   public CompletableFuture<Void> setSessionVerified(final UUID sessionId, final String verificationCode) {
+    final Timer.Sample sample = Timer.start();
+
     return redisConnection.async().evalsha(setVerifiedCodeScript, ScriptOutputType.BOOLEAN,
             new byte[][] { getSessionKey(sessionId) },
             verificationCode.getBytes(StandardCharsets.UTF_8))
@@ -128,6 +146,7 @@ class RedisSessionRepository implements SessionRepository {
             throw new CompletionException(new SessionNotFoundException());
           }
         })
+        .whenComplete((ignored, throwable) -> sample.stop(setSessionVerifiedTimer))
         .toCompletableFuture();
   }
 

@@ -33,7 +33,7 @@ class ApiKeyInterceptor implements ServerInterceptor, Ordered {
   static final Metadata.Key<String> API_KEY_METADATA_KEY =
       Metadata.Key.of("x-signal-api-key", Metadata.ASCII_STRING_MARSHALLER);
 
-  public static final Context.Key<String> CONTEXT_USERNAME_KEY = Context.key("username");
+  static final Context.Key<String> CONTEXT_USERNAME_KEY = Context.key("username");
 
   private static final Logger logger = LoggerFactory.getLogger(ApiKeyInterceptor.class);
 
@@ -71,6 +71,6 @@ class ApiKeyInterceptor implements ServerInterceptor, Ordered {
 
   @Override
   public int getOrder() {
-    return 1;
+    return RegistrationServiceGrpcEndpoint.ORDER_AUTHENTICATION;
   }
 }

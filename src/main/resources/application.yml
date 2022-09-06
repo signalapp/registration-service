@@ -2,6 +2,10 @@ micronaut:
   application:
     name: registrationService
 
+  metrics:
+    tags:
+      service: registration
+
 twilio:
   messaging:
     supported-languages:
