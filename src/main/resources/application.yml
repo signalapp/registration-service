@@ -6,6 +6,25 @@ micronaut:
     tags:
       service: registration
 
+resilience4j:
+  circuitbreaker:
+    enabled: true
+    instances:
+      redis-session-repository:
+        slidingWindowSize: 10
+        minimumNumberOfCalls: 10
+        permittedNumberOfCallsInHalfOpenState: 3
+        waitDurationInOpenState: PT3s
+        failureRateThreshold: 50
+  retry:
+    enabled: true
+    instances:
+      redis-session-repository:
+        max-attempts: 3
+        enable-exponential-backoff: true
+        enable-randomized-wait: true
+        wait-duration: PT0.5S
+
 twilio:
   messaging:
     supported-languages:

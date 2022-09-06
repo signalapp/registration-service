@@ -5,28 +5,49 @@
 
 package org.signal.registration.session.redis;
 
+import io.lettuce.core.ClientOptions;
 import io.lettuce.core.RedisClient;
+import io.lettuce.core.TimeoutOptions;
 import io.lettuce.core.api.StatefulRedisConnection;
+import io.lettuce.core.codec.ByteArrayCodec;
+import io.lettuce.core.metrics.MicrometerCommandLatencyRecorder;
+import io.lettuce.core.metrics.MicrometerOptions;
+import io.lettuce.core.resource.ClientResources;
+import io.lettuce.core.resource.DefaultClientResources;
+import io.micrometer.core.instrument.MeterRegistry;
+import io.micronaut.context.annotation.Bean;
 import io.micronaut.context.annotation.Factory;
-import jakarta.annotation.PreDestroy;
 import jakarta.inject.Singleton;
+import java.time.Duration;
 
 @Factory
 class RedisConnectionFactory {
 
-  private final RedisClient redisClient;
+  @Singleton
+  @Bean(preDestroy = "shutdown")
+  RedisClient redisClient(final RedisSessionRepositoryConfiguration configuration, final MeterRegistry meterRegistry) {
+    final MicrometerOptions options = MicrometerOptions.builder().histogram(true).build();
 
-  RedisConnectionFactory(final RedisSessionRepositoryConfiguration configuration) {
-    this.redisClient = RedisClient.create(configuration.getUri());
+    final ClientResources clientResources = DefaultClientResources.builder()
+        .commandLatencyRecorder(new MicrometerCommandLatencyRecorder(meterRegistry, options))
+        .build();
+
+    final RedisClient redisClient = RedisClient.create(clientResources, configuration.getUri());
+
+    redisClient.setOptions(ClientOptions.builder()
+        .timeoutOptions(TimeoutOptions.builder()
+            .timeoutCommands(true)
+            .fixedTimeout(configuration.getCommandTimeout())
+            .build())
+        .disconnectedBehavior(ClientOptions.DisconnectedBehavior.REJECT_COMMANDS)
+        .build());
+
+    return redisClient;
   }
 
   @Singleton
-  StatefulRedisConnection<String, String> redisConnection() {
-    return redisClient.connect();
-  }
-
-  @PreDestroy
-  void preDestroy() {
-    redisClient.close();
+  @Bean(preDestroy = "close")
+  StatefulRedisConnection<byte[], byte[]> redisConnection(final RedisClient redisClient) {
+    return redisClient.connect(ByteArrayCodec.INSTANCE);
   }
 }

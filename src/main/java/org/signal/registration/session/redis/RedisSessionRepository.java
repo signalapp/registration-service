@@ -13,6 +13,7 @@ import io.lettuce.core.ScriptOutputType;
 import io.lettuce.core.api.StatefulRedisConnection;
 import io.micrometer.core.instrument.Metrics;
 import io.micrometer.core.instrument.Timer;
+import io.micronaut.retry.annotation.CircuitBreaker;
 import jakarta.inject.Singleton;
 import java.io.IOException;
 import java.io.InputStream;
@@ -35,14 +36,17 @@ import org.signal.registration.session.SessionRepository;
  * A session repository that stores session data in a single (i.e. non-clustered) Redis instance.
  */
 @Singleton
+@CircuitBreaker(attempts = "${redis-session-repository.circuit-breaker.attempts:3}",
+    delay = "${redis-session-repository.circuit-breaker.delay:500ms}",
+    reset = "${redis-session-repository.circuit-breaker.reset:5s}")
 class RedisSessionRepository implements SessionRepository {
 
   private final StatefulRedisConnection<byte[], byte[]> redisConnection;
 
   private final Map<String, VerificationCodeSender> sendersByCanonicalName;
 
-  private final String createSessionScriptSha;
-  private final String setVerifiedCodeScript;
+  private final RedisLuaScript createSessionScript;
+  private final RedisLuaScript setVerifiedCodeScript;
 
   private final Timer createSessionTimer;
   private final Timer getSessionTimer;
@@ -63,12 +67,14 @@ class RedisSessionRepository implements SessionRepository {
     this.sendersByCanonicalName = senders.stream()
         .collect(Collectors.toMap(sender -> sender.getClass().getCanonicalName(), sender -> sender));
 
-    try (final InputStream scriptInputStream = Objects.requireNonNull(getClass().getResourceAsStream("create-session.lua"))) {
-      this.createSessionScriptSha = redisConnection.sync().scriptLoad(scriptInputStream.readAllBytes());
+    try (final InputStream scriptInputStream = Objects.requireNonNull(
+        getClass().getResourceAsStream("create-session.lua"))) {
+      this.createSessionScript = new RedisLuaScript(scriptInputStream.readAllBytes(), ScriptOutputType.VALUE);
     }
 
-    try (final InputStream scriptInputStream = Objects.requireNonNull(getClass().getResourceAsStream("set-verified-code.lua"))) {
-      this.setVerifiedCodeScript = redisConnection.sync().scriptLoad(scriptInputStream.readAllBytes());
+    try (final InputStream scriptInputStream = Objects.requireNonNull(
+        getClass().getResourceAsStream("set-verified-code.lua"))) {
+      this.setVerifiedCodeScript = new RedisLuaScript(scriptInputStream.readAllBytes(), ScriptOutputType.BOOLEAN);
     }
 
     createSessionTimer = Metrics.timer(MetricsUtil.name(getClass(), "createSession"));
@@ -85,15 +91,14 @@ class RedisSessionRepository implements SessionRepository {
     final Timer.Sample sample = Timer.start();
     final UUID sessionId = UUID.randomUUID();
 
-    return redisConnection.async().evalsha(createSessionScriptSha, ScriptOutputType.VALUE,
-            new byte[][] { getSessionKey(sessionId) },
-            PhoneNumberUtil.getInstance().format(phoneNumber, PhoneNumberUtil.PhoneNumberFormat.E164).getBytes(StandardCharsets.UTF_8),
+    return createSessionScript.execute(redisConnection, new byte[][]{getSessionKey(sessionId)},
+            PhoneNumberUtil.getInstance().format(phoneNumber, PhoneNumberUtil.PhoneNumberFormat.E164)
+                .getBytes(StandardCharsets.UTF_8),
             sender.getClass().getCanonicalName().getBytes(StandardCharsets.UTF_8),
             sessionData,
             String.valueOf(ttl.getSeconds()).getBytes(StandardCharsets.UTF_8))
-        .thenApply(ignored -> sessionId)
         .whenComplete((id, throwable) -> sample.stop(createSessionTimer))
-        .toCompletableFuture();
+        .thenApply(ignored -> sessionId);
   }
 
   @Override
@@ -111,7 +116,8 @@ class RedisSessionRepository implements SessionRepository {
             final VerificationCodeSender sender = sendersByCanonicalName.get(senderCanonicalName);
 
             if (sender == null) {
-              throw new IllegalArgumentException("Could not find a verification code sender with class " + senderCanonicalName);
+              throw new IllegalArgumentException(
+                  "Could not find a verification code sender with class " + senderCanonicalName);
             }
 
             try {
@@ -138,16 +144,15 @@ class RedisSessionRepository implements SessionRepository {
   public CompletableFuture<Void> setSessionVerified(final UUID sessionId, final String verificationCode) {
     final Timer.Sample sample = Timer.start();
 
-    return redisConnection.async().evalsha(setVerifiedCodeScript, ScriptOutputType.BOOLEAN,
-            new byte[][] { getSessionKey(sessionId) },
+    return setVerifiedCodeScript.execute(redisConnection,
+            new byte[][]{getSessionKey(sessionId)},
             verificationCode.getBytes(StandardCharsets.UTF_8))
         .thenAccept(sessionFound -> {
           if (!(Boolean) sessionFound) {
             throw new CompletionException(new SessionNotFoundException());
           }
         })
-        .whenComplete((ignored, throwable) -> sample.stop(setSessionVerifiedTimer))
-        .toCompletableFuture();
+        .whenComplete((ignored, throwable) -> sample.stop(setSessionVerifiedTimer));
   }
 
   @VisibleForTesting
