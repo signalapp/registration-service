@@ -24,8 +24,6 @@
     <jdk.version>17</jdk.version>
     <release.version>17</release.version>
     <exec.mainClass>org.signal.registration.Application</exec.mainClass>
-
-    <micronaut.version>${pom.parent.version}</micronaut.version>
   </properties>
 
   <repositories>
