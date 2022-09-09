@@ -15,12 +15,15 @@ import org.signal.registration.sender.ClientType;
 import org.signal.registration.sender.MessageTransport;
 import java.util.Collections;
 import java.util.Map;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
 class PrescribedVerificationCodeSenderTest {
 
@@ -36,10 +39,12 @@ class PrescribedVerificationCodeSenderTest {
 
   @BeforeEach
   void setUp() {
-    final PrescribedVerificationCodeConfiguration configuration = new PrescribedVerificationCodeConfiguration();
-    configuration.setVerificationCodes(Map.of(PRESCRIBED_CODE_NUMBER, VERIFICATION_CODE));
+    final PrescribedVerificationCodeRepository repository = mock(PrescribedVerificationCodeRepository.class);
+    when(repository.getVerificationCodes())
+        .thenReturn(CompletableFuture.completedFuture(Map.of(PRESCRIBED_CODE_NUMBER, VERIFICATION_CODE)));
 
-    sender = new PrescribedVerificationCodeSender(configuration);
+    sender = new PrescribedVerificationCodeSender(repository);
+    sender.refreshPhoneNumbers();
   }
 
   @Test

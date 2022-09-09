@@ -7,8 +7,8 @@ package org.signal.registration.sender.twilio;
 
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
-import com.google.i18n.phonenumbers.NumberParseException;
 import com.google.i18n.phonenumbers.PhoneNumberUtil;
 import com.google.i18n.phonenumbers.Phonenumber;
 import io.micronaut.context.annotation.Property;
@@ -16,10 +16,14 @@ import io.micronaut.test.annotation.MockBean;
 import io.micronaut.test.extensions.junit5.annotation.MicronautTest;
 import jakarta.inject.Inject;
 import java.util.Locale;
+import java.util.Map;
+import java.util.concurrent.CompletableFuture;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.signal.registration.RegistrationService;
 import org.signal.registration.sender.ClientType;
 import org.signal.registration.sender.MessageTransport;
+import org.signal.registration.sender.prescribed.PrescribedVerificationCodeRepository;
 import org.signal.registration.sender.prescribed.PrescribedVerificationCodeSender;
 import org.signal.registration.sender.twilio.classic.TwilioMessagingServiceSmsSender;
 import org.signal.registration.sender.twilio.classic.TwilioVoiceSender;
@@ -39,7 +43,6 @@ import org.signal.registration.sender.twilio.verify.TwilioVerifySender;
 @Property(name = "twilio.voice.phone-numbers", value = "+12025550123")
 @Property(name = "twilio.voice.cdn-uri", value = "https://test.signal.org/")
 @Property(name = "twilio.voice.supported-languages", value = "en,de")
-@Property(name = "prescribed-verification-codes.verification-codes.+12025554321", value = "123456")
 class TwilioSenderSelectionStrategyTest {
 
   @MockBean(RegistrationService.class)
@@ -50,29 +53,47 @@ class TwilioSenderSelectionStrategyTest {
   @Inject
   private TwilioSenderSelectionStrategy selectionStrategy;
 
-  @Test
-  void chooseVerificationCodeSender() throws NumberParseException {
-    final Phonenumber.PhoneNumber phoneNumber = PhoneNumberUtil.getInstance().parse("+12025550123", null);
+  @Inject
+  PrescribedVerificationCodeSender prescribedVerificationCodeSender;
 
+  @MockBean
+  PrescribedVerificationCodeRepository prescribedVerificationCodeRepository =
+      mock(PrescribedVerificationCodeRepository.class);
+
+  private static final Phonenumber.PhoneNumber PRESCRIBED_CODE_NUMBER =
+      PhoneNumberUtil.getInstance().getExampleNumber("US");
+
+  private static final Phonenumber.PhoneNumber NON_PRESCRIBED_CODE_NUMBER =
+      PhoneNumberUtil.getInstance().getExampleNumber("CA");
+
+  @BeforeEach
+  void setUp() {
+    when(prescribedVerificationCodeRepository.getVerificationCodes())
+        .thenReturn(CompletableFuture.completedFuture(Map.of(PRESCRIBED_CODE_NUMBER, "123456")));
+
+    prescribedVerificationCodeSender.refreshPhoneNumbers();
+  }
+
+  @Test
+  void chooseVerificationCodeSender() {
     assertTrue(selectionStrategy.chooseVerificationCodeSender(
-        MessageTransport.SMS, phoneNumber, Locale.LanguageRange.parse("de"), ClientType.IOS)
+        MessageTransport.SMS, NON_PRESCRIBED_CODE_NUMBER, Locale.LanguageRange.parse("de"), ClientType.IOS)
         instanceof TwilioVerifySender);
 
     assertTrue(selectionStrategy.chooseVerificationCodeSender(
-        MessageTransport.SMS, phoneNumber, Locale.LanguageRange.parse("fr"), ClientType.IOS)
+        MessageTransport.SMS, NON_PRESCRIBED_CODE_NUMBER, Locale.LanguageRange.parse("fr"), ClientType.IOS)
         instanceof TwilioMessagingServiceSmsSender);
 
     assertTrue(selectionStrategy.chooseVerificationCodeSender(
-        MessageTransport.VOICE, phoneNumber, Locale.LanguageRange.parse("de"), ClientType.IOS)
+        MessageTransport.VOICE, NON_PRESCRIBED_CODE_NUMBER, Locale.LanguageRange.parse("de"), ClientType.IOS)
         instanceof TwilioVerifySender);
 
     assertTrue(selectionStrategy.chooseVerificationCodeSender(
-        MessageTransport.VOICE, phoneNumber, Locale.LanguageRange.parse("fr"), ClientType.IOS)
+        MessageTransport.VOICE, NON_PRESCRIBED_CODE_NUMBER, Locale.LanguageRange.parse("fr"), ClientType.IOS)
         instanceof TwilioVoiceSender);
 
     assertTrue(selectionStrategy.chooseVerificationCodeSender(
-        MessageTransport.SMS, PhoneNumberUtil.getInstance().parse("+12025554321", null),
-        Locale.LanguageRange.parse("en"), ClientType.IOS)
+        MessageTransport.SMS, PRESCRIBED_CODE_NUMBER, Locale.LanguageRange.parse("en"), ClientType.IOS)
         instanceof PrescribedVerificationCodeSender);
   }
 }
