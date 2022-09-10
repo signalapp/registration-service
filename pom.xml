@@ -24,6 +24,9 @@
     <jdk.version>17</jdk.version>
     <release.version>17</release.version>
     <exec.mainClass>org.signal.registration.Application</exec.mainClass>
+
+    <testcontainers.version>1.17.3</testcontainers.version>
+    <firestore.emulator.version>401.0.0-emulators</firestore.emulator.version>
   </properties>
 
   <repositories>
@@ -33,11 +36,37 @@
     </repository>
   </repositories>
 
+  <dependencyManagement>
+    <dependencies>
+      <dependency>
+        <groupId>com.google.cloud</groupId>
+        <artifactId>libraries-bom</artifactId>
+        <version>26.1.0</version>
+        <type>pom</type>
+        <scope>import</scope>
+      </dependency>
+
+      <dependency>
+        <groupId>org.testcontainers</groupId>
+        <artifactId>testcontainers-bom</artifactId>
+        <version>1.17.3</version>
+        <type>pom</type>
+        <scope>import</scope>
+      </dependency>
+    </dependencies>
+  </dependencyManagement>
+
   <dependencies>
     <dependency>
       <groupId>ch.qos.logback</groupId>
       <artifactId>logback-classic</artifactId>
       <scope>runtime</scope>
+    </dependency>
+
+    <dependency>
+      <groupId>com.google.cloud</groupId>
+      <artifactId>google-cloud-firestore</artifactId>
+      <version>3.4.2</version>
     </dependency>
 
     <dependency>
@@ -50,6 +79,13 @@
       <groupId>com.twilio.sdk</groupId>
       <artifactId>twilio</artifactId>
       <version>8.34.1</version>
+
+      <exclusions>
+        <exclusion>
+          <groupId>org.apache.httpcomponents</groupId>
+          <artifactId>httpcore</artifactId>
+        </exclusion>
+      </exclusions>
     </dependency>
 
     <dependency>
@@ -110,6 +146,20 @@
       <groupId>org.signal</groupId>
       <artifactId>embedded-redis</artifactId>
       <version>0.8.3</version>
+      <scope>test</scope>
+    </dependency>
+
+    <dependency>
+      <groupId>org.testcontainers</groupId>
+      <artifactId>junit-jupiter</artifactId>
+      <version>${testcontainers.version}</version>
+      <scope>test</scope>
+    </dependency>
+
+    <dependency>
+      <groupId>org.testcontainers</groupId>
+      <artifactId>gcloud</artifactId>
+      <version>${testcontainers.version}</version>
       <scope>test</scope>
     </dependency>
   </dependencies>
@@ -190,6 +240,17 @@
             </configuration>
           </execution>
         </executions>
+      </plugin>
+
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-surefire-plugin</artifactId>
+
+        <configuration>
+          <systemPropertyVariables combine.children="append">
+            <firestore.emulator.version>${firestore.emulator.version}</firestore.emulator.version>
+          </systemPropertyVariables>
+        </configuration>
       </plugin>
     </plugins>
   </build>

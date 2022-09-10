@@ -15,6 +15,7 @@ import io.micronaut.context.annotation.Property;
 import io.micronaut.test.annotation.MockBean;
 import io.micronaut.test.extensions.junit5.annotation.MicronautTest;
 import jakarta.inject.Inject;
+import java.util.Collections;
 import java.util.Locale;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
@@ -50,15 +51,22 @@ class TwilioSenderSelectionStrategyTest {
     return mock(RegistrationService.class);
   }
 
+  @MockBean
+  PrescribedVerificationCodeRepository prescribedVerificationCodeRepository() {
+    final PrescribedVerificationCodeRepository repository = mock(PrescribedVerificationCodeRepository.class);
+    when(repository.getVerificationCodes()).thenReturn(CompletableFuture.completedFuture(Collections.emptyMap()));
+
+    return repository;
+  }
+
   @Inject
   private TwilioSenderSelectionStrategy selectionStrategy;
 
   @Inject
-  PrescribedVerificationCodeSender prescribedVerificationCodeSender;
+  PrescribedVerificationCodeRepository prescribedVerificationCodeRepository;
 
-  @MockBean
-  PrescribedVerificationCodeRepository prescribedVerificationCodeRepository =
-      mock(PrescribedVerificationCodeRepository.class);
+  @Inject
+  PrescribedVerificationCodeSender prescribedVerificationCodeSender;
 
   private static final Phonenumber.PhoneNumber PRESCRIBED_CODE_NUMBER =
       PhoneNumberUtil.getInstance().getExampleNumber("US");
