@@ -17,15 +17,17 @@ import java.util.Optional;
  * A type converter that parses strings as phone numbers.
  */
 @Singleton
-class PhoneNumberFromE164StringTypeConverter implements TypeConverter<String, Phonenumber.PhoneNumber> {
+class PhoneNumberFromStringTypeConverter implements TypeConverter<String, Phonenumber.PhoneNumber> {
 
   @Override
   public Optional<Phonenumber.PhoneNumber> convert(final String string,
       final Class<Phonenumber.PhoneNumber> targetType,
       final ConversionContext context) {
 
+    final String e164 = string.startsWith("+") ? string : "+" + string;
+
     try {
-      return Optional.of(PhoneNumberUtil.getInstance().parse(string, null));
+      return Optional.of(PhoneNumberUtil.getInstance().parse(e164, null));
     } catch (final NumberParseException e) {
       return Optional.empty();
     }

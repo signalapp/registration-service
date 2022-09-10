@@ -18,13 +18,13 @@ import java.util.stream.Stream;
 
 import static org.junit.jupiter.api.Assertions.*;
 
-class PhoneNumberFromE164StringTypeConverterTest {
+class PhoneNumberFromStringTypeConverterTest {
 
-  private PhoneNumberFromE164StringTypeConverter typeConverter;
+  private PhoneNumberFromStringTypeConverter typeConverter;
 
   @BeforeEach
   void setUp() {
-    typeConverter = new PhoneNumberFromE164StringTypeConverter();
+    typeConverter = new PhoneNumberFromStringTypeConverter();
   }
 
   @SuppressWarnings("OptionalUsedAsFieldOrParameterType")
@@ -40,7 +40,7 @@ class PhoneNumberFromE164StringTypeConverterTest {
             Optional.of(PhoneNumberUtil.getInstance().parse("+12025550123", null))),
 
         Arguments.of("12025550123",
-            Optional.empty()),
+            Optional.of(PhoneNumberUtil.getInstance().parse("+12025550123", null))),
 
         Arguments.of("This is not a valid phone number",
             Optional.empty()));
