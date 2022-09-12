@@ -8,6 +8,7 @@ package org.signal.registration.sender.twilio.verify;
 import com.google.i18n.phonenumbers.PhoneNumberUtil;
 import com.google.i18n.phonenumbers.Phonenumber;
 import com.google.protobuf.InvalidProtocolBufferException;
+import com.twilio.http.TwilioRestClient;
 import com.twilio.rest.verify.v2.service.Verification;
 import com.twilio.rest.verify.v2.service.VerificationCheck;
 import com.twilio.rest.verify.v2.service.VerificationCreator;
@@ -32,6 +33,7 @@ import org.slf4j.LoggerFactory;
 @Singleton
 public class TwilioVerifySender extends AbstractTwilioSender implements VerificationCodeSender {
 
+  private final TwilioRestClient twilioRestClient;
   private final TwilioVerifyConfiguration configuration;
 
   private static final Map<MessageTransport, Verification.Channel> CHANNELS_BY_TRANSPORT = new EnumMap<>(Map.of(
@@ -41,7 +43,8 @@ public class TwilioVerifySender extends AbstractTwilioSender implements Verifica
 
   private static final Logger logger = LoggerFactory.getLogger(TwilioVerifySender.class);
 
-  protected TwilioVerifySender(final TwilioVerifyConfiguration configuration) {
+  protected TwilioVerifySender(final TwilioRestClient twilioRestClient, final TwilioVerifyConfiguration configuration) {
+    this.twilioRestClient = twilioRestClient;
     this.configuration = configuration;
   }
 
@@ -85,7 +88,7 @@ public class TwilioVerifySender extends AbstractTwilioSender implements Verifica
       verificationCreator.setAppHash(configuration.getAndroidAppHash());
     }
 
-    return verificationCreator.createAsync()
+    return verificationCreator.createAsync(twilioRestClient)
         .thenApply(verification -> TwilioVerifySessionData.newBuilder()
             .setVerificationSid(verification.getSid())
             .build()
@@ -104,7 +107,7 @@ public class TwilioVerifySender extends AbstractTwilioSender implements Verifica
       return VerificationCheck.creator(configuration.getServiceSid())
           .setVerificationSid(verificationSid)
           .setCode(verificationCode)
-          .createAsync()
+          .createAsync(twilioRestClient)
           .thenApply(VerificationCheck::getValid)
           .whenComplete((verificationCheck, throwable) ->
               incrementApiCallCounter("verification_check.create", throwable));

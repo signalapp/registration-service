@@ -8,6 +8,7 @@ package org.signal.registration.sender.twilio.classic;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.Mockito.mock;
 
 import com.google.i18n.phonenumbers.PhoneNumberUtil;
 import com.google.i18n.phonenumbers.Phonenumber;
@@ -16,6 +17,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Locale;
 import java.util.stream.Stream;
+import com.twilio.http.TwilioRestClient;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -36,7 +38,7 @@ class TwilioVoiceSenderTest {
     configuration.setCdnUri(URI.create("https://example.com/"));
     configuration.setSupportedLanguages(List.of("en", "de"));
 
-    sender = new TwilioVoiceSender(new TwilioVerificationCodeGenerator(), configuration);
+    sender = new TwilioVoiceSender(mock(TwilioRestClient.class), new TwilioVerificationCodeGenerator(), configuration);
   }
 
   @ParameterizedTest

@@ -5,6 +5,9 @@
 
 package org.signal.registration.sender.twilio;
 
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.Mockito.mock;
+
 import com.google.i18n.phonenumbers.NumberParseException;
 import com.google.i18n.phonenumbers.PhoneNumberUtil;
 import com.google.i18n.phonenumbers.Phonenumber;
@@ -12,6 +15,7 @@ import io.micronaut.context.annotation.Property;
 import io.micronaut.test.annotation.MockBean;
 import io.micronaut.test.extensions.junit5.annotation.MicronautTest;
 import jakarta.inject.Inject;
+import java.util.Locale;
 import org.junit.jupiter.api.Test;
 import org.signal.registration.RegistrationService;
 import org.signal.registration.sender.ClientType;
@@ -21,14 +25,10 @@ import org.signal.registration.sender.twilio.classic.TwilioMessagingServiceSmsSe
 import org.signal.registration.sender.twilio.classic.TwilioVoiceSender;
 import org.signal.registration.sender.twilio.verify.TwilioVerifySender;
 
-import java.util.Locale;
-
-import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.mockito.Mockito.mock;
-
 @MicronautTest
 @Property(name = "twilio.account-sid", value = "account-sid")
-@Property(name = "twilio.auth-token", value = "auth-token")
+@Property(name = "twilio.api-key-sid", value = "api-key-sid")
+@Property(name = "twilio.api-key-secret", value = "api-key-secret")
 @Property(name = "twilio.messaging.nanpa-messaging-service-sid", value = "nanpa-messaging-service-sid")
 @Property(name = "twilio.messaging.global-messaging-service-sid", value = "global-messaging-service-sid")
 @Property(name = "twilio.messaging.android-app-hash", value = "android-app-hash")

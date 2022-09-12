@@ -7,6 +7,7 @@ package org.signal.registration.sender.twilio.classic;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.i18n.phonenumbers.Phonenumber;
+import com.twilio.http.TwilioRestClient;
 import com.twilio.rest.api.v2010.account.Message;
 import io.micronaut.context.MessageSource;
 import io.micronaut.context.i18n.ResourceBundleMessageSource;
@@ -29,6 +30,7 @@ import org.signal.registration.sender.VerificationCodeSender;
 @Singleton
 public class TwilioMessagingServiceSmsSender extends AbstractTwilioProvidedCodeSender implements VerificationCodeSender {
 
+  private final TwilioRestClient twilioRestClient;
   private final TwilioVerificationCodeGenerator verificationCodeGenerator;
   private final TwilioMessagingConfiguration configuration;
 
@@ -37,9 +39,11 @@ public class TwilioMessagingServiceSmsSender extends AbstractTwilioProvidedCodeS
 
   private static final int COUNTRY_CODE_CN = 86;
 
-  public TwilioMessagingServiceSmsSender(final TwilioVerificationCodeGenerator verificationCodeGenerator,
+  public TwilioMessagingServiceSmsSender(final TwilioRestClient twilioRestClient,
+      final TwilioVerificationCodeGenerator verificationCodeGenerator,
       final TwilioMessagingConfiguration configuration) {
 
+    this.twilioRestClient = twilioRestClient;
     this.verificationCodeGenerator = verificationCodeGenerator;
     this.configuration = configuration;
   }
@@ -88,7 +92,7 @@ public class TwilioMessagingServiceSmsSender extends AbstractTwilioProvidedCodeS
 
     return Message.creator(twilioNumberFromPhoneNumber(phoneNumber), messagingServiceSid,
             getMessageBody(countryCode, clientType, verificationCode, locale))
-        .createAsync()
+        .createAsync(twilioRestClient)
         .whenComplete((message, throwable) -> incrementApiCallCounter("message.create", throwable))
         .thenApply(ignored -> buildSessionData(verificationCode));
   }

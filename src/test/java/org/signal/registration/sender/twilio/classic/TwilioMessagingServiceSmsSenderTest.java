@@ -9,12 +9,14 @@ import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.Mockito.mock;
 
 import com.google.i18n.phonenumbers.PhoneNumberUtil;
 import java.util.Collections;
 import java.util.List;
 import java.util.Locale;
 import java.util.stream.Stream;
+import com.twilio.http.TwilioRestClient;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -36,7 +38,9 @@ class TwilioMessagingServiceSmsSenderTest {
     configuration.setAndroidAppHash("android-app-hash");
     configuration.setSupportedLanguages(List.of("en"));
 
-    sender = new TwilioMessagingServiceSmsSender(new TwilioVerificationCodeGenerator(), configuration);
+    sender = new TwilioMessagingServiceSmsSender(mock(TwilioRestClient.class),
+        new TwilioVerificationCodeGenerator(),
+        configuration);
   }
 
   @Test

@@ -5,7 +5,8 @@
 
 @Configuration
 @Requires(property = "twilio.account-sid")
-@Requires(property = "twilio.auth-token")
+@Requires(property = "twilio.api-key-sid")
+@Requires(property = "twilio.api-key-secret")
 package org.signal.registration.sender.twilio;
 
 import io.micronaut.context.annotation.Configuration;

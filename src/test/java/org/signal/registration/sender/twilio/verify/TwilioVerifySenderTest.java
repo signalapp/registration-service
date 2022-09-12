@@ -6,6 +6,7 @@
 package org.signal.registration.sender.twilio.verify;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.mockito.Mockito.mock;
 
 import com.google.i18n.phonenumbers.NumberParseException;
 import com.google.i18n.phonenumbers.PhoneNumberUtil;
@@ -13,6 +14,7 @@ import com.google.i18n.phonenumbers.Phonenumber;
 import java.util.List;
 import java.util.Locale;
 import java.util.stream.Stream;
+import com.twilio.http.TwilioRestClient;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
@@ -32,7 +34,7 @@ class TwilioVerifySenderTest {
     configuration.setServiceFriendlyName("friendly-name");
     configuration.setSupportedLanguages(List.of("en"));
     
-    twilioVerifySender = new TwilioVerifySender(configuration);
+    twilioVerifySender = new TwilioVerifySender(mock(TwilioRestClient.class), configuration);
   }
 
   @ParameterizedTest

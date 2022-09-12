@@ -17,7 +17,10 @@ public class TwilioConfiguration {
   private String accountSid;
 
   @NotBlank
-  private String authToken;
+  private String apiKeySid;
+
+  @NotBlank
+  String apiKeySecret;
 
   public String getAccountSid() {
     return accountSid;
@@ -27,11 +30,19 @@ public class TwilioConfiguration {
     this.accountSid = accountSid;
   }
 
-  public String getAuthToken() {
-    return authToken;
+  public String getApiKeySid() {
+    return apiKeySid;
   }
 
-  public void setAuthToken(final String authToken) {
-    this.authToken = authToken;
+  public void setApiKeySid(final String apiKeySid) {
+    this.apiKeySid = apiKeySid;
+  }
+
+  public String getApiKeySecret() {
+    return apiKeySecret;
+  }
+
+  public void setApiKeySecret(final String apiKeySecret) {
+    this.apiKeySecret = apiKeySecret;
   }
 }

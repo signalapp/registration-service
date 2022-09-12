@@ -7,6 +7,7 @@ package org.signal.registration.sender.twilio.classic;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.i18n.phonenumbers.Phonenumber;
+import com.twilio.http.TwilioRestClient;
 import com.twilio.rest.api.v2010.account.Call;
 import com.twilio.type.PhoneNumber;
 import com.twilio.type.Twiml;
@@ -33,6 +34,7 @@ import org.signal.registration.sender.VerificationCodeSender;
 @Singleton
 public class TwilioVoiceSender extends AbstractTwilioProvidedCodeSender implements VerificationCodeSender {
 
+  private final TwilioRestClient twilioRestClient;
   private final TwilioVerificationCodeGenerator verificationCodeGenerator;
   private final TwilioVoiceConfiguration configuration;
 
@@ -41,9 +43,11 @@ public class TwilioVoiceSender extends AbstractTwilioProvidedCodeSender implemen
 
   private static final String DEFAULT_LANGUAGE = "en-US";
 
-  public TwilioVoiceSender(final TwilioVerificationCodeGenerator verificationCodeGenerator,
+  public TwilioVoiceSender(final TwilioRestClient twilioRestClient,
+      final TwilioVerificationCodeGenerator verificationCodeGenerator,
       final TwilioVoiceConfiguration configuration) {
 
+    this.twilioRestClient = twilioRestClient;
     this.verificationCodeGenerator = verificationCodeGenerator;
     this.configuration = configuration;
   }
@@ -84,7 +88,7 @@ public class TwilioVoiceSender extends AbstractTwilioProvidedCodeSender implemen
 
     return Call.creator(twilioNumberFromPhoneNumber(phoneNumber), fromPhoneNumber,
             buildCallTwiml(verificationCode, languageTag))
-        .createAsync()
+        .createAsync(twilioRestClient)
         .whenComplete((call, throwable) -> incrementApiCallCounter("call.create", throwable))
         .thenApply(ignored -> buildSessionData(verificationCode));
   }
