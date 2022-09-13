@@ -25,8 +25,8 @@
     <release.version>17</release.version>
     <exec.mainClass>org.signal.registration.Application</exec.mainClass>
 
-    <testcontainers.version>1.17.3</testcontainers.version>
     <firestore.emulator.version>401.0.0-emulators</firestore.emulator.version>
+    <testcontainers.version>1.17.3</testcontainers.version>
   </properties>
 
   <repositories>
@@ -61,6 +61,12 @@
       <groupId>ch.qos.logback</groupId>
       <artifactId>logback-classic</artifactId>
       <scope>runtime</scope>
+    </dependency>
+
+    <dependency>
+      <groupId>ch.qos.logback</groupId>
+      <artifactId>logback-core</artifactId>
+      <version>${logback.version}</version>
     </dependency>
 
     <dependency>

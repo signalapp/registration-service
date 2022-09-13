@@ -1,5 +1,7 @@
 <configuration>
 
+  <define name="instanceId" class="org.signal.registration.util.InstanceIdPropertyDefiner" />
+
   <appender name="STDOUT" class="ch.qos.logback.core.ConsoleAppender">
     <!-- encoders are assigned the type
          ch.qos.logback.classic.encoder.PatternLayoutEncoder by default -->
@@ -19,7 +21,7 @@
         </layout>
       </prefix>
 
-      <customFields>{"hostname":"${HOSTNAME}","service":"registration","ddsource":"java","ddtags":"env:${MICRONAUT_METRICS_TAGS_ENV},version:${MICRONAUT_METRICS_TAGS_VERSION}"}</customFields>
+      <customFields>{"host":"${instanceId}","service":"registration","ddsource":"java","ddtags":"env:${MICRONAUT_METRICS_TAGS_ENV},version:${MICRONAUT_METRICS_TAGS_VERSION}"}</customFields>
     </encoder>
     <ssl/>
   </appender>
