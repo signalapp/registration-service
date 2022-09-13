@@ -107,6 +107,10 @@
       <artifactId>micronaut-micrometer-core</artifactId>
     </dependency>
     <dependency>
+      <groupId>io.micronaut.micrometer</groupId>
+      <artifactId>micronaut-micrometer-registry-datadog</artifactId>
+    </dependency>
+    <dependency>
       <groupId>io.micronaut</groupId>
       <artifactId>micronaut-validation</artifactId>
     </dependency>

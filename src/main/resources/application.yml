@@ -3,6 +3,10 @@ micronaut:
     name: registrationService
 
   metrics:
+    export:
+      datadog:
+        enabled: false
+        step: PT20S
     tags:
       service: registration
 
