@@ -67,9 +67,10 @@ class FirestorePrescribedVerificationCodeRepository implements PrescribedVerific
 
             for (final QueryDocumentSnapshot documentSnapshot : querySnapshot.getDocuments()) {
               try {
-                final Phonenumber.PhoneNumber phoneNumber =
-                    PhoneNumberUtil.getInstance().parse(documentSnapshot.getId(), null);
+                final String e164 = documentSnapshot.getId().startsWith("+") ?
+                    documentSnapshot.getId() : "+" + documentSnapshot.getId();
 
+                final Phonenumber.PhoneNumber phoneNumber = PhoneNumberUtil.getInstance().parse(e164, null);
                 final String verificationCode = documentSnapshot.getString(VERIFICATION_CODE_KEY);
 
                 if (StringUtils.isNotBlank(verificationCode)) {
