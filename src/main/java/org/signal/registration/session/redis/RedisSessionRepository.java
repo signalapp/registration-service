@@ -105,18 +105,6 @@ class RedisSessionRepository implements SessionRepository {
   }
 
   @Override
-  public CompletableFuture<Void> setSessionVerified(final UUID sessionId, final String verificationCode) {
-    final Timer.Sample sample = Timer.start();
-
-    return getSession(sessionId)
-        .thenCompose(session -> redisConnection.async().set(getSessionKey(sessionId),
-            session.toBuilder().setVerifiedCode(verificationCode).build().toByteArray(),
-            SetArgs.Builder.keepttl()))
-        .thenAccept(ignored -> {})
-        .whenComplete((ignored, throwable) -> sample.stop(UPDATE_SESSION_TIMER));
-  }
-
-  @Override
   public CompletableFuture<RegistrationSession> updateSession(final UUID sessionId,
       final Function<RegistrationSession, RegistrationSession> sessionUpdater) {
 

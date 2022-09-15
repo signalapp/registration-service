@@ -9,12 +9,10 @@ import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 import io.lettuce.core.RedisException;
-import io.lettuce.core.ScriptOutputType;
 import io.lettuce.core.api.StatefulRedisConnection;
 import io.lettuce.core.api.async.RedisAsyncCommands;
 import io.lettuce.core.api.sync.RedisCommands;
@@ -110,7 +108,7 @@ class RedisSessionRepositoryResilienceTest {
 
     {
       final CompletionException completionException = assertThrows(CompletionException.class, () ->
-          redisSessionRepository.setSessionVerified(UUID.randomUUID(), "verification-code").join());
+          redisSessionRepository.getSession(UUID.randomUUID()).join());
 
       assertTrue(completionException.getCause() instanceof RedisException);
     }
@@ -120,7 +118,7 @@ class RedisSessionRepositoryResilienceTest {
 
     {
       final CompletionException completionException = assertThrows(CompletionException.class, () ->
-          redisSessionRepository.setSessionVerified(UUID.randomUUID(), "verification-code").join());
+          redisSessionRepository.getSession(UUID.randomUUID()).join());
 
       assertTrue(completionException.getCause() instanceof RedisException);
     }

@@ -16,6 +16,7 @@ import java.time.Duration;
 import java.time.Instant;
 import java.util.UUID;
 import java.util.concurrent.CompletionException;
+import java.util.function.Function;
 import com.google.i18n.phonenumbers.PhoneNumberUtil;
 import com.google.protobuf.ByteString;
 import org.junit.jupiter.api.BeforeEach;
@@ -62,15 +63,18 @@ class MemorySessionRepositoryTest extends AbstractSessionRepositoryTest {
   }
 
   @Test
-  void setSessionVerifiedExpired() {
+  void updateSessionExpired() {
     final MemorySessionRepository repository = getRepository();
     final String verificationCode = "123456";
 
     final Instant now = Instant.now();
     when(clock.instant()).thenReturn(now);
 
+    final Function<RegistrationSession, RegistrationSession> setVerifiedCodeFunction =
+        session -> session.toBuilder().setVerifiedCode(verificationCode).build();
+
     final UUID sessionId = repository.createSession(PHONE_NUMBER, SENDER, TTL, SESSION_DATA).join();
-    repository.setSessionVerified(sessionId, verificationCode).join();
+    repository.updateSession(sessionId, setVerifiedCodeFunction).join();
 
     final RegistrationSession expectedSession = RegistrationSession.newBuilder()
         .setPhoneNumber(PhoneNumberUtil.getInstance().format(PHONE_NUMBER, PhoneNumberUtil.PhoneNumberFormat.E164))
@@ -85,7 +89,7 @@ class MemorySessionRepositoryTest extends AbstractSessionRepositoryTest {
 
     final CompletionException completionException =
         assertThrows(CompletionException.class,
-            () -> repository.setSessionVerified(UUID.randomUUID(), verificationCode).join());
+            () -> repository.updateSession(UUID.randomUUID(), setVerifiedCodeFunction).join());
 
     assertTrue(completionException.getCause() instanceof SessionNotFoundException);
   }

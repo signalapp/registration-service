@@ -106,34 +106,6 @@ public abstract class AbstractSessionRepositoryTest {
   }
 
   @Test
-  void setSessionVerified() {
-    final SessionRepository repository = getRepository();
-    final String verificationCode = "123456";
-
-    {
-      final CompletionException completionException =
-          assertThrows(CompletionException.class,
-              () -> repository.setSessionVerified(UUID.randomUUID(), verificationCode).join());
-
-      assertTrue(completionException.getCause() instanceof SessionNotFoundException);
-    }
-
-    {
-      final UUID sessionId = repository.createSession(PHONE_NUMBER, SENDER, TTL, SESSION_DATA).join();
-      repository.setSessionVerified(sessionId, verificationCode).join();
-
-      final RegistrationSession expectedSession = RegistrationSession.newBuilder()
-          .setPhoneNumber(PhoneNumberUtil.getInstance().format(PHONE_NUMBER, PhoneNumberUtil.PhoneNumberFormat.E164))
-          .setSenderCanonicalClassName(SENDER.getClass().getCanonicalName())
-          .setSessionData(ByteString.copyFrom(SESSION_DATA))
-          .setVerifiedCode(verificationCode)
-          .build();
-
-      assertEquals(expectedSession, repository.getSession(sessionId).join());
-    }
-  }
-
-  @Test
   void updateSession() {
     final SessionRepository repository = getRepository();
     final String verificationCode = "123456";

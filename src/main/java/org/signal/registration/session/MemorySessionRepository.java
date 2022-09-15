@@ -83,20 +83,6 @@ public class MemorySessionRepository implements SessionRepository {
   }
 
   @Override
-  public CompletableFuture<Void> setSessionVerified(final UUID sessionId, final String verificationCode) {
-    final RegistrationSessionAndExpiration updatedSessionAndExpiration =
-        sessionsById.computeIfPresent(sessionId, (id, existingSessionAndExpiration) ->
-            clock.instant().isAfter(existingSessionAndExpiration.expiration()) ?
-                null :
-                new RegistrationSessionAndExpiration(
-                    existingSessionAndExpiration.session().toBuilder().setVerifiedCode(verificationCode).build(),
-                    existingSessionAndExpiration.expiration()));
-
-    return updatedSessionAndExpiration != null ?
-        CompletableFuture.completedFuture(null) : CompletableFuture.failedFuture(new SessionNotFoundException());
-  }
-
-  @Override
   public CompletableFuture<RegistrationSession> updateSession(final UUID sessionId,
       final Function<RegistrationSession, RegistrationSession> sessionUpdater) {
 

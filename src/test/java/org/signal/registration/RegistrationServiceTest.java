@@ -11,10 +11,13 @@ import com.google.i18n.phonenumbers.Phonenumber;
 import com.google.protobuf.ByteString;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.mockito.invocation.InvocationOnMock;
+import org.mockito.stubbing.Answer;
 import org.signal.registration.sender.ClientType;
 import org.signal.registration.sender.MessageTransport;
 import org.signal.registration.sender.SenderSelectionStrategy;
 import org.signal.registration.sender.VerificationCodeSender;
+import org.signal.registration.session.ConflictingUpdateException;
 import org.signal.registration.session.RegistrationSession;
 import org.signal.registration.session.SessionNotFoundException;
 import org.signal.registration.session.SessionRepository;
@@ -25,12 +28,14 @@ import java.util.List;
 import java.util.Locale;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionException;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -64,7 +69,7 @@ class RegistrationServiceTest {
     when(sender.getSessionTtl()).thenReturn(SESSION_TTL);
 
     sessionRepository = mock(SessionRepository.class);
-    when(sessionRepository.setSessionVerified(any(), any())).thenReturn(CompletableFuture.completedFuture(null));
+    when(sessionRepository.updateSession(any(), any())).thenReturn(CompletableFuture.completedFuture(null));
 
     final SenderSelectionStrategy senderSelectionStrategy = mock(SenderSelectionStrategy.class);
     when(senderSelectionStrategy.chooseVerificationCodeSender(any(), any(), any(), any())).thenReturn(sender);
@@ -104,7 +109,7 @@ class RegistrationServiceTest {
 
     verify(sessionRepository).getSession(SESSION_ID);
     verify(sender).checkVerificationCode(VERIFICATION_CODE, VERIFICATION_CODE_BYTES);
-    verify(sessionRepository).setSessionVerified(SESSION_ID, VERIFICATION_CODE);
+    verify(sessionRepository).updateSession(eq(SESSION_ID), any());
   }
 
   @Test
@@ -116,12 +121,11 @@ class RegistrationServiceTest {
 
     verify(sessionRepository).getSession(SESSION_ID);
     verify(sender, never()).checkVerificationCode(any(), any());
-    verify(sessionRepository, never()).setSessionVerified(any(), any());
+    verify(sessionRepository, never()).updateSession(any(), any());
   }
 
   @Test
   void checkRegistrationCodePreviouslyVerified() {
-
     when(sessionRepository.getSession(SESSION_ID))
         .thenReturn(CompletableFuture.completedFuture(
             RegistrationSession.newBuilder()
@@ -135,6 +139,65 @@ class RegistrationServiceTest {
 
     verify(sessionRepository).getSession(SESSION_ID);
     verify(sender, never()).checkVerificationCode(any(), any());
-    verify(sessionRepository, never()).setSessionVerified(any(), any());
+    verify(sessionRepository, never()).updateSession(any(), any());
+  }
+
+  @Test
+  void updateWithRetries() {
+    when(sessionRepository.updateSession(any(), any()))
+        .thenReturn(CompletableFuture.failedFuture(new ConflictingUpdateException()))
+        .thenReturn(CompletableFuture.completedFuture(null));
+
+    final UUID sessionId = UUID.randomUUID();
+
+    assertDoesNotThrow(
+        () -> registrationService.updateSessionWithRetries(sessionId, session -> session, 1).join());
+
+    verify(sessionRepository, times(2)).updateSession(eq(sessionId), any());
+  }
+
+  @Test
+  void updateWithRetriesNoConflict() {
+    when(sessionRepository.updateSession(any(), any()))
+        .thenReturn(CompletableFuture.completedFuture(null));
+
+    final UUID sessionId = UUID.randomUUID();
+
+    assertDoesNotThrow(
+        () -> registrationService.updateSessionWithRetries(sessionId, session -> session, 1).join());
+
+    verify(sessionRepository).updateSession(eq(sessionId), any());
+  }
+
+  @Test
+  void updateWithRetriesExhausted() {
+    when(sessionRepository.updateSession(any(), any()))
+        .thenReturn(CompletableFuture.failedFuture(new ConflictingUpdateException()));
+
+    final UUID sessionId = UUID.randomUUID();
+    final int retries = 3;
+
+    final CompletionException completionException = assertThrows(CompletionException.class,
+        () -> registrationService.updateSessionWithRetries(sessionId, session -> session, retries).join());
+
+    assertTrue(completionException.getCause() instanceof ConflictingUpdateException);
+
+    // We expect one initial attempt, then N retries on top of that
+    verify(sessionRepository, times(retries + 1)).updateSession(eq(sessionId), any());
+  }
+
+  @Test
+  void updateWithRetriesNonConflictException() {
+    when(sessionRepository.updateSession(any(), any()))
+        .thenReturn(CompletableFuture.failedFuture(new IllegalArgumentException()));
+
+    final UUID sessionId = UUID.randomUUID();
+
+    final CompletionException completionException = assertThrows(CompletionException.class,
+        () -> registrationService.updateSessionWithRetries(sessionId, session -> session, 1).join());
+
+    assertTrue(completionException.getCause() instanceof IllegalArgumentException);
+
+    verify(sessionRepository).updateSession(eq(sessionId), any());
   }
 }
