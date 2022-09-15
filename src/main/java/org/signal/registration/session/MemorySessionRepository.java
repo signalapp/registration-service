@@ -10,6 +10,7 @@ import com.google.i18n.phonenumbers.PhoneNumberUtil;
 import com.google.i18n.phonenumbers.Phonenumber;
 import com.google.protobuf.ByteString;
 import io.micronaut.context.annotation.Requires;
+import io.micronaut.context.event.ApplicationEventPublisher;
 import io.micronaut.scheduling.annotation.Scheduled;
 import jakarta.inject.Singleton;
 import java.time.Clock;
@@ -28,6 +29,7 @@ import org.signal.registration.sender.VerificationCodeSender;
 @Requires(missingBeans = SessionRepository.class)
 public class MemorySessionRepository implements SessionRepository {
 
+  private final ApplicationEventPublisher<SessionCompletedEvent> sessionCompletedEventPublisher;
   private final Clock clock;
 
   private final Map<UUID, RegistrationSessionAndExpiration> sessionsById = new ConcurrentHashMap<>();
@@ -35,7 +37,10 @@ public class MemorySessionRepository implements SessionRepository {
   private record RegistrationSessionAndExpiration(RegistrationSession session, Instant expiration) {
   }
 
-  public MemorySessionRepository(final Clock clock) {
+  public MemorySessionRepository(final ApplicationEventPublisher<SessionCompletedEvent> sessionCompletedEventPublisher,
+      final Clock clock) {
+
+    this.sessionCompletedEventPublisher = sessionCompletedEventPublisher;
     this.clock = clock;
   }
 
@@ -49,7 +54,8 @@ public class MemorySessionRepository implements SessionRepository {
         .map(Map.Entry::getKey)
         .toList();
 
-    expiredSessionIds.forEach(sessionsById::remove);
+    expiredSessionIds.forEach(sessionId -> sessionCompletedEventPublisher.publishEventAsync(
+        new SessionCompletedEvent(sessionsById.remove(sessionId).session())));
   }
 
   @Override
@@ -74,8 +80,16 @@ public class MemorySessionRepository implements SessionRepository {
   @Override
   public CompletableFuture<RegistrationSession> getSession(final UUID sessionId) {
     final RegistrationSessionAndExpiration sessionAndExpiration =
-        sessionsById.computeIfPresent(sessionId, (id, existingSessionAndExpiration) ->
-            clock.instant().isAfter(existingSessionAndExpiration.expiration()) ? null : existingSessionAndExpiration);
+        sessionsById.computeIfPresent(sessionId, (id, existingSessionAndExpiration) -> {
+          if (clock.instant().isAfter(existingSessionAndExpiration.expiration)) {
+            sessionCompletedEventPublisher.publishEventAsync(
+                new SessionCompletedEvent(existingSessionAndExpiration.session()));
+
+            return null;
+          } else {
+            return existingSessionAndExpiration;
+          }
+        });
 
     return sessionAndExpiration != null ?
         CompletableFuture.completedFuture(sessionAndExpiration.session) :
@@ -87,12 +101,18 @@ public class MemorySessionRepository implements SessionRepository {
       final Function<RegistrationSession, RegistrationSession> sessionUpdater) {
 
     final RegistrationSessionAndExpiration updatedSessionAndExpiration =
-        sessionsById.computeIfPresent(sessionId, (id, existingSessionAndExpiration) ->
-            clock.instant().isAfter(existingSessionAndExpiration.expiration()) ?
-                null :
-                new RegistrationSessionAndExpiration(
-                    sessionUpdater.apply(existingSessionAndExpiration.session()),
-                    existingSessionAndExpiration.expiration()));
+        sessionsById.computeIfPresent(sessionId, (id, existingSessionAndExpiration) -> {
+          if (clock.instant().isAfter(existingSessionAndExpiration.expiration())) {
+            sessionCompletedEventPublisher.publishEventAsync(
+                new SessionCompletedEvent(existingSessionAndExpiration.session()));
+
+            return null;
+          } else {
+            return new RegistrationSessionAndExpiration(
+                sessionUpdater.apply(existingSessionAndExpiration.session()),
+                existingSessionAndExpiration.expiration());
+          }
+        });
 
     return updatedSessionAndExpiration != null ?
         CompletableFuture.completedFuture(updatedSessionAndExpiration.session()) :

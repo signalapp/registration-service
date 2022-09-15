@@ -13,7 +13,11 @@ import java.util.concurrent.CompletableFuture;
 import java.util.function.Function;
 
 /**
- * A session repository stores and retrieves data associated with registration sessions.
+ * A session repository stores and retrieves data associated with registration sessions. Session repositories must also
+ * make a best effort to publish a {@link SessionCompletedEvent} whenever a stored session is removed from the
+ * repository when its TTL expires.
+ *
+ * @see io.micronaut.context.event.ApplicationEventPublisher
  */
 public interface SessionRepository {
 
