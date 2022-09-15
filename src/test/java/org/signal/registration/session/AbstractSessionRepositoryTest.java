@@ -20,6 +20,7 @@ import java.util.Locale;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
+import java.util.function.Function;
 import com.google.protobuf.ByteString;
 import org.junit.jupiter.api.Test;
 import org.signal.registration.sender.ClientType;
@@ -128,6 +129,38 @@ public abstract class AbstractSessionRepositoryTest {
           .setVerifiedCode(verificationCode)
           .build();
 
+      assertEquals(expectedSession, repository.getSession(sessionId).join());
+    }
+  }
+
+  @Test
+  void updateSession() {
+    final SessionRepository repository = getRepository();
+    final String verificationCode = "123456";
+
+    final Function<RegistrationSession, RegistrationSession> updateVerifiedCodeFunction =
+        session -> session.toBuilder().setVerifiedCode(verificationCode).build();
+
+    {
+      final CompletionException completionException =
+          assertThrows(CompletionException.class,
+              () -> repository.updateSession(UUID.randomUUID(), updateVerifiedCodeFunction).join());
+
+      assertTrue(completionException.getCause() instanceof SessionNotFoundException);
+    }
+
+    {
+      final UUID sessionId = repository.createSession(PHONE_NUMBER, SENDER, TTL, SESSION_DATA).join();
+      final RegistrationSession updatedSession = repository.updateSession(sessionId, updateVerifiedCodeFunction).join();
+
+      final RegistrationSession expectedSession = RegistrationSession.newBuilder()
+          .setPhoneNumber(PhoneNumberUtil.getInstance().format(PHONE_NUMBER, PhoneNumberUtil.PhoneNumberFormat.E164))
+          .setSenderCanonicalClassName(SENDER.getClass().getCanonicalName())
+          .setSessionData(ByteString.copyFrom(SESSION_DATA))
+          .setVerifiedCode(verificationCode)
+          .build();
+
+      assertEquals(expectedSession, updatedSession);
       assertEquals(expectedSession, repository.getSession(sessionId).join());
     }
   }

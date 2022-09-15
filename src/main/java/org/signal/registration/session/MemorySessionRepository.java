@@ -20,6 +20,7 @@ import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.function.Function;
 import org.signal.registration.sender.VerificationCodeSender;
 
 @Singleton
@@ -93,6 +94,23 @@ public class MemorySessionRepository implements SessionRepository {
 
     return updatedSessionAndExpiration != null ?
         CompletableFuture.completedFuture(null) : CompletableFuture.failedFuture(new SessionNotFoundException());
+  }
+
+  @Override
+  public CompletableFuture<RegistrationSession> updateSession(final UUID sessionId,
+      final Function<RegistrationSession, RegistrationSession> sessionUpdater) {
+
+    final RegistrationSessionAndExpiration updatedSessionAndExpiration =
+        sessionsById.computeIfPresent(sessionId, (id, existingSessionAndExpiration) ->
+            clock.instant().isAfter(existingSessionAndExpiration.expiration()) ?
+                null :
+                new RegistrationSessionAndExpiration(
+                    sessionUpdater.apply(existingSessionAndExpiration.session()),
+                    existingSessionAndExpiration.expiration()));
+
+    return updatedSessionAndExpiration != null ?
+        CompletableFuture.completedFuture(updatedSessionAndExpiration.session()) :
+        CompletableFuture.failedFuture(new SessionNotFoundException());
   }
 
   @VisibleForTesting

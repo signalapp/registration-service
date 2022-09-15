@@ -10,6 +10,7 @@ import com.google.i18n.phonenumbers.PhoneNumberUtil;
 import com.google.i18n.phonenumbers.Phonenumber;
 import com.google.protobuf.ByteString;
 import com.google.protobuf.InvalidProtocolBufferException;
+import io.lettuce.core.ScriptOutputType;
 import io.lettuce.core.SetArgs;
 import io.lettuce.core.api.StatefulRedisConnection;
 import io.micrometer.core.instrument.Metrics;
@@ -17,14 +18,18 @@ import io.micrometer.core.instrument.Timer;
 import io.micronaut.retry.annotation.CircuitBreaker;
 import jakarta.inject.Singleton;
 import java.io.IOException;
+import java.io.InputStream;
 import java.io.UncheckedIOException;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
+import java.util.Objects;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
+import java.util.function.Function;
 import org.signal.registration.metrics.MetricsUtil;
 import org.signal.registration.sender.VerificationCodeSender;
+import org.signal.registration.session.ConflictingUpdateException;
 import org.signal.registration.session.RegistrationSession;
 import org.signal.registration.session.SessionNotFoundException;
 import org.signal.registration.session.SessionRepository;
@@ -40,20 +45,21 @@ class RedisSessionRepository implements SessionRepository {
 
   private final StatefulRedisConnection<byte[], byte[]> redisConnection;
 
-  private final Timer createSessionTimer;
-  private final Timer getSessionTimer;
-  private final Timer setSessionVerifiedTimer;
+  private final RedisLuaScript updateSessionScript;
 
-  @VisibleForTesting
-  static final String KEY_SENDER_CLASS = "sender";
+  private static final Timer CREATE_SESSION_TIMER = Metrics.timer(MetricsUtil.name(RedisSessionRepository.class, "createSession"));
+  private static final Timer GET_SESSION_TIMER = Metrics.timer(MetricsUtil.name(RedisSessionRepository.class, "getSession"));
+  private static final Timer UPDATE_SESSION_TIMER = Metrics.timer(MetricsUtil.name(RedisSessionRepository.class, "updateSession"));
 
   RedisSessionRepository(final StatefulRedisConnection<byte[], byte[]> redisConnection) throws IOException {
 
     this.redisConnection = redisConnection;
 
-    createSessionTimer = Metrics.timer(MetricsUtil.name(getClass(), "createSession"));
-    getSessionTimer = Metrics.timer(MetricsUtil.name(getClass(), "getSession"));
-    setSessionVerifiedTimer = Metrics.timer(MetricsUtil.name(getClass(), "setSessionVerified"));
+    try (final InputStream scriptInputStream = Objects.requireNonNull(
+        getClass().getResourceAsStream("update-session.lua"))) {
+
+      this.updateSessionScript = new RedisLuaScript(scriptInputStream.readAllBytes(), ScriptOutputType.BOOLEAN);
+    }
   }
 
   @Override
@@ -74,7 +80,7 @@ class RedisSessionRepository implements SessionRepository {
 
     return redisConnection.async().set(getSessionKey(sessionId), sessionBytes, SetArgs.Builder.ex(ttl))
         .thenApply(ignored -> sessionId)
-        .whenComplete((id, throwable) -> sample.stop(createSessionTimer))
+        .whenComplete((id, throwable) -> sample.stop(CREATE_SESSION_TIMER))
         .toCompletableFuture();
   }
 
@@ -94,7 +100,7 @@ class RedisSessionRepository implements SessionRepository {
             throw new CompletionException(new SessionNotFoundException());
           }
         })
-        .whenComplete((session, throwable) -> sample.stop(getSessionTimer))
+        .whenComplete((session, throwable) -> sample.stop(GET_SESSION_TIMER))
         .toCompletableFuture();
   }
 
@@ -107,7 +113,32 @@ class RedisSessionRepository implements SessionRepository {
             session.toBuilder().setVerifiedCode(verificationCode).build().toByteArray(),
             SetArgs.Builder.keepttl()))
         .thenAccept(ignored -> {})
-        .whenComplete((ignored, throwable) -> sample.stop(setSessionVerifiedTimer));
+        .whenComplete((ignored, throwable) -> sample.stop(UPDATE_SESSION_TIMER));
+  }
+
+  @Override
+  public CompletableFuture<RegistrationSession> updateSession(final UUID sessionId,
+      final Function<RegistrationSession, RegistrationSession> sessionUpdater) {
+
+    final Timer.Sample sample = Timer.start();
+
+    return getSession(sessionId)
+        .thenCompose(existingSession -> {
+          final RegistrationSession updatedSession = sessionUpdater.apply(existingSession);
+
+          final CompletableFuture<Boolean> updateFuture =
+              updateSessionScript.execute(redisConnection, new byte[][] { getSessionKey(sessionId )},
+                  existingSession.toByteArray(), updatedSession.toByteArray());
+
+          return updateFuture.thenApply(updateSuccessful -> {
+            if (updateSuccessful) {
+              return updatedSession;
+            } else {
+              throw new CompletionException(new ConflictingUpdateException());
+            }
+          });
+        })
+        .whenComplete((session, throwable) -> sample.stop(UPDATE_SESSION_TIMER));
   }
 
   @VisibleForTesting

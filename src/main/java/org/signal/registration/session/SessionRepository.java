@@ -10,6 +10,7 @@ import org.signal.registration.sender.VerificationCodeSender;
 import java.time.Duration;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import java.util.function.Function;
 
 /**
  * A session repository stores and retrieves data associated with registration sessions.
@@ -54,4 +55,19 @@ public interface SessionRepository {
    * @return a future that completes when the underlying session record has been updated
    */
   CompletableFuture<Void> setSessionVerified(UUID sessionId, String verificationCode);
+
+  /**
+   * Updates the session with the given identifier with the given session update function. Updates may fail if the
+   * session is not found or if multiple processes try to apply conflicting updates to the same session at the same
+   * time. In the case of a conflicting update, callers should generally retry the update operation.
+   *
+   * @param sessionId the identifier of the session to update
+   * @param sessionUpdater a function that accepts an existing session and returns a new session with changes applied
+   *
+   * @return a future that yields the updated session when the update has been applied and stored; may fail with a
+   * {@link SessionNotFoundException} if no session is found for the given identifier or a
+   * {@link ConflictingUpdateException} if multiple processes attempt to apply conflicting updates simultaneously
+   */
+  CompletableFuture<RegistrationSession> updateSession(UUID sessionId,
+      Function<RegistrationSession, RegistrationSession> sessionUpdater);
 }
