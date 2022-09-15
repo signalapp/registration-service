@@ -15,7 +15,6 @@ import io.micronaut.core.io.socket.SocketUtils;
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.nio.charset.StandardCharsets;
-import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.CompletionException;
 import org.junit.jupiter.api.AfterAll;
@@ -69,7 +68,7 @@ class RedisSessionRepositoryTest extends AbstractSessionRepositoryTest {
   @Override
   protected SessionRepository getRepository() {
     try {
-      return new RedisSessionRepository(redisConnection, List.of(SENDER));
+      return new RedisSessionRepository(redisConnection);
     } catch (final IOException e) {
       throw new UncheckedIOException(e);
     }
@@ -88,21 +87,5 @@ class RedisSessionRepositoryTest extends AbstractSessionRepositoryTest {
         assertThrows(CompletionException.class, () -> repository.getSession(sessionId).join());
 
     assertTrue(completionException.getCause() instanceof SessionNotFoundException);
-  }
-
-  @Test
-  void getSessionSenderNotFound() {
-    final SessionRepository repository = getRepository();
-
-    final UUID sessionId = repository.createSession(PHONE_NUMBER, SENDER, TTL, SESSION_DATA).join();
-
-    redisConnection.sync().hset(RedisSessionRepository.getSessionKey(sessionId),
-        RedisSessionRepository.KEY_SENDER_CLASS.getBytes(StandardCharsets.UTF_8),
-        "not-a-real-sender-class".getBytes(StandardCharsets.UTF_8));
-
-    final CompletionException completionException =
-        assertThrows(CompletionException.class, () -> repository.getSession(sessionId).join());
-
-    assertTrue(completionException.getCause() instanceof IllegalArgumentException);
   }
 }

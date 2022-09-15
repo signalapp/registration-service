@@ -9,8 +9,10 @@ import com.google.i18n.phonenumbers.Phonenumber;
 import jakarta.inject.Singleton;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import java.util.stream.Collectors;
 import org.apache.commons.lang3.StringUtils;
 import org.signal.registration.sender.ClientType;
 import org.signal.registration.sender.MessageTransport;
@@ -31,6 +33,8 @@ public class RegistrationService {
   private final SenderSelectionStrategy senderSelectionStrategy;
   private final SessionRepository sessionRepository;
 
+  private final Map<String, VerificationCodeSender> sendersByCanonicalClassName;
+
   private static final Logger logger = LoggerFactory.getLogger(RegistrationService.class);
 
   /**
@@ -39,12 +43,17 @@ public class RegistrationService {
    *
    * @param senderSelectionStrategy the strategy to use to choose verification code senders
    * @param sessionRepository the repository to use to store session data
+   * @param verificationCodeSenders a list of verification code senders that may be used by this service
    */
   public RegistrationService(final SenderSelectionStrategy senderSelectionStrategy,
-      final SessionRepository sessionRepository) {
+      final SessionRepository sessionRepository,
+      final List<VerificationCodeSender> verificationCodeSenders) {
 
     this.senderSelectionStrategy = senderSelectionStrategy;
     this.sessionRepository = sessionRepository;
+
+    this.sendersByCanonicalClassName = verificationCodeSenders.stream()
+        .collect(Collectors.toMap(sender -> sender.getClass().getCanonicalName(), sender -> sender));
   }
 
   /**
@@ -89,10 +98,16 @@ public class RegistrationService {
           // If a connection was interrupted, a caller may repeat a verification request. Check to see if we already
           // have a known verification code for this session and, if so, check the provided code against that code
           // instead of making a call upstream.
-          if (StringUtils.isNotBlank(session.verifiedCode())) {
-            return CompletableFuture.completedFuture(session.verifiedCode().equals(verificationCode));
+          if (StringUtils.isNotBlank(session.getVerifiedCode())) {
+            return CompletableFuture.completedFuture(session.getVerifiedCode().equals(verificationCode));
           } else {
-            return session.sender().checkVerificationCode(verificationCode, session.sessionData())
+            final VerificationCodeSender sender = sendersByCanonicalClassName.get(session.getSenderCanonicalClassName());
+
+            if (sender == null) {
+              throw new IllegalArgumentException("Unrecognized sender class: " + session.getSenderCanonicalClassName());
+            }
+
+            return sender.checkVerificationCode(verificationCode, session.getSessionData().toByteArray())
                 .thenCompose(verified -> {
                   if (verified) {
                     // Store the known-verified code for future potentially-repeated calls

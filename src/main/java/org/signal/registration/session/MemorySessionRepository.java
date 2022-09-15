@@ -6,7 +6,9 @@
 package org.signal.registration.session;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.google.i18n.phonenumbers.PhoneNumberUtil;
 import com.google.i18n.phonenumbers.Phonenumber;
+import com.google.protobuf.ByteString;
 import io.micronaut.context.annotation.Requires;
 import io.micronaut.scheduling.annotation.Scheduled;
 import jakarta.inject.Singleton;
@@ -58,7 +60,11 @@ public class MemorySessionRepository implements SessionRepository {
     final UUID sessionId = UUID.randomUUID();
 
     sessionsById.put(sessionId, new RegistrationSessionAndExpiration(
-        new RegistrationSession(phoneNumber, sender, sessionData, null),
+        RegistrationSession.newBuilder()
+            .setPhoneNumber(PhoneNumberUtil.getInstance().format(phoneNumber, PhoneNumberUtil.PhoneNumberFormat.E164))
+            .setSenderCanonicalClassName(sender.getClass().getCanonicalName())
+            .setSessionData(ByteString.copyFrom(sessionData))
+            .build(),
         clock.instant().plus(ttl)));
 
     return CompletableFuture.completedFuture(sessionId);
@@ -82,10 +88,8 @@ public class MemorySessionRepository implements SessionRepository {
             clock.instant().isAfter(existingSessionAndExpiration.expiration()) ?
                 null :
                 new RegistrationSessionAndExpiration(
-                    new RegistrationSession(existingSessionAndExpiration.session().phoneNumber(),
-                        existingSessionAndExpiration.session().sender(),
-                        existingSessionAndExpiration.session().sessionData(),
-                        verificationCode), existingSessionAndExpiration.expiration()));
+                    existingSessionAndExpiration.session().toBuilder().setVerifiedCode(verificationCode).build(),
+                    existingSessionAndExpiration.expiration()));
 
     return updatedSessionAndExpiration != null ?
         CompletableFuture.completedFuture(null) : CompletableFuture.failedFuture(new SessionNotFoundException());

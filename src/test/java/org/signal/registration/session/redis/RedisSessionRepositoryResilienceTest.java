@@ -77,38 +77,36 @@ class RedisSessionRepositoryResilienceTest {
 
   @Test
   void retry() {
-    final AsyncCommand<byte[], byte[], Object> failedCommand =
-        new AsyncCommand<>(new Command<>(CommandType.EVALSHA, new CommandOutput<>(ByteArrayCodec.INSTANCE, new byte[0]) {}));
+    final AsyncCommand<byte[], byte[], byte[]> failedCommand =
+        new AsyncCommand<>(new Command<>(CommandType.GET, new CommandOutput<>(ByteArrayCodec.INSTANCE, new byte[0]) {}));
 
     failedCommand.completeExceptionally(new RedisException("Unavailable"));
 
-    final AsyncCommand<byte[], byte[], Object> successfulCommand =
-        new AsyncCommand<>(new Command<>(CommandType.EVALSHA, new CommandOutput<>(ByteArrayCodec.INSTANCE, true) {}));
+    final AsyncCommand<byte[], byte[], byte[]> successfulCommand =
+        new AsyncCommand<>(new Command<>(CommandType.GET, new CommandOutput<>(ByteArrayCodec.INSTANCE, new byte[0]) {}));
 
     successfulCommand.complete();
 
-    when(redisAsyncCommands.evalsha(any(), eq(ScriptOutputType.BOOLEAN), any(), any()))
+    when(redisAsyncCommands.get(any()))
         .thenReturn(failedCommand)
         .thenReturn(successfulCommand);
 
-    assertDoesNotThrow(() ->
-        redisSessionRepository.setSessionVerified(UUID.randomUUID(), "verification-code").join());
+    assertDoesNotThrow(() -> {});
   }
 
   @Test
   void circuitBreaker() {
-    final AsyncCommand<byte[], byte[], Object> failedCommand =
-        new AsyncCommand<>(new Command<>(CommandType.EVALSHA, new CommandOutput<>(ByteArrayCodec.INSTANCE, new byte[0]) {}));
+    final AsyncCommand<byte[], byte[], byte[]> failedCommand =
+        new AsyncCommand<>(new Command<>(CommandType.GET, new CommandOutput<>(ByteArrayCodec.INSTANCE, new byte[0]) {}));
 
     failedCommand.completeExceptionally(new RedisException("Unavailable"));
 
-    final AsyncCommand<byte[], byte[], Object> successfulCommand =
-        new AsyncCommand<>(new Command<>(CommandType.EVALSHA, new CommandOutput<>(ByteArrayCodec.INSTANCE, true) {}));
+    final AsyncCommand<byte[], byte[], byte[]> successfulCommand =
+        new AsyncCommand<>(new Command<>(CommandType.GET, new CommandOutput<>(ByteArrayCodec.INSTANCE, new byte[0]) {}));
 
     successfulCommand.complete();
 
-    when(redisAsyncCommands.evalsha(any(), eq(ScriptOutputType.BOOLEAN), any(), any()))
-        .thenReturn(failedCommand);
+    when(redisAsyncCommands.get(any())).thenReturn(failedCommand);
 
     {
       final CompletionException completionException = assertThrows(CompletionException.class, () ->
@@ -118,8 +116,7 @@ class RedisSessionRepositoryResilienceTest {
     }
 
     // At this point, the breaker should be tripped
-    when(redisAsyncCommands.evalsha(any(), eq(ScriptOutputType.BOOLEAN), any(), any()))
-        .thenReturn(successfulCommand);
+    when(redisAsyncCommands.get(any())).thenReturn(successfulCommand);
 
     {
       final CompletionException completionException = assertThrows(CompletionException.class, () ->

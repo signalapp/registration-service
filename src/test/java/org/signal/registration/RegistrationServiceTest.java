@@ -8,6 +8,7 @@ package org.signal.registration;
 import com.google.i18n.phonenumbers.NumberParseException;
 import com.google.i18n.phonenumbers.PhoneNumberUtil;
 import com.google.i18n.phonenumbers.Phonenumber;
+import com.google.protobuf.ByteString;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.signal.registration.sender.ClientType;
@@ -68,7 +69,7 @@ class RegistrationServiceTest {
     final SenderSelectionStrategy senderSelectionStrategy = mock(SenderSelectionStrategy.class);
     when(senderSelectionStrategy.chooseVerificationCodeSender(any(), any(), any(), any())).thenReturn(sender);
 
-    registrationService = new RegistrationService(senderSelectionStrategy, sessionRepository);
+    registrationService = new RegistrationService(senderSelectionStrategy, sessionRepository, List.of(sender));
   }
 
   @Test
@@ -90,7 +91,11 @@ class RegistrationServiceTest {
   void checkRegistrationCode() {
     when(sessionRepository.getSession(SESSION_ID))
         .thenReturn(CompletableFuture.completedFuture(
-            new RegistrationSession(PHONE_NUMBER, sender, VERIFICATION_CODE_BYTES, null)));
+            RegistrationSession.newBuilder()
+                .setPhoneNumber(PhoneNumberUtil.getInstance().format(PHONE_NUMBER, PhoneNumberUtil.PhoneNumberFormat.E164))
+                .setSenderCanonicalClassName(sender.getClass().getCanonicalName())
+                .setSessionData(ByteString.copyFromUtf8(VERIFICATION_CODE))
+                .build()));
 
     when(sender.checkVerificationCode(VERIFICATION_CODE, VERIFICATION_CODE_BYTES))
         .thenReturn(CompletableFuture.completedFuture(true));
@@ -116,9 +121,15 @@ class RegistrationServiceTest {
 
   @Test
   void checkRegistrationCodePreviouslyVerified() {
+
     when(sessionRepository.getSession(SESSION_ID))
         .thenReturn(CompletableFuture.completedFuture(
-            new RegistrationSession(PHONE_NUMBER, sender, VERIFICATION_CODE_BYTES, VERIFICATION_CODE)));
+            RegistrationSession.newBuilder()
+                .setPhoneNumber(PhoneNumberUtil.getInstance().format(PHONE_NUMBER, PhoneNumberUtil.PhoneNumberFormat.E164))
+                .setSenderCanonicalClassName(sender.getClass().getCanonicalName())
+                .setSessionData(ByteString.copyFromUtf8(VERIFICATION_CODE))
+                .setVerifiedCode(VERIFICATION_CODE)
+                .build()));
 
     assertTrue(registrationService.checkRegistrationCode(SESSION_ID, VERIFICATION_CODE).join());
 

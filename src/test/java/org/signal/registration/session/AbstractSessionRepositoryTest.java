@@ -20,6 +20,7 @@ import java.util.Locale;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
+import com.google.protobuf.ByteString;
 import org.junit.jupiter.api.Test;
 import org.signal.registration.sender.ClientType;
 import org.signal.registration.sender.MessageTransport;
@@ -93,7 +94,11 @@ public abstract class AbstractSessionRepositoryTest {
 
     {
       final UUID sessionId = repository.createSession(PHONE_NUMBER, SENDER, TTL, SESSION_DATA).join();
-      final RegistrationSession expectedSession = new RegistrationSession(PHONE_NUMBER, SENDER, SESSION_DATA, null);
+      final RegistrationSession expectedSession = RegistrationSession.newBuilder()
+          .setPhoneNumber(PhoneNumberUtil.getInstance().format(PHONE_NUMBER, PhoneNumberUtil.PhoneNumberFormat.E164))
+          .setSenderCanonicalClassName(SENDER.getClass().getCanonicalName())
+          .setSessionData(ByteString.copyFrom(SESSION_DATA))
+          .build();
 
       assertEquals(expectedSession, repository.getSession(sessionId).join());
     }
@@ -116,7 +121,12 @@ public abstract class AbstractSessionRepositoryTest {
       final UUID sessionId = repository.createSession(PHONE_NUMBER, SENDER, TTL, SESSION_DATA).join();
       repository.setSessionVerified(sessionId, verificationCode).join();
 
-      final RegistrationSession expectedSession = new RegistrationSession(PHONE_NUMBER, SENDER, SESSION_DATA, verificationCode);
+      final RegistrationSession expectedSession = RegistrationSession.newBuilder()
+          .setPhoneNumber(PhoneNumberUtil.getInstance().format(PHONE_NUMBER, PhoneNumberUtil.PhoneNumberFormat.E164))
+          .setSenderCanonicalClassName(SENDER.getClass().getCanonicalName())
+          .setSessionData(ByteString.copyFrom(SESSION_DATA))
+          .setVerifiedCode(verificationCode)
+          .build();
 
       assertEquals(expectedSession, repository.getSession(sessionId).join());
     }
