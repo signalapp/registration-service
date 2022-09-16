@@ -69,7 +69,7 @@ public class MemorySessionRepository implements SessionRepository {
     sessionsById.put(sessionId, new RegistrationSessionAndExpiration(
         RegistrationSession.newBuilder()
             .setPhoneNumber(PhoneNumberUtil.getInstance().format(phoneNumber, PhoneNumberUtil.PhoneNumberFormat.E164))
-            .setSenderCanonicalClassName(sender.getClass().getCanonicalName())
+            .setSenderName(sender.getName())
             .setSessionData(ByteString.copyFrom(sessionData))
             .build(),
         clock.instant().plus(ttl)));

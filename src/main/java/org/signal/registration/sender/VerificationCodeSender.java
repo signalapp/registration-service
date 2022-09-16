@@ -26,6 +26,15 @@ import java.util.concurrent.CompletableFuture;
 public interface VerificationCodeSender {
 
   /**
+   * Returns the name of this sender. Names are used to uniquely identify senders in several contexts (and especially
+   * for identifying the sender associated with a {@link org.signal.registration.session.RegistrationSession}) and must
+   * be globally unique.
+   *
+   * @return the name of this sender
+   */
+  String getName();
+
+  /**
    * Returns the lifetime of registration sessions associated with this sender.
    *
    * @return the lifetime of registration sessions associated with this sender

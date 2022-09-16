@@ -53,6 +53,11 @@ public class TwilioVoiceSender extends AbstractTwilioProvidedCodeSender implemen
   }
 
   @Override
+  public String getName() {
+    return "twilio-programmable-voice";
+  }
+
+  @Override
   public Duration getSessionTtl() {
     return configuration.getSessionTtl();
   }

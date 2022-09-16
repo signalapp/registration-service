@@ -48,6 +48,7 @@ class RegistrationServiceTest {
 
   private static final Phonenumber.PhoneNumber PHONE_NUMBER;
   private static final UUID SESSION_ID = UUID.randomUUID();
+  private static final String SENDER_NAME = "mock-sender";
   private static final Duration SESSION_TTL = Duration.ofSeconds(17);
   private static final String VERIFICATION_CODE = "654321";
   private static final byte[] VERIFICATION_CODE_BYTES = VERIFICATION_CODE.getBytes(StandardCharsets.UTF_8);
@@ -66,6 +67,7 @@ class RegistrationServiceTest {
   @BeforeEach
   void setUp() {
     sender = mock(VerificationCodeSender.class);
+    when(sender.getName()).thenReturn(SENDER_NAME);
     when(sender.getSessionTtl()).thenReturn(SESSION_TTL);
 
     sessionRepository = mock(SessionRepository.class);
@@ -98,7 +100,7 @@ class RegistrationServiceTest {
         .thenReturn(CompletableFuture.completedFuture(
             RegistrationSession.newBuilder()
                 .setPhoneNumber(PhoneNumberUtil.getInstance().format(PHONE_NUMBER, PhoneNumberUtil.PhoneNumberFormat.E164))
-                .setSenderCanonicalClassName(sender.getClass().getCanonicalName())
+                .setSenderName(SENDER_NAME)
                 .setSessionData(ByteString.copyFromUtf8(VERIFICATION_CODE))
                 .build()));
 
@@ -130,7 +132,7 @@ class RegistrationServiceTest {
         .thenReturn(CompletableFuture.completedFuture(
             RegistrationSession.newBuilder()
                 .setPhoneNumber(PhoneNumberUtil.getInstance().format(PHONE_NUMBER, PhoneNumberUtil.PhoneNumberFormat.E164))
-                .setSenderCanonicalClassName(sender.getClass().getCanonicalName())
+                .setSenderName(SENDER_NAME)
                 .setSessionData(ByteString.copyFromUtf8(VERIFICATION_CODE))
                 .setVerifiedCode(VERIFICATION_CODE)
                 .build()));

@@ -49,6 +49,11 @@ public class TwilioMessagingServiceSmsSender extends AbstractTwilioProvidedCodeS
   }
 
   @Override
+  public String getName() {
+    return "twilio-programmable-messaging";
+  }
+
+  @Override
   public Duration getSessionTtl() {
     return configuration.getSessionTtl();
   }

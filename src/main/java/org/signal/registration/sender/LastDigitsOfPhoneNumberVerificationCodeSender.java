@@ -25,6 +25,11 @@ import java.util.concurrent.CompletableFuture;
 public class LastDigitsOfPhoneNumberVerificationCodeSender implements VerificationCodeSender {
 
   @Override
+  public String getName() {
+    return "last-digits-of-phone-number";
+  }
+
+  @Override
   public Duration getSessionTtl() {
     return Duration.ofMinutes(10);
   }

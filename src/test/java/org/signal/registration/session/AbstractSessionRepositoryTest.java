@@ -47,6 +47,11 @@ public abstract class AbstractSessionRepositoryTest {
   private static class NoopVerificationCodeSender implements VerificationCodeSender {
 
     @Override
+    public String getName() {
+      return "noop";
+    }
+
+    @Override
     public Duration getSessionTtl() {
       return Duration.ZERO;
     }
@@ -97,7 +102,7 @@ public abstract class AbstractSessionRepositoryTest {
       final UUID sessionId = repository.createSession(PHONE_NUMBER, SENDER, TTL, SESSION_DATA).join();
       final RegistrationSession expectedSession = RegistrationSession.newBuilder()
           .setPhoneNumber(PhoneNumberUtil.getInstance().format(PHONE_NUMBER, PhoneNumberUtil.PhoneNumberFormat.E164))
-          .setSenderCanonicalClassName(SENDER.getClass().getCanonicalName())
+          .setSenderName(SENDER.getName())
           .setSessionData(ByteString.copyFrom(SESSION_DATA))
           .build();
 
@@ -127,7 +132,7 @@ public abstract class AbstractSessionRepositoryTest {
 
       final RegistrationSession expectedSession = RegistrationSession.newBuilder()
           .setPhoneNumber(PhoneNumberUtil.getInstance().format(PHONE_NUMBER, PhoneNumberUtil.PhoneNumberFormat.E164))
-          .setSenderCanonicalClassName(SENDER.getClass().getCanonicalName())
+          .setSenderName(SENDER.getName())
           .setSessionData(ByteString.copyFrom(SESSION_DATA))
           .setVerifiedCode(verificationCode)
           .build();

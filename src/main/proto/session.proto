@@ -12,7 +12,7 @@ VerificationCodeSender responsible for sending and verifying registration codes,
 and any persistent data that sender may need to verify codes. */
 message RegistrationSession {
   string phone_number = 1;
-  string sender_canonical_class_name = 2;
+  string sender_name = 2;
   bytes session_data = 3;
   string verified_code = 4;
 }

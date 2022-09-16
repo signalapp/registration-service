@@ -142,7 +142,7 @@ class RedisSessionRepositoryTest extends AbstractSessionRepositoryTest {
 
     final SessionCompletedEvent expectedEvent = new SessionCompletedEvent(RegistrationSession.newBuilder()
         .setPhoneNumber(PhoneNumberUtil.getInstance().format(PHONE_NUMBER, PhoneNumberUtil.PhoneNumberFormat.E164))
-        .setSenderCanonicalClassName(SENDER.getClass().getCanonicalName())
+        .setSenderName(SENDER.getName())
         .setSessionData(ByteString.copyFrom(SESSION_DATA))
         .build());
 

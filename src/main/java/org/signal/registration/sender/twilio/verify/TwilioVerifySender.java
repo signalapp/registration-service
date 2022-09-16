@@ -59,6 +59,11 @@ public class TwilioVerifySender extends AbstractTwilioSender implements Verifica
   }
 
   @Override
+  public String getName() {
+    return "twilio-verify";
+  }
+
+  @Override
   public Duration getSessionTtl() {
     // Upstream sessions time out after ten minutes; see
     // https://support.twilio.com/hc/en-us/articles/360033354913-What-is-the-Default-Verify-V2-Expiration-Time-

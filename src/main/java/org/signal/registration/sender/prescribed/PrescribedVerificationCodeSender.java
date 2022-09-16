@@ -51,6 +51,11 @@ public class PrescribedVerificationCodeSender implements VerificationCodeSender 
   }
 
   @Override
+  public String getName() {
+    return "prescribed-verification-code";
+  }
+
+  @Override
   public Duration getSessionTtl() {
     return Duration.ofMinutes(10);
   }

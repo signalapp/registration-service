@@ -37,7 +37,7 @@ public class RegistrationService {
   private final SenderSelectionStrategy senderSelectionStrategy;
   private final SessionRepository sessionRepository;
 
-  private final Map<String, VerificationCodeSender> sendersByCanonicalClassName;
+  private final Map<String, VerificationCodeSender> sendersByName;
 
   private static final int UPDATE_RETRIES = 3;
 
@@ -58,8 +58,8 @@ public class RegistrationService {
     this.senderSelectionStrategy = senderSelectionStrategy;
     this.sessionRepository = sessionRepository;
 
-    this.sendersByCanonicalClassName = verificationCodeSenders.stream()
-        .collect(Collectors.toMap(sender -> sender.getClass().getCanonicalName(), sender -> sender));
+    this.sendersByName = verificationCodeSenders.stream()
+        .collect(Collectors.toMap(VerificationCodeSender::getName, sender -> sender));
   }
 
   /**
@@ -107,10 +107,10 @@ public class RegistrationService {
           if (StringUtils.isNotBlank(session.getVerifiedCode())) {
             return CompletableFuture.completedFuture(session.getVerifiedCode().equals(verificationCode));
           } else {
-            final VerificationCodeSender sender = sendersByCanonicalClassName.get(session.getSenderCanonicalClassName());
+            final VerificationCodeSender sender = sendersByName.get(session.getSenderName());
 
             if (sender == null) {
-              throw new IllegalArgumentException("Unrecognized sender class: " + session.getSenderCanonicalClassName());
+              throw new IllegalArgumentException("Unrecognized sender: " + session.getSenderName());
             }
 
             return sender.checkVerificationCode(verificationCode, session.getSessionData().toByteArray())

@@ -125,7 +125,7 @@ class RedisSessionRepository implements SessionRepository {
     final UUID sessionId = UUID.randomUUID();
     final byte[] sessionBytes = RegistrationSession.newBuilder()
         .setPhoneNumber(PhoneNumberUtil.getInstance().format(phoneNumber, PhoneNumberUtil.PhoneNumberFormat.E164))
-        .setSenderCanonicalClassName(sender.getClass().getCanonicalName())
+        .setSenderName(sender.getName())
         .setSessionData(ByteString.copyFrom(sessionData))
         .build()
         .toByteArray();
