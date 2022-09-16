@@ -126,13 +126,13 @@ class RedisSessionRepositoryTest extends AbstractSessionRepositoryTest {
     assertNotNull(redisConnection.sync()
         .zscore(RedisSessionRepository.EXPIRATION_QUEUE_KEY, RedisSessionRepository.getSessionKey(sessionId)));
 
-    assertEquals(0, repository.removeExpiredSessions().block());
+    assertEquals(0, repository.removeExpiredSessions());
 
     final Instant expiration = NOW.plus(TTL).plusMillis(1);
     when(clock.instant()).thenReturn(expiration);
     when(clock.millis()).thenReturn(expiration.toEpochMilli());
 
-    assertEquals(1, repository.removeExpiredSessions().block());
+    assertEquals(1, repository.removeExpiredSessions());
 
     assertNull(redisConnection.sync()
         .zscore(RedisSessionRepository.EXPIRATION_QUEUE_KEY, RedisSessionRepository.getSessionKey(sessionId)));
@@ -164,7 +164,7 @@ class RedisSessionRepositoryTest extends AbstractSessionRepositoryTest {
     // Artificially remove the session to simulate a "concurrent workers" case
     redisConnection.sync().del(RedisSessionRepository.getSessionKey(sessionId));
 
-    assertEquals(0, repository.removeExpiredSessions().block());
+    assertEquals(0, repository.removeExpiredSessions());
 
     assertNull(redisConnection.sync()
         .zscore(RedisSessionRepository.EXPIRATION_QUEUE_KEY, RedisSessionRepository.getSessionKey(sessionId)));
@@ -186,7 +186,7 @@ class RedisSessionRepositoryTest extends AbstractSessionRepositoryTest {
     redisConnection.sync().zrem(RedisSessionRepository.EXPIRATION_QUEUE_KEY,
         RedisSessionRepository.getSessionKey(sessionId));
 
-    assertEquals(0, repository.removeExpiredSessions().block());
+    assertEquals(0, repository.removeExpiredSessions());
 
     assertNull(redisConnection.sync()
         .zscore(RedisSessionRepository.EXPIRATION_QUEUE_KEY, RedisSessionRepository.getSessionKey(sessionId)));

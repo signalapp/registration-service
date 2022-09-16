@@ -95,7 +95,7 @@ class RedisSessionRepository implements SessionRepository {
 
   @Scheduled(fixedDelay = "${redis-session-repository.remove-expired-sessions-interval:10s}")
   @VisibleForTesting
-  Mono<Long> removeExpiredSessions() {
+  long removeExpiredSessions() {
     return ScanStream.zscan(redisConnection.reactive(), EXPIRATION_QUEUE_KEY)
         .filter(scoredValue -> scoredValue.getScore() < clock.millis())
         .map(Value::getValue)
@@ -112,7 +112,9 @@ class RedisSessionRepository implements SessionRepository {
           }
         })
         .doOnNext(session -> sessionCompletedEventPublisher.publishEventAsync(new SessionCompletedEvent(session)))
-        .count();
+        .count()
+        .blockOptional()
+        .orElse(0L);
   }
 
   @Override
