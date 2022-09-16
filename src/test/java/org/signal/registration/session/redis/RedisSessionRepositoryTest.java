@@ -10,7 +10,9 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -37,6 +39,7 @@ import org.signal.registration.session.RegistrationSession;
 import org.signal.registration.session.SessionCompletedEvent;
 import org.signal.registration.session.SessionNotFoundException;
 import org.signal.registration.session.SessionRepository;
+import redis.embedded.Redis;
 import redis.embedded.RedisServer;
 
 class RedisSessionRepositoryTest extends AbstractSessionRepositoryTest {
@@ -147,5 +150,48 @@ class RedisSessionRepositoryTest extends AbstractSessionRepositoryTest {
         .build());
 
     verify(sessionCompletedEventPublisher).publishEventAsync(expectedEvent);
+  }
+
+  @Test
+  void removeExpiredSessionsSessionGone() {
+    final RedisSessionRepository repository = getRepository();
+
+    final UUID sessionId = repository.createSession(PHONE_NUMBER, SENDER, TTL, SESSION_DATA).join();
+
+    final Instant expiration = NOW.plus(TTL).plusMillis(1);
+    when(clock.instant()).thenReturn(expiration);
+    when(clock.millis()).thenReturn(expiration.toEpochMilli());
+
+    // Artificially remove the session to simulate a "concurrent workers" case
+    redisConnection.sync().del(RedisSessionRepository.getSessionKey(sessionId));
+
+    assertEquals(0, repository.removeExpiredSessions().block());
+
+    assertNull(redisConnection.sync()
+        .zscore(RedisSessionRepository.EXPIRATION_QUEUE_KEY, RedisSessionRepository.getSessionKey(sessionId)));
+
+    verify(sessionCompletedEventPublisher, never()).publishEventAsync(any());
+  }
+
+  @Test
+  void removeExpiredSessionsQueueEntryGone() {
+    final RedisSessionRepository repository = getRepository();
+
+    final UUID sessionId = repository.createSession(PHONE_NUMBER, SENDER, TTL, SESSION_DATA).join();
+
+    final Instant expiration = NOW.plus(TTL).plusMillis(1);
+    when(clock.instant()).thenReturn(expiration);
+    when(clock.millis()).thenReturn(expiration.toEpochMilli());
+
+    // Artificially remove the session key from the queue to simulate a "concurrent workers" case
+    redisConnection.sync().zrem(RedisSessionRepository.EXPIRATION_QUEUE_KEY,
+        RedisSessionRepository.getSessionKey(sessionId));
+
+    assertEquals(0, repository.removeExpiredSessions().block());
+
+    assertNull(redisConnection.sync()
+        .zscore(RedisSessionRepository.EXPIRATION_QUEUE_KEY, RedisSessionRepository.getSessionKey(sessionId)));
+
+    verify(sessionCompletedEventPublisher, never()).publishEventAsync(any());
   }
 }

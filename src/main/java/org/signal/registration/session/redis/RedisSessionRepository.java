@@ -99,7 +99,8 @@ class RedisSessionRepository implements SessionRepository {
     return ScanStream.zscan(redisConnection.reactive(), EXPIRATION_QUEUE_KEY)
         .filter(scoredValue -> scoredValue.getScore() < clock.millis())
         .map(Value::getValue)
-        .flatMap(sessionKey -> redisConnection.reactive().zrem(EXPIRATION_QUEUE_KEY, sessionKey).thenReturn(sessionKey))
+        .flatMap(sessionKey -> redisConnection.reactive().zrem(EXPIRATION_QUEUE_KEY, sessionKey)
+            .mapNotNull(removed -> removed > 0 ? sessionKey : null))
         .flatMap(sessionKey -> redisConnection.reactive().getdel(sessionKey))
         .filter(Objects::nonNull)
         .mapNotNull(sessionData -> {
