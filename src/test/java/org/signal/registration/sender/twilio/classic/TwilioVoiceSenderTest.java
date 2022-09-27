@@ -26,6 +26,7 @@ import org.junit.jupiter.params.provider.MethodSource;
 import org.signal.registration.sender.ClientType;
 import org.signal.registration.sender.MessageTransport;
 import org.signal.registration.sender.UnsupportedMessageTransportException;
+import org.signal.registration.sender.VerificationCodeGenerator;
 
 class TwilioVoiceSenderTest {
 
@@ -38,7 +39,7 @@ class TwilioVoiceSenderTest {
     configuration.setCdnUri(URI.create("https://example.com/"));
     configuration.setSupportedLanguages(List.of("en", "de"));
 
-    sender = new TwilioVoiceSender(mock(TwilioRestClient.class), new TwilioVerificationCodeGenerator(), configuration);
+    sender = new TwilioVoiceSender(mock(TwilioRestClient.class), new VerificationCodeGenerator(), configuration);
   }
 
   @ParameterizedTest

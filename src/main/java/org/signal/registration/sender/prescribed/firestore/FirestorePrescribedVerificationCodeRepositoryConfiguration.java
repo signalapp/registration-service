@@ -8,7 +8,7 @@ package org.signal.registration.sender.prescribed.firestore;
 import io.micronaut.context.annotation.ConfigurationProperties;
 
 @ConfigurationProperties("prescribed-verification-codes.firestore")
-class FirestoreConfiguration {
+class FirestorePrescribedVerificationCodeRepositoryConfiguration {
 
   private String collectionName;
 

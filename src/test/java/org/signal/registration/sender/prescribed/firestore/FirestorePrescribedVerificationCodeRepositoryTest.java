@@ -42,7 +42,7 @@ class FirestorePrescribedVerificationCodeRepositoryTest {
 
   @BeforeEach
   void setUp() {
-    final FirestoreConfiguration configuration = new FirestoreConfiguration();
+    final FirestorePrescribedVerificationCodeRepositoryConfiguration configuration = new FirestorePrescribedVerificationCodeRepositoryConfiguration();
     configuration.setCollectionName(COLLECTION_NAME);
 
     firestore = FirestoreOptions.getDefaultInstance().toBuilder()

@@ -38,7 +38,7 @@ class FirestorePrescribedVerificationCodeRepository implements PrescribedVerific
 
   private final Firestore firestore;
   private final Executor executor;
-  private final FirestoreConfiguration configuration;
+  private final FirestorePrescribedVerificationCodeRepositoryConfiguration configuration;
 
   @VisibleForTesting
   static final String VERIFICATION_CODE_KEY = "verification-code";
@@ -47,7 +47,7 @@ class FirestorePrescribedVerificationCodeRepository implements PrescribedVerific
 
   public FirestorePrescribedVerificationCodeRepository(final Firestore firestore,
       @Named(TaskExecutors.IO) final Executor executor,
-      final FirestoreConfiguration configuration) {
+      final FirestorePrescribedVerificationCodeRepositoryConfiguration configuration) {
 
     this.firestore = firestore;
     this.executor = executor;

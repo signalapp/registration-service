@@ -25,6 +25,7 @@ import org.junit.jupiter.params.provider.MethodSource;
 import org.signal.registration.sender.ClientType;
 import org.signal.registration.sender.MessageTransport;
 import org.signal.registration.sender.UnsupportedMessageTransportException;
+import org.signal.registration.sender.VerificationCodeGenerator;
 
 class TwilioMessagingServiceSmsSenderTest {
 
@@ -39,7 +40,7 @@ class TwilioMessagingServiceSmsSenderTest {
     configuration.setSupportedLanguages(List.of("en"));
 
     sender = new TwilioMessagingServiceSmsSender(mock(TwilioRestClient.class),
-        new TwilioVerificationCodeGenerator(),
+        new VerificationCodeGenerator(),
         configuration);
   }
 
@@ -54,7 +55,7 @@ class TwilioMessagingServiceSmsSenderTest {
   @ParameterizedTest
   @MethodSource
   void getMessageBody(final int countryCode, final ClientType clientType, final Locale locale) {
-    final String verificationCode = new TwilioVerificationCodeGenerator().generateVerificationCode();
+    final String verificationCode = new VerificationCodeGenerator().generateVerificationCode();
 
     final String messageBody =
         assertDoesNotThrow(() -> sender.getMessageBody(countryCode, clientType, verificationCode, locale));

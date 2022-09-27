@@ -25,6 +25,7 @@ import java.util.concurrent.ThreadLocalRandom;
 import org.signal.registration.sender.ClientType;
 import org.signal.registration.sender.MessageTransport;
 import org.signal.registration.sender.UnsupportedMessageTransportException;
+import org.signal.registration.sender.VerificationCodeGenerator;
 import org.signal.registration.sender.VerificationCodeSender;
 
 /**
@@ -35,7 +36,7 @@ import org.signal.registration.sender.VerificationCodeSender;
 public class TwilioVoiceSender extends AbstractTwilioProvidedCodeSender implements VerificationCodeSender {
 
   private final TwilioRestClient twilioRestClient;
-  private final TwilioVerificationCodeGenerator verificationCodeGenerator;
+  private final VerificationCodeGenerator verificationCodeGenerator;
   private final TwilioVoiceConfiguration configuration;
 
   private final MessageSource twimlMessageSource =
@@ -44,7 +45,7 @@ public class TwilioVoiceSender extends AbstractTwilioProvidedCodeSender implemen
   private static final String DEFAULT_LANGUAGE = "en-US";
 
   public TwilioVoiceSender(final TwilioRestClient twilioRestClient,
-      final TwilioVerificationCodeGenerator verificationCodeGenerator,
+      final VerificationCodeGenerator verificationCodeGenerator,
       final TwilioVoiceConfiguration configuration) {
 
     this.twilioRestClient = twilioRestClient;

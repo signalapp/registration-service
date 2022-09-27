@@ -21,6 +21,7 @@ import org.apache.commons.lang3.StringUtils;
 import org.signal.registration.sender.ClientType;
 import org.signal.registration.sender.MessageTransport;
 import org.signal.registration.sender.UnsupportedMessageTransportException;
+import org.signal.registration.sender.VerificationCodeGenerator;
 import org.signal.registration.sender.VerificationCodeSender;
 
 /**
@@ -31,7 +32,7 @@ import org.signal.registration.sender.VerificationCodeSender;
 public class TwilioMessagingServiceSmsSender extends AbstractTwilioProvidedCodeSender implements VerificationCodeSender {
 
   private final TwilioRestClient twilioRestClient;
-  private final TwilioVerificationCodeGenerator verificationCodeGenerator;
+  private final VerificationCodeGenerator verificationCodeGenerator;
   private final TwilioMessagingConfiguration configuration;
 
   private final MessageSource messageSource =
@@ -40,7 +41,7 @@ public class TwilioMessagingServiceSmsSender extends AbstractTwilioProvidedCodeS
   private static final int COUNTRY_CODE_CN = 86;
 
   public TwilioMessagingServiceSmsSender(final TwilioRestClient twilioRestClient,
-      final TwilioVerificationCodeGenerator verificationCodeGenerator,
+      final VerificationCodeGenerator verificationCodeGenerator,
       final TwilioMessagingConfiguration configuration) {
 
     this.twilioRestClient = twilioRestClient;

@@ -9,6 +9,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
+import com.google.i18n.phonenumbers.NumberParseException;
 import com.google.i18n.phonenumbers.PhoneNumberUtil;
 import com.google.i18n.phonenumbers.Phonenumber;
 import io.micronaut.context.annotation.Property;
@@ -24,6 +25,8 @@ import org.junit.jupiter.api.Test;
 import org.signal.registration.RegistrationService;
 import org.signal.registration.sender.ClientType;
 import org.signal.registration.sender.MessageTransport;
+import org.signal.registration.sender.fictitious.FictitiousNumberVerificationCodeRepository;
+import org.signal.registration.sender.fictitious.FictitiousNumberVerificationCodeSender;
 import org.signal.registration.sender.prescribed.PrescribedVerificationCodeRepository;
 import org.signal.registration.sender.prescribed.PrescribedVerificationCodeSender;
 import org.signal.registration.sender.twilio.classic.TwilioMessagingServiceSmsSender;
@@ -59,6 +62,10 @@ class TwilioSenderSelectionStrategyTest {
     return repository;
   }
 
+  @MockBean
+  FictitiousNumberVerificationCodeRepository fictitiousNumberVerificationCodeRepository =
+      mock(FictitiousNumberVerificationCodeRepository.class);
+
   @Inject
   private TwilioSenderSelectionStrategy selectionStrategy;
 
@@ -73,6 +80,17 @@ class TwilioSenderSelectionStrategyTest {
 
   private static final Phonenumber.PhoneNumber NON_PRESCRIBED_CODE_NUMBER =
       PhoneNumberUtil.getInstance().getExampleNumber("CA");
+
+  private static final Phonenumber.PhoneNumber FICTITIOUS_PHONE_NUMBER;
+
+  static {
+    try {
+      FICTITIOUS_PHONE_NUMBER = PhoneNumberUtil.getInstance().parse("+12025550123", null);
+    } catch (final NumberParseException e) {
+      // This should never happen for a literally-specified, known-good phone number
+      throw new AssertionError(e);
+    }
+  }
 
   @BeforeEach
   void setUp() {
@@ -103,5 +121,9 @@ class TwilioSenderSelectionStrategyTest {
     assertTrue(selectionStrategy.chooseVerificationCodeSender(
         MessageTransport.SMS, PRESCRIBED_CODE_NUMBER, Locale.LanguageRange.parse("en"), ClientType.IOS)
         instanceof PrescribedVerificationCodeSender);
+
+    assertTrue(selectionStrategy.chooseVerificationCodeSender(
+        MessageTransport.SMS, FICTITIOUS_PHONE_NUMBER, Locale.LanguageRange.parse("en"), ClientType.IOS)
+        instanceof FictitiousNumberVerificationCodeSender);
   }
 }
