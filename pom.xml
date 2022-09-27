@@ -274,6 +274,19 @@
           </systemPropertyVariables>
         </configuration>
       </plugin>
+
+      <plugin>
+        <groupId>com.google.cloud.tools</groupId>
+        <artifactId>jib-maven-plugin</artifactId>
+        <version>${jib-maven-plugin.version}</version>
+        <configuration>
+          <!-- Because we have two executable classes (the service itself and the CLI), we need to specify which should
+          be the entrypoint for Docker images -->
+          <container>
+            <mainClass>org.signal.registration.Application</mainClass>
+          </container>
+        </configuration>
+      </plugin>
     </plugins>
   </build>
 </project>
