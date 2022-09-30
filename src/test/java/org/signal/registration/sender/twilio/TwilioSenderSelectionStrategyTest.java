@@ -5,7 +5,7 @@
 
 package org.signal.registration.sender.twilio;
 
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
@@ -20,11 +20,15 @@ import java.util.Collections;
 import java.util.Locale;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
+import java.util.stream.Stream;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
 import org.signal.registration.RegistrationService;
 import org.signal.registration.sender.ClientType;
 import org.signal.registration.sender.MessageTransport;
+import org.signal.registration.sender.VerificationCodeSender;
 import org.signal.registration.sender.fictitious.FictitiousNumberVerificationCodeRepository;
 import org.signal.registration.sender.fictitious.FictitiousNumberVerificationCodeSender;
 import org.signal.registration.sender.prescribed.PrescribedVerificationCodeRepository;
@@ -37,6 +41,8 @@ import org.signal.registration.sender.twilio.verify.TwilioVerifySender;
 @Property(name = "twilio.account-sid", value = "account-sid")
 @Property(name = "twilio.api-key-sid", value = "api-key-sid")
 @Property(name = "twilio.api-key-secret", value = "api-key-secret")
+@Property(name = "twilio.always-use-verify-regions", value = "cn")
+@Property(name = "twilio.never-use-verify-regions", value = "mx")
 @Property(name = "twilio.messaging.nanpa-messaging-service-sid", value = "nanpa-messaging-service-sid")
 @Property(name = "twilio.messaging.global-messaging-service-sid", value = "global-messaging-service-sid")
 @Property(name = "twilio.messaging.android-app-hash", value = "android-app-hash")
@@ -81,6 +87,12 @@ class TwilioSenderSelectionStrategyTest {
   private static final Phonenumber.PhoneNumber NON_PRESCRIBED_CODE_NUMBER =
       PhoneNumberUtil.getInstance().getExampleNumber("CA");
 
+  private static final Phonenumber.PhoneNumber ALWAYS_USE_VERIFY_NUMBER =
+      PhoneNumberUtil.getInstance().getExampleNumber("CN");
+
+  private static final Phonenumber.PhoneNumber NEVER_USE_VERIFY_NUMBER =
+      PhoneNumberUtil.getInstance().getExampleNumber("MX");
+
   private static final Phonenumber.PhoneNumber FICTITIOUS_PHONE_NUMBER;
 
   static {
@@ -100,30 +112,32 @@ class TwilioSenderSelectionStrategyTest {
     prescribedVerificationCodeSender.refreshPhoneNumbers();
   }
 
-  @Test
-  void chooseVerificationCodeSender() {
-    assertTrue(selectionStrategy.chooseVerificationCodeSender(
-        MessageTransport.SMS, NON_PRESCRIBED_CODE_NUMBER, Locale.LanguageRange.parse("de"), ClientType.IOS)
-        instanceof TwilioVerifySender);
+  @ParameterizedTest
+  @MethodSource
+  void chooseVerificationCodeSender(final MessageTransport messageTransport,
+      final Phonenumber.PhoneNumber phoneNumber,
+      final String acceptLanguage,
+      final ClientType clientType,
+      final Class<? extends VerificationCodeSender> senderClass) {
 
-    assertTrue(selectionStrategy.chooseVerificationCodeSender(
-        MessageTransport.SMS, NON_PRESCRIBED_CODE_NUMBER, Locale.LanguageRange.parse("fr"), ClientType.IOS)
-        instanceof TwilioMessagingServiceSmsSender);
+    assertEquals(senderClass,
+        selectionStrategy.chooseVerificationCodeSender(
+            messageTransport, phoneNumber, Locale.LanguageRange.parse(acceptLanguage), clientType).getClass());
+  }
 
-    assertTrue(selectionStrategy.chooseVerificationCodeSender(
-        MessageTransport.VOICE, NON_PRESCRIBED_CODE_NUMBER, Locale.LanguageRange.parse("de"), ClientType.IOS)
-        instanceof TwilioVerifySender);
-
-    assertTrue(selectionStrategy.chooseVerificationCodeSender(
-        MessageTransport.VOICE, NON_PRESCRIBED_CODE_NUMBER, Locale.LanguageRange.parse("fr"), ClientType.IOS)
-        instanceof TwilioVoiceSender);
-
-    assertTrue(selectionStrategy.chooseVerificationCodeSender(
-        MessageTransport.SMS, PRESCRIBED_CODE_NUMBER, Locale.LanguageRange.parse("en"), ClientType.IOS)
-        instanceof PrescribedVerificationCodeSender);
-
-    assertTrue(selectionStrategy.chooseVerificationCodeSender(
-        MessageTransport.SMS, FICTITIOUS_PHONE_NUMBER, Locale.LanguageRange.parse("en"), ClientType.IOS)
-        instanceof FictitiousNumberVerificationCodeSender);
+  private static Stream<Arguments> chooseVerificationCodeSender() {
+    return Stream.of(
+        Arguments.of(MessageTransport.SMS,   NON_PRESCRIBED_CODE_NUMBER, "de", ClientType.IOS, TwilioVerifySender.class),
+        Arguments.of(MessageTransport.SMS,   NON_PRESCRIBED_CODE_NUMBER, "fr", ClientType.IOS, TwilioMessagingServiceSmsSender.class),
+        Arguments.of(MessageTransport.VOICE, NON_PRESCRIBED_CODE_NUMBER, "de", ClientType.IOS, TwilioVerifySender.class),
+        Arguments.of(MessageTransport.VOICE, NON_PRESCRIBED_CODE_NUMBER, "fr", ClientType.IOS, TwilioVoiceSender.class),
+        Arguments.of(MessageTransport.SMS,   PRESCRIBED_CODE_NUMBER,     "en", ClientType.IOS, PrescribedVerificationCodeSender.class),
+        Arguments.of(MessageTransport.SMS,   FICTITIOUS_PHONE_NUMBER,    "en", ClientType.IOS, FictitiousNumberVerificationCodeSender.class),
+        Arguments.of(MessageTransport.SMS,   ALWAYS_USE_VERIFY_NUMBER,   "de", ClientType.IOS, TwilioVerifySender.class),
+        Arguments.of(MessageTransport.SMS,   ALWAYS_USE_VERIFY_NUMBER,   "fr", ClientType.IOS, TwilioVerifySender.class),
+        Arguments.of(MessageTransport.SMS,   NEVER_USE_VERIFY_NUMBER,    "de", ClientType.IOS, TwilioMessagingServiceSmsSender.class),
+        Arguments.of(MessageTransport.SMS,   NEVER_USE_VERIFY_NUMBER,    "fr", ClientType.IOS, TwilioMessagingServiceSmsSender.class),
+        Arguments.of(MessageTransport.VOICE, NEVER_USE_VERIFY_NUMBER,    "de", ClientType.IOS, TwilioVoiceSender.class),
+        Arguments.of(MessageTransport.VOICE, NEVER_USE_VERIFY_NUMBER,    "fr", ClientType.IOS, TwilioVoiceSender.class));
   }
 }

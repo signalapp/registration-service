@@ -5,6 +5,7 @@
 
 package org.signal.registration.sender.twilio;
 
+import com.google.i18n.phonenumbers.PhoneNumberUtil;
 import com.google.i18n.phonenumbers.Phonenumber;
 import jakarta.inject.Singleton;
 import org.signal.registration.sender.ClientType;
@@ -19,6 +20,8 @@ import org.signal.registration.sender.twilio.verify.TwilioVerifySender;
 
 import java.util.List;
 import java.util.Locale;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 /**
  * The Twilio sender selection strategy chooses between different Twilio senders (but always chooses Twilio senders). It
@@ -34,17 +37,29 @@ public class TwilioSenderSelectionStrategy implements SenderSelectionStrategy {
   private final TwilioMessagingServiceSmsSender twilioMessagingServiceSmsSender;
   private final TwilioVoiceSender twilioVoiceSender;
 
+  private final Set<String> alwaysUseVerifyRegions;
+  private final Set<String> neverUseVerifyRegions;
+
   public TwilioSenderSelectionStrategy(final PrescribedVerificationCodeSender prescribedVerificationCodeSender,
       final FictitiousNumberVerificationCodeSender fictitiousNumberVerificationCodeSender,
       final TwilioVerifySender twilioVerifySender,
       final TwilioMessagingServiceSmsSender twilioMessagingServiceSmsSender,
-      final TwilioVoiceSender twilioVoiceSender) {
+      final TwilioVoiceSender twilioVoiceSender,
+      final TwilioConfiguration configuration) {
 
     this.prescribedVerificationCodeSender = prescribedVerificationCodeSender;
     this.fictitiousNumberVerificationCodeSender = fictitiousNumberVerificationCodeSender;
     this.twilioVerifySender = twilioVerifySender;
     this.twilioMessagingServiceSmsSender = twilioMessagingServiceSmsSender;
     this.twilioVoiceSender = twilioVoiceSender;
+
+    alwaysUseVerifyRegions = configuration.getAlwaysUseVerifyRegions().stream()
+        .map(String::toUpperCase)
+        .collect(Collectors.toSet());
+
+    neverUseVerifyRegions = configuration.getNeverUseVerifyRegions().stream()
+        .map(String::toUpperCase)
+        .collect(Collectors.toSet());
   }
 
   @Override
@@ -59,13 +74,23 @@ public class TwilioSenderSelectionStrategy implements SenderSelectionStrategy {
       sender = prescribedVerificationCodeSender;
     } else if (fictitiousNumberVerificationCodeSender.supportsDestination(transport, phoneNumber, languageRanges, clientType)) {
       sender = fictitiousNumberVerificationCodeSender;
-    } else if (twilioVerifySender.supportsDestination(transport, phoneNumber, languageRanges, clientType)) {
-      sender = twilioVerifySender;
     } else {
-      sender = switch (transport) {
-        case SMS -> twilioMessagingServiceSmsSender;
-        case VOICE -> twilioVoiceSender;
-      };
+      final String region = PhoneNumberUtil.getInstance().getRegionCodeForNumber(phoneNumber).toUpperCase();
+      final boolean useTwilioVerify;
+
+      if (alwaysUseVerifyRegions.contains(region)) {
+        useTwilioVerify = true;
+      } else if (neverUseVerifyRegions.contains(region)) {
+        useTwilioVerify = false;
+      } else {
+        useTwilioVerify = twilioVerifySender.supportsDestination(transport, phoneNumber, languageRanges, clientType);
+      }
+
+      sender = useTwilioVerify ? twilioVerifySender :
+          switch (transport) {
+            case SMS -> twilioMessagingServiceSmsSender;
+            case VOICE -> twilioVoiceSender;
+          };
     }
 
     return sender;
