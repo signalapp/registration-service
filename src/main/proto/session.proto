@@ -4,15 +4,43 @@ option java_multiple_files = true;
 
 package org.signal.registration.session;
 
-/* A registration session stores information about a current attempt to register
-a phone number. Registration sessions are created when a client first requests
-that a verification code be sent to a phone number and store all state related
-to the registration attempt including the phone number being registered, the
-VerificationCodeSender responsible for sending and verifying registration codes,
-and any persistent data that sender may need to verify codes. */
+/**
+ * A registration session stores information about a current attempt to register
+ * a phone number. Registration sessions are created when a client first
+ * requests that a verification code be sent to a phone number and store all
+ * state related to the registration attempt including the phone number being
+ * registered, the VerificationCodeSender responsible for sending and verifying
+ * registration codes, and any persistent data that sender may need to verify
+ * codes.
+ */
 message RegistrationSession {
+
+  /**
+   * The E.164-formatted representation of the phone number being registered in
+   * this session.
+   */
   string phone_number = 1;
+
+  /**
+   * The name of the `VerificationCodeSender` used in this session.
+   */
   string sender_name = 2;
+
+  /**
+   * An opaque collection of bytes provided by senders when a session is created
+   * and presented to senders when a caller checks a verification code.
+   * Verification code senders can use this space to store whatever state they
+   * may need to check a verification code (the code itself, for example, or an
+   * upstream session ID) after a session has been created.
+   */
   bytes session_data = 3;
+
+  /**
+   * The successfully-verified code associated with this session. If this field
+   * is not blank, the remote client has successfully verified their
+   * registration. Callers may use this value to de-duplicate verification
+   * attempts (i.e. repeated submissions from a remote client due to an
+   * interrupted connection).
+   */
   string verified_code = 4;
 }
