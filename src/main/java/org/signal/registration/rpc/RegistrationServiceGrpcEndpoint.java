@@ -61,6 +61,7 @@ public class RegistrationServiceGrpcEndpoint extends RegistrationServiceGrpc.Reg
 
               responseObserver.onCompleted();
             } else {
+              logger.warn("Failed to send registration code", throwable);
               responseObserver.onError(new StatusException(Status.INTERNAL));
             }
           });
@@ -82,6 +83,7 @@ public class RegistrationServiceGrpcEndpoint extends RegistrationServiceGrpc.Reg
 
             responseObserver.onCompleted();
           } else {
+            logger.warn("Failed to check verification code", throwable);
             responseObserver.onError(new StatusException(Status.INTERNAL));
           }
         });
