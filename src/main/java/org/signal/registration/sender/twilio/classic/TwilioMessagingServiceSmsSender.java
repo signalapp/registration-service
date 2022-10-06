@@ -6,16 +6,19 @@
 package org.signal.registration.sender.twilio.classic;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.google.i18n.phonenumbers.PhoneNumberUtil;
 import com.google.i18n.phonenumbers.Phonenumber;
 import com.twilio.http.TwilioRestClient;
 import com.twilio.rest.api.v2010.account.Message;
 import io.micronaut.context.MessageSource;
 import io.micronaut.context.i18n.ResourceBundleMessageSource;
+import jakarta.inject.Inject;
 import jakarta.inject.Singleton;
 import java.time.Duration;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import org.apache.commons.lang3.StringUtils;
 import org.signal.registration.sender.ClientType;
@@ -35,18 +38,38 @@ public class TwilioMessagingServiceSmsSender extends AbstractTwilioProvidedCodeS
   private final VerificationCodeGenerator verificationCodeGenerator;
   private final TwilioMessagingConfiguration configuration;
 
-  private final MessageSource messageSource =
-      new ResourceBundleMessageSource("org.signal.registration.twilio.messaging.sms");
+  private final MessageSource messageSource;
+
+  @VisibleForTesting
+  static final String IOS_MESSAGE_KEY = "twilio.messaging.sms.ios";
+
+  @VisibleForTesting
+  static final String ANDROID_MESSAGE_KEY = "twilio.messaging.sms.android";
+
+  @VisibleForTesting
+  static final String GENERIC_MESSAGE_KEY = "twilio.messaging.sms.generic";
 
   private static final int COUNTRY_CODE_CN = 86;
 
+  @Inject
   public TwilioMessagingServiceSmsSender(final TwilioRestClient twilioRestClient,
       final VerificationCodeGenerator verificationCodeGenerator,
       final TwilioMessagingConfiguration configuration) {
 
+    this(twilioRestClient, verificationCodeGenerator, configuration,
+        new ResourceBundleMessageSource("org.signal.registration.twilio.messaging.sms"));
+  }
+
+  @VisibleForTesting
+  TwilioMessagingServiceSmsSender(final TwilioRestClient twilioRestClient,
+      final VerificationCodeGenerator verificationCodeGenerator,
+      final TwilioMessagingConfiguration configuration,
+      MessageSource messageSource) {
+
     this.twilioRestClient = twilioRestClient;
     this.verificationCodeGenerator = verificationCodeGenerator;
     this.configuration = configuration;
+    this.messageSource = messageSource;
   }
 
   @Override
@@ -89,39 +112,52 @@ public class TwilioMessagingServiceSmsSender extends AbstractTwilioProvidedCodeS
       }
     }
 
-    final int countryCode = phoneNumber.getCountryCode();
-
     final String messagingServiceSid = phoneNumber.getCountryCode() == 1 ?
         configuration.getNanpaMessagingServiceSid() : configuration.getGlobalMessagingServiceSid();
 
     final String verificationCode = verificationCodeGenerator.generateVerificationCode();
 
     return Message.creator(twilioNumberFromPhoneNumber(phoneNumber), messagingServiceSid,
-            getMessageBody(countryCode, clientType, verificationCode, locale))
+            getMessageBody(phoneNumber, clientType, verificationCode, locale))
         .createAsync(twilioRestClient)
         .whenComplete((message, throwable) -> incrementApiCallCounter("message.create", throwable))
         .thenApply(ignored -> buildSessionData(verificationCode));
   }
 
   @VisibleForTesting
-  String getMessageBody(final int countryCode,
+  String getMessageBody(final Phonenumber.PhoneNumber phoneNumber,
       final ClientType clientType,
       final String verificationCode,
       final Locale locale) {
 
     final String messageKey = switch (clientType) {
-      case IOS -> "twilio.messaging.sms.ios";
-      case ANDROID_WITH_FCM -> "twilio.messaging.sms.android";
-      default -> "twilio.messaging.sms.generic";
+      case IOS -> IOS_MESSAGE_KEY;
+      case ANDROID_WITH_FCM -> ANDROID_MESSAGE_KEY;
+      default -> GENERIC_MESSAGE_KEY;
     };
 
-    final String message = messageSource.getRequiredMessage(messageKey,
+    final String regionCode = PhoneNumberUtil.getInstance().getRegionCodeForNumber(phoneNumber).toUpperCase();
+
+    final Optional<String> maybeMessageKeyWithVariant =
+        Optional.ofNullable(configuration.getVerificationMessageVariants().get(regionCode))
+            .map(variant -> getMessageKeyForVariant(messageKey, variant));
+
+    final MessageSource.MessageContext messageContext =
         MessageSource.MessageContext.of(locale, Map.of(
             "code", verificationCode,
-            "appHash", configuration.getAndroidAppHash())));
+            "appHash", configuration.getAndroidAppHash()));
+
+    final String message = maybeMessageKeyWithVariant
+        .flatMap(keyWithVariant -> messageSource.getMessage(keyWithVariant, messageContext))
+        .orElseGet(() -> messageSource.getRequiredMessage(messageKey, messageContext));
 
     // Twilio recommends adding this character to the end of strings delivered to China because some carriers in China
     // are blocking GSM-7 encoding and this will force Twilio to send using UCS-2 instead.
-    return countryCode == COUNTRY_CODE_CN ? message + "\u2008" : message;
+    return phoneNumber.getCountryCode() == COUNTRY_CODE_CN ? message + "\u2008" : message;
+  }
+
+  @VisibleForTesting
+  static String getMessageKeyForVariant(final String baseMessageKey, final String variant) {
+    return baseMessageKey + "." + variant;
   }
 }

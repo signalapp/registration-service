@@ -9,7 +9,10 @@ import io.micronaut.context.annotation.ConfigurationProperties;
 import io.micronaut.context.annotation.Context;
 import javax.validation.constraints.NotBlank;
 import java.time.Duration;
+import java.util.Collections;
 import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
 
 @Context
 @ConfigurationProperties("twilio.messaging")
@@ -25,6 +28,8 @@ class TwilioMessagingConfiguration {
   private String androidAppHash;
 
   private List<@NotBlank String> supportedLanguages;
+
+  private Map<String, String> verificationMessageVariants = Collections.emptyMap();
 
   private Duration sessionTtl = Duration.ofMinutes(10);
 
@@ -58,6 +63,17 @@ class TwilioMessagingConfiguration {
 
   public void setSupportedLanguages(final List<String> supportedLanguages) {
     this.supportedLanguages = supportedLanguages;
+  }
+
+  public Map<String, String> getVerificationMessageVariants() {
+    return verificationMessageVariants;
+  }
+
+  public void setVerificationMessageVariants(final Map<String, String> verificationMessageVariants) {
+    // Coerce region codes to uppercase
+    this.verificationMessageVariants = verificationMessageVariants.entrySet()
+        .stream()
+        .collect(Collectors.toUnmodifiableMap(entry -> entry.getKey().toUpperCase(), Map.Entry::getValue));
   }
 
   public Duration getSessionTtl() {
