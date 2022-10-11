@@ -1,6 +1,6 @@
 # Signal registration service
 
-This is a prototype of a multi-provider phone number verification service for use with Signal.
+This is a multi-provider phone number verification service for use with Signal.
 
 When Signal users first create an account, they do so by associating that account with a phone number. Signal verifies that users actually control that phone number by sending a verification code to that number via SMS or via a phone call. This service manages the process of sending verification codes and checking codes provided by clients.
 
