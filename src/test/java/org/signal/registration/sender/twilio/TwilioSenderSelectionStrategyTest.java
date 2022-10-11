@@ -45,7 +45,6 @@ import org.signal.registration.sender.twilio.verify.TwilioVerifySender;
 @Property(name = "twilio.never-use-verify-regions", value = "mx")
 @Property(name = "twilio.messaging.nanpa-messaging-service-sid", value = "nanpa-messaging-service-sid")
 @Property(name = "twilio.messaging.global-messaging-service-sid", value = "global-messaging-service-sid")
-@Property(name = "twilio.messaging.android-app-hash", value = "android-app-hash")
 @Property(name = "twilio.messaging.supported-languages", value = "en")
 @Property(name = "twilio.verify.service-sid", value = "verify-service-sid")
 @Property(name = "twilio.verify.android-app-hash", value = "android-app-hash")
@@ -53,6 +52,7 @@ import org.signal.registration.sender.twilio.verify.TwilioVerifySender;
 @Property(name = "twilio.voice.phone-numbers", value = "+12025550123")
 @Property(name = "twilio.voice.cdn-uri", value = "https://test.signal.org/")
 @Property(name = "twilio.voice.supported-languages", value = "en,de")
+@Property(name = "verification.sms.android-app-hash", value = "android-app-hash")
 class TwilioSenderSelectionStrategyTest {
 
   @MockBean(RegistrationService.class)
