@@ -5,10 +5,14 @@
 
 package org.signal.registration.sender.twilio;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.twilio.exception.ApiException;
 import io.micrometer.core.instrument.Metrics;
-import io.micrometer.core.instrument.Tags;
+import io.micrometer.core.instrument.Tag;
 import io.micronaut.core.annotation.Nullable;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Optional;
 import org.signal.registration.metrics.MetricsUtil;
 
 /**
@@ -24,13 +28,28 @@ public class AbstractTwilioSender {
   private static final String ERROR_CODE_TAG_NAME = "code";
 
   protected void incrementApiCallCounter(final String endpointName, @Nullable Throwable throwable) {
-    Tags tags = Tags.of(ENDPOINT_TAG_NAME, endpointName,
-        SUCCESS_TAG_NAME, String.valueOf(throwable == null));
+    final List<Tag> tags = new ArrayList<>(3);
+    tags.add(Tag.of(ENDPOINT_TAG_NAME, endpointName));
+    tags.add(Tag.of(SUCCESS_TAG_NAME, String.valueOf(throwable == null)));
 
-    if (throwable instanceof final ApiException apiException) {
-      tags = tags.and(ERROR_CODE_TAG_NAME, String.valueOf(apiException.getCode()));
-    }
+    findCausalApiException(throwable)
+        .ifPresent(apiException -> tags.add(Tag.of(ERROR_CODE_TAG_NAME, String.valueOf(apiException.getCode()))));
 
     Metrics.counter(CALL_COUNTER_NAME, tags).increment();
+  }
+
+  @VisibleForTesting
+  static Optional<ApiException> findCausalApiException(final Throwable throwable) {
+    Throwable current = throwable;
+
+    while (current != null) {
+      if (current instanceof ApiException apiException) {
+        return Optional.of(apiException);
+      }
+
+      current = current.getCause();
+    }
+
+    return Optional.empty();
   }
 }
