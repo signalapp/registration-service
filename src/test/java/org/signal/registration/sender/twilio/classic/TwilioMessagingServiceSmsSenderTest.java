@@ -11,8 +11,8 @@ import static org.mockito.Mockito.mock;
 import com.google.i18n.phonenumbers.PhoneNumberUtil;
 import com.twilio.http.TwilioRestClient;
 import java.util.Collections;
-import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import org.junit.jupiter.api.Test;
+import org.signal.registration.sender.ApiClientInstrumenter;
 import org.signal.registration.sender.ClientType;
 import org.signal.registration.sender.MessageTransport;
 import org.signal.registration.sender.UnsupportedMessageTransportException;
@@ -27,7 +27,7 @@ class TwilioMessagingServiceSmsSenderTest {
         mock(VerificationCodeGenerator.class),
         mock(VerificationSmsBodyProvider.class),
         new TwilioMessagingConfiguration(),
-        new SimpleMeterRegistry());
+        mock(ApiClientInstrumenter.class));
 
     assertThrows(UnsupportedMessageTransportException.class, () -> sender.sendVerificationCode(MessageTransport.VOICE,
         PhoneNumberUtil.getInstance().getExampleNumber("US"),

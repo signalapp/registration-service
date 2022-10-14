@@ -36,5 +36,6 @@ class CompletionExceptionsTest {
 
     assertEquals(completionException, CompletionExceptions.wrap(completionException));
     assertEquals(illegalStateException, CompletionExceptions.wrap(illegalStateException).getCause());
+    assertEquals(CompletionExceptions.unwrap(null), null);
   }
 }

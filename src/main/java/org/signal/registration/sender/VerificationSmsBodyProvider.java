@@ -13,6 +13,7 @@ import io.micronaut.context.i18n.ResourceBundleMessageSource;
 import jakarta.inject.Inject;
 import jakarta.inject.Singleton;
 import org.apache.commons.lang3.StringUtils;
+import org.signal.registration.util.PhoneNumbers;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -108,9 +109,7 @@ public class VerificationSmsBodyProvider {
       default -> GENERIC_MESSAGE_KEY;
     };
 
-    final String regionCode = Optional.ofNullable(PhoneNumberUtil.getInstance().getRegionCodeForNumber(phoneNumber))
-        .map(String::toUpperCase)
-        .orElse("XX");
+    final String regionCode = PhoneNumbers.regionCodeUpper(phoneNumber);
 
     final Optional<String> maybeMessageKeyWithVariant =
         Optional.ofNullable(configuration.getMessageVariantsByRegion().get(regionCode))

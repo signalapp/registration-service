@@ -12,7 +12,6 @@ import com.twilio.http.TwilioRestClient;
 import com.twilio.rest.api.v2010.account.Call;
 import com.twilio.type.PhoneNumber;
 import com.twilio.type.Twiml;
-import io.micrometer.core.instrument.MeterRegistry;
 import io.micronaut.context.MessageSource;
 import io.micronaut.context.i18n.ResourceBundleMessageSource;
 import jakarta.inject.Singleton;
@@ -24,12 +23,14 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ThreadLocalRandom;
+import org.signal.registration.sender.ApiClientInstrumenter;
 import org.signal.registration.sender.ClientType;
 import org.signal.registration.sender.MessageTransport;
 import org.signal.registration.sender.UnsupportedMessageTransportException;
 import org.signal.registration.sender.VerificationCodeGenerator;
 import org.signal.registration.sender.VerificationCodeSender;
 import org.signal.registration.util.CompletionExceptions;
+import org.signal.registration.sender.twilio.TwilioErrorCodeExtractor;
 
 /**
  * A concrete implementation of an {@code AbstractTwilioProvidedCodeSender} that sends its codes via the Twilio
@@ -41,7 +42,7 @@ public class TwilioVoiceSender extends AbstractTwilioProvidedCodeSender implemen
   private final TwilioRestClient twilioRestClient;
   private final VerificationCodeGenerator verificationCodeGenerator;
   private final TwilioVoiceConfiguration configuration;
-
+  private final ApiClientInstrumenter apiClientInstrumenter;
   private final MessageSource twimlMessageSource =
       new ResourceBundleMessageSource("org.signal.registration.twilio.voice.twiml");
 
@@ -50,13 +51,12 @@ public class TwilioVoiceSender extends AbstractTwilioProvidedCodeSender implemen
   public TwilioVoiceSender(final TwilioRestClient twilioRestClient,
       final VerificationCodeGenerator verificationCodeGenerator,
       final TwilioVoiceConfiguration configuration,
-      final MeterRegistry meterRegistry) {
-
-    super(meterRegistry);
-
+      final ApiClientInstrumenter apiClientInstrumenter) {
     this.twilioRestClient = twilioRestClient;
     this.verificationCodeGenerator = verificationCodeGenerator;
     this.configuration = configuration;
+    this.apiClientInstrumenter = apiClientInstrumenter;
+
   }
 
   @Override
@@ -101,7 +101,12 @@ public class TwilioVoiceSender extends AbstractTwilioProvidedCodeSender implemen
     return Call.creator(twilioNumberFromPhoneNumber(phoneNumber), fromPhoneNumber,
             buildCallTwiml(verificationCode, languageTag))
         .createAsync(twilioRestClient)
-        .whenComplete((call, throwable) -> incrementApiCallCounter("call.create", throwable))
+        .whenComplete((call, throwable) ->
+            this.apiClientInstrumenter.incrementCounter(
+                this.getName(),
+                "call.create",
+                throwable == null,
+                TwilioErrorCodeExtractor.extract(throwable)))
         .handle((ignored, throwable) -> {
           if (throwable == null || CompletionExceptions.unwrap(throwable) instanceof ApiException) {
             return buildSessionData(verificationCode);

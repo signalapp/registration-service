@@ -19,6 +19,7 @@ import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 import javax.annotation.Nullable;
 import org.apache.commons.lang3.StringUtils;
@@ -50,7 +51,7 @@ public class RegistrationService {
 
   private static final Logger logger = LoggerFactory.getLogger(RegistrationService.class);
 
-  private record SenderAndSessionData(VerificationCodeSender sender, byte[] sessionData) {};
+  private record SenderAndSessionData(VerificationCodeSender sender, byte[] sessionData) {}
 
   /**
    * Constructs a new registration service that chooses verification code senders with the given strategy and stores
@@ -71,7 +72,7 @@ public class RegistrationService {
     this.clock = clock;
 
     this.sendersByName = verificationCodeSenders.stream()
-        .collect(Collectors.toMap(VerificationCodeSender::getName, sender -> sender));
+        .collect(Collectors.toMap(VerificationCodeSender::getName, Function.identity()));
   }
 
   /**

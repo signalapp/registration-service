@@ -13,7 +13,6 @@ import com.twilio.http.TwilioRestClient;
 import com.twilio.rest.verify.v2.service.Verification;
 import com.twilio.rest.verify.v2.service.VerificationCheck;
 import com.twilio.rest.verify.v2.service.VerificationCreator;
-import io.micrometer.core.instrument.MeterRegistry;
 import jakarta.inject.Singleton;
 import java.time.Duration;
 import java.util.EnumMap;
@@ -21,11 +20,12 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
+import org.signal.registration.sender.ApiClientInstrumenter;
 import org.signal.registration.sender.ClientType;
 import org.signal.registration.sender.MessageTransport;
 import org.signal.registration.sender.UnsupportedMessageTransportException;
 import org.signal.registration.sender.VerificationCodeSender;
-import org.signal.registration.sender.twilio.AbstractTwilioSender;
+import org.signal.registration.sender.twilio.TwilioErrorCodeExtractor;
 import org.signal.registration.util.CompletionExceptions;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -34,10 +34,11 @@ import org.slf4j.LoggerFactory;
  * A Twilio Verify sender sends verification codes to end users via Twilio Verify.
  */
 @Singleton
-public class TwilioVerifySender extends AbstractTwilioSender implements VerificationCodeSender {
+public class TwilioVerifySender implements VerificationCodeSender {
 
   private final TwilioRestClient twilioRestClient;
   private final TwilioVerifyConfiguration configuration;
+  private final ApiClientInstrumenter apiClientInstrumenter;
 
   private static final Map<MessageTransport, Verification.Channel> CHANNELS_BY_TRANSPORT = new EnumMap<>(Map.of(
       MessageTransport.SMS, Verification.Channel.SMS,
@@ -46,14 +47,13 @@ public class TwilioVerifySender extends AbstractTwilioSender implements Verifica
 
   private static final Logger logger = LoggerFactory.getLogger(TwilioVerifySender.class);
 
-  protected TwilioVerifySender(final TwilioRestClient twilioRestClient,
+  protected TwilioVerifySender(
+      final TwilioRestClient twilioRestClient,
       final TwilioVerifyConfiguration configuration,
-      final MeterRegistry meterRegistry) {
-
-    super(meterRegistry);
-
+      final ApiClientInstrumenter apiClientInstrumenter) {
     this.twilioRestClient = twilioRestClient;
     this.configuration = configuration;
+    this.apiClientInstrumenter = apiClientInstrumenter;
   }
 
   @Override
@@ -61,12 +61,8 @@ public class TwilioVerifySender extends AbstractTwilioSender implements Verifica
       final Phonenumber.PhoneNumber phoneNumber,
       final List<Locale.LanguageRange> languageRanges,
       final ClientType clientType) {
-
-    return switch (messageTransport) {
-      case SMS -> true;
-      case VOICE -> CHANNELS_BY_TRANSPORT.containsKey(messageTransport) &&
-          Locale.lookupTag(languageRanges, configuration.getSupportedLanguages()) != null;
-    };
+    return CHANNELS_BY_TRANSPORT.containsKey(messageTransport) &&
+        Locale.lookupTag(languageRanges, configuration.getSupportedLanguages()) != null;
   }
 
   @Override
@@ -105,10 +101,13 @@ public class TwilioVerifySender extends AbstractTwilioSender implements Verifica
     }
 
     return verificationCreator.createAsync(twilioRestClient)
-        .whenComplete((sessionData, throwable) -> {
-          final String endpointName = "verification." + messageTransport.name().toLowerCase() + ".create";
-          incrementApiCallCounter(endpointName, throwable);
-        })
+        .whenComplete((sessionData, throwable) ->
+            this.apiClientInstrumenter.incrementCounter(
+                this.getName(),
+                "verification." + messageTransport.name().toLowerCase() + ".create",
+                throwable == null,
+                TwilioErrorCodeExtractor.extract(throwable))
+        )
         .handle((verification, throwable) -> {
           if (throwable == null || CompletionExceptions.unwrap(throwable) instanceof ApiException) {
             return TwilioVerifySessionData.newBuilder()
@@ -132,7 +131,11 @@ public class TwilioVerifySender extends AbstractTwilioSender implements Verifica
           .createAsync(twilioRestClient)
           .thenApply(VerificationCheck::getValid)
           .whenComplete((verificationCheck, throwable) ->
-              incrementApiCallCounter("verification_check.create", throwable));
+              apiClientInstrumenter.incrementCounter(
+                  this.getName(),
+                  "verification_check.create",
+                  throwable == null,
+                  TwilioErrorCodeExtractor.extract(throwable)));
     } catch (final InvalidProtocolBufferException e) {
       logger.error("Failed to parse stored session data", e);
       return CompletableFuture.failedFuture(e);

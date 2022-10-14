@@ -10,10 +10,8 @@ import com.google.i18n.phonenumbers.Phonenumber;
 import com.google.protobuf.InvalidProtocolBufferException;
 import com.twilio.type.PhoneNumber;
 import java.util.concurrent.CompletableFuture;
-import io.micrometer.core.instrument.MeterRegistry;
 import org.apache.commons.lang3.StringUtils;
 import org.signal.registration.sender.VerificationCodeSender;
-import org.signal.registration.sender.twilio.AbstractTwilioSender;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -21,15 +19,11 @@ import org.slf4j.LoggerFactory;
  * An abstract base class for verification code senders that use Twilio services, but generate their own verification
  * codes (i.e. Twilio services other than Verify).
  */
-abstract class AbstractTwilioProvidedCodeSender extends AbstractTwilioSender implements VerificationCodeSender {
+abstract class AbstractTwilioProvidedCodeSender implements VerificationCodeSender {
 
   private final Logger logger = LoggerFactory.getLogger(getClass());
 
-    AbstractTwilioProvidedCodeSender(final MeterRegistry meterRegistry) {
-      super(meterRegistry);
-    }
-
-    protected static byte[] buildSessionData(final String verificationCode) {
+  protected static byte[] buildSessionData(final String verificationCode) {
     return TwilioProvidedCodeSessionData.newBuilder()
         .setVerificationCode(verificationCode)
         .build()

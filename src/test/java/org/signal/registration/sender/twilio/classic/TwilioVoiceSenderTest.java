@@ -12,18 +12,18 @@ import static org.mockito.Mockito.mock;
 
 import com.google.i18n.phonenumbers.PhoneNumberUtil;
 import com.google.i18n.phonenumbers.Phonenumber;
+import com.twilio.http.TwilioRestClient;
 import java.net.URI;
 import java.util.Collections;
 import java.util.List;
 import java.util.Locale;
 import java.util.stream.Stream;
-import com.twilio.http.TwilioRestClient;
-import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
+import org.signal.registration.sender.ApiClientInstrumenter;
 import org.signal.registration.sender.ClientType;
 import org.signal.registration.sender.MessageTransport;
 import org.signal.registration.sender.UnsupportedMessageTransportException;
@@ -40,7 +40,11 @@ class TwilioVoiceSenderTest {
     configuration.setCdnUri(URI.create("https://example.com/"));
     configuration.setSupportedLanguages(List.of("en", "de"));
 
-    sender = new TwilioVoiceSender(mock(TwilioRestClient.class), new VerificationCodeGenerator(), configuration, new SimpleMeterRegistry());
+    sender = new TwilioVoiceSender(
+        mock(TwilioRestClient.class),
+        new VerificationCodeGenerator(),
+        configuration,
+        mock(ApiClientInstrumenter.class));
   }
 
   @ParameterizedTest

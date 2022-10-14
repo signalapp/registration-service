@@ -24,10 +24,6 @@ public class TwilioConfiguration {
   @NotBlank
   private String apiKeySecret;
 
-  private List<@NotBlank String> alwaysUseVerifyRegions = Collections.emptyList();
-
-  private List<@NotBlank String> neverUseVerifyRegions = Collections.emptyList();
-
   public String getAccountSid() {
     return accountSid;
   }
@@ -50,21 +46,5 @@ public class TwilioConfiguration {
 
   public void setApiKeySecret(final String apiKeySecret) {
     this.apiKeySecret = apiKeySecret;
-  }
-
-  public List<String> getAlwaysUseVerifyRegions() {
-    return alwaysUseVerifyRegions;
-  }
-
-  public void setAlwaysUseVerifyRegions(final List<String> alwaysUseVerifyRegions) {
-    this.alwaysUseVerifyRegions = alwaysUseVerifyRegions;
-  }
-
-  public List<String> getNeverUseVerifyRegions() {
-    return neverUseVerifyRegions;
-  }
-
-  public void setNeverUseVerifyRegions(final List<String> neverUseVerifyRegions) {
-    this.neverUseVerifyRegions = neverUseVerifyRegions;
   }
 }
