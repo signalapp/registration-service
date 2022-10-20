@@ -8,23 +8,25 @@ package org.signal.registration.sender.twilio.verify;
 import com.google.i18n.phonenumbers.PhoneNumberUtil;
 import com.google.i18n.phonenumbers.Phonenumber;
 import com.google.protobuf.InvalidProtocolBufferException;
+import com.twilio.exception.ApiException;
 import com.twilio.http.TwilioRestClient;
 import com.twilio.rest.verify.v2.service.Verification;
 import com.twilio.rest.verify.v2.service.VerificationCheck;
 import com.twilio.rest.verify.v2.service.VerificationCreator;
+import io.micrometer.core.instrument.MeterRegistry;
+import jakarta.inject.Singleton;
 import java.time.Duration;
 import java.util.EnumMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
-import io.micrometer.core.instrument.MeterRegistry;
-import jakarta.inject.Singleton;
 import org.signal.registration.sender.ClientType;
 import org.signal.registration.sender.MessageTransport;
 import org.signal.registration.sender.UnsupportedMessageTransportException;
 import org.signal.registration.sender.VerificationCodeSender;
 import org.signal.registration.sender.twilio.AbstractTwilioSender;
+import org.signal.registration.util.CompletionExceptions;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -100,14 +102,20 @@ public class TwilioVerifySender extends AbstractTwilioSender implements Verifica
     }
 
     return verificationCreator.createAsync(twilioRestClient)
-        .thenApply(verification -> TwilioVerifySessionData.newBuilder()
-            .setVerificationSid(verification.getSid())
-            .build()
-            .toByteArray())
         .whenComplete((sessionData, throwable) -> {
-              final String endpointName = "verification." + messageTransport.name().toLowerCase() + ".create";
-              incrementApiCallCounter(endpointName, throwable);
-            });
+          final String endpointName = "verification." + messageTransport.name().toLowerCase() + ".create";
+          incrementApiCallCounter(endpointName, throwable);
+        })
+        .handle((verification, throwable) -> {
+          if (throwable == null || CompletionExceptions.unwrap(throwable) instanceof ApiException) {
+            return TwilioVerifySessionData.newBuilder()
+                .setVerificationSid(verification != null ? verification.getSid() : "n/a")
+                .build()
+                .toByteArray();
+          }
+
+          throw CompletionExceptions.wrap(throwable);
+        });
   }
 
   @Override

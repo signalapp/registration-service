@@ -14,6 +14,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import org.signal.registration.metrics.MetricsUtil;
+import org.signal.registration.util.CompletionExceptions;
 
 /**
  * A Twilio sender sends and (optionally) verifies verification codes via one of Twilio's APIs. This abstract base class
@@ -46,16 +47,7 @@ public class AbstractTwilioSender {
 
   @VisibleForTesting
   static Optional<ApiException> findCausalApiException(final Throwable throwable) {
-    Throwable current = throwable;
-
-    while (current != null) {
-      if (current instanceof ApiException apiException) {
-        return Optional.of(apiException);
-      }
-
-      current = current.getCause();
-    }
-
-    return Optional.empty();
+    return CompletionExceptions.unwrap(throwable) instanceof ApiException apiException ?
+        Optional.of(apiException) : Optional.empty();
   }
 }

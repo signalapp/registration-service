@@ -7,6 +7,7 @@ package org.signal.registration.sender.twilio.classic;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.i18n.phonenumbers.Phonenumber;
+import com.twilio.exception.ApiException;
 import com.twilio.http.TwilioRestClient;
 import com.twilio.rest.api.v2010.account.Call;
 import com.twilio.type.PhoneNumber;
@@ -28,6 +29,7 @@ import org.signal.registration.sender.MessageTransport;
 import org.signal.registration.sender.UnsupportedMessageTransportException;
 import org.signal.registration.sender.VerificationCodeGenerator;
 import org.signal.registration.sender.VerificationCodeSender;
+import org.signal.registration.util.CompletionExceptions;
 
 /**
  * A concrete implementation of an {@code AbstractTwilioProvidedCodeSender} that sends its codes via the Twilio
@@ -100,7 +102,13 @@ public class TwilioVoiceSender extends AbstractTwilioProvidedCodeSender implemen
             buildCallTwiml(verificationCode, languageTag))
         .createAsync(twilioRestClient)
         .whenComplete((call, throwable) -> incrementApiCallCounter("call.create", throwable))
-        .thenApply(ignored -> buildSessionData(verificationCode));
+        .handle((ignored, throwable) -> {
+          if (throwable == null || CompletionExceptions.unwrap(throwable) instanceof ApiException) {
+            return buildSessionData(verificationCode);
+          }
+
+          throw CompletionExceptions.wrap(throwable);
+        });
   }
 
   @VisibleForTesting

@@ -6,6 +6,7 @@
 package org.signal.registration.sender.twilio.classic;
 
 import com.google.i18n.phonenumbers.Phonenumber;
+import com.twilio.exception.ApiException;
 import com.twilio.http.TwilioRestClient;
 import com.twilio.rest.api.v2010.account.Message;
 import io.micrometer.core.instrument.MeterRegistry;
@@ -16,11 +17,12 @@ import java.util.Locale;
 import java.util.concurrent.CompletableFuture;
 import org.apache.commons.lang3.StringUtils;
 import org.signal.registration.sender.ClientType;
-import org.signal.registration.sender.VerificationSmsBodyProvider;
 import org.signal.registration.sender.MessageTransport;
 import org.signal.registration.sender.UnsupportedMessageTransportException;
 import org.signal.registration.sender.VerificationCodeGenerator;
 import org.signal.registration.sender.VerificationCodeSender;
+import org.signal.registration.sender.VerificationSmsBodyProvider;
+import org.signal.registration.util.CompletionExceptions;
 
 /**
  * A concrete implementation of an {@code AbstractTwilioProvidedCodeSender} that sends its codes via the Twilio
@@ -97,6 +99,12 @@ public class TwilioMessagingServiceSmsSender extends AbstractTwilioProvidedCodeS
             verificationSmsBodyProvider.getVerificationSmsBody(phoneNumber, clientType, verificationCode, locale))
         .createAsync(twilioRestClient)
         .whenComplete((message, throwable) -> incrementApiCallCounter("message.create", throwable))
-        .thenApply(ignored -> buildSessionData(verificationCode));
+        .handle((ignored, throwable) -> {
+          if (throwable == null || CompletionExceptions.unwrap(throwable) instanceof ApiException) {
+            return buildSessionData(verificationCode);
+          }
+
+          throw CompletionExceptions.wrap(throwable);
+        });
   }
 }
