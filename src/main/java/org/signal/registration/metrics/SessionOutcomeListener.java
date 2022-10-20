@@ -8,7 +8,7 @@ package org.signal.registration.metrics;
 import com.google.i18n.phonenumbers.NumberParseException;
 import com.google.i18n.phonenumbers.PhoneNumberUtil;
 import com.google.i18n.phonenumbers.Phonenumber;
-import io.micrometer.core.instrument.Metrics;
+import io.micrometer.core.instrument.MeterRegistry;
 import io.micronaut.configuration.metrics.annotation.RequiresMetrics;
 import io.micronaut.context.event.ApplicationEventListener;
 import jakarta.inject.Singleton;
@@ -25,10 +25,16 @@ import org.slf4j.LoggerFactory;
 @RequiresMetrics
 public class SessionOutcomeListener implements ApplicationEventListener<SessionCompletedEvent> {
 
+  private final MeterRegistry meterRegistry;
+
   private static final String COUNTER_NAME =
       MetricsUtil.name(SessionOutcomeListener.class, "completedSessions");
 
   private static final Logger logger = LoggerFactory.getLogger(SessionOutcomeListener.class);
+
+  public SessionOutcomeListener(final MeterRegistry meterRegistry) {
+    this.meterRegistry = meterRegistry;
+  }
 
   @Override
   public void onApplicationEvent(final SessionCompletedEvent event) {
@@ -38,7 +44,7 @@ public class SessionOutcomeListener implements ApplicationEventListener<SessionC
       final Phonenumber.PhoneNumber phoneNumber =
           PhoneNumberUtil.getInstance().parse(event.session().getPhoneNumber(), null);
 
-      Metrics.counter(COUNTER_NAME,
+      meterRegistry.counter(COUNTER_NAME,
               "sender", session.getSenderName(),
               "verified", String.valueOf(StringUtils.isNotBlank(session.getVerifiedCode())),
               "countryCode", String.valueOf(phoneNumber.getCountryCode()),

@@ -12,6 +12,7 @@ import com.google.i18n.phonenumbers.PhoneNumberUtil;
 import com.twilio.http.TwilioRestClient;
 import java.util.Collections;
 import java.util.List;
+import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import org.junit.jupiter.api.Test;
 import org.signal.registration.sender.ClientType;
 import org.signal.registration.sender.MessageTransport;
@@ -29,7 +30,8 @@ class TwilioMessagingServiceSmsSenderTest {
     final TwilioMessagingServiceSmsSender sender = new TwilioMessagingServiceSmsSender(mock(TwilioRestClient.class),
         mock(VerificationCodeGenerator.class),
         mock(VerificationSmsBodyProvider.class),
-        configuration);
+        configuration,
+        new SimpleMeterRegistry());
 
     assertThrows(UnsupportedMessageTransportException.class, () -> sender.sendVerificationCode(MessageTransport.VOICE,
         PhoneNumberUtil.getInstance().getExampleNumber("US"),

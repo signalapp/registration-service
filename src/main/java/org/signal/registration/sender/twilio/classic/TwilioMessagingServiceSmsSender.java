@@ -8,6 +8,7 @@ package org.signal.registration.sender.twilio.classic;
 import com.google.i18n.phonenumbers.Phonenumber;
 import com.twilio.http.TwilioRestClient;
 import com.twilio.rest.api.v2010.account.Message;
+import io.micrometer.core.instrument.MeterRegistry;
 import jakarta.inject.Singleton;
 import java.time.Duration;
 import java.util.List;
@@ -36,7 +37,10 @@ public class TwilioMessagingServiceSmsSender extends AbstractTwilioProvidedCodeS
   public TwilioMessagingServiceSmsSender(final TwilioRestClient twilioRestClient,
       final VerificationCodeGenerator verificationCodeGenerator,
       final VerificationSmsBodyProvider verificationSmsBodyProvider,
-      final TwilioMessagingConfiguration configuration) {
+      final TwilioMessagingConfiguration configuration,
+      final MeterRegistry meterRegistry) {
+
+    super(meterRegistry);
 
     this.twilioRestClient = twilioRestClient;
     this.verificationCodeGenerator = verificationCodeGenerator;

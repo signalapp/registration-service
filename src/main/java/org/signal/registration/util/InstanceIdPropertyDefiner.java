@@ -11,19 +11,18 @@ import org.apache.commons.lang3.StringUtils;
 import java.util.UUID;
 
 /**
- * An instance ID property definer attempts to provide a GCP instance ID as a value, but falls back to a random ID if
- * no instance ID is available.
+ * An instance ID property definer provides an instance ID as a property for Logback appenders.
  *
  * @see <a href="https://logback.qos.ch/manual/configuration.html#definingPropsOnTheFly">Logback Manual - Chapter 3:
  * Logback configuration - Defining variables, aka properties, on the fly</a>
+ *
+ * @see InstanceIdSupplier
  */
 @SuppressWarnings("unused")
 public class InstanceIdPropertyDefiner extends PropertyDefinerBase {
 
-  private static final String FALLBACK_INSTANCE_ID = UUID.randomUUID().toString();
-
   @Override
   public String getPropertyValue() {
-    return StringUtils.defaultIfBlank(MetadataConfig.getInstanceId(), FALLBACK_INSTANCE_ID);
+    return InstanceIdSupplier.getInstanceId();
   }
 }

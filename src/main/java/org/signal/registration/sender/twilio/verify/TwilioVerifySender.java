@@ -18,6 +18,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
+import io.micrometer.core.instrument.MeterRegistry;
 import jakarta.inject.Singleton;
 import org.signal.registration.sender.ClientType;
 import org.signal.registration.sender.MessageTransport;
@@ -43,7 +44,12 @@ public class TwilioVerifySender extends AbstractTwilioSender implements Verifica
 
   private static final Logger logger = LoggerFactory.getLogger(TwilioVerifySender.class);
 
-  protected TwilioVerifySender(final TwilioRestClient twilioRestClient, final TwilioVerifyConfiguration configuration) {
+  protected TwilioVerifySender(final TwilioRestClient twilioRestClient,
+      final TwilioVerifyConfiguration configuration,
+      final MeterRegistry meterRegistry) {
+
+    super(meterRegistry);
+
     this.twilioRestClient = twilioRestClient;
     this.configuration = configuration;
   }

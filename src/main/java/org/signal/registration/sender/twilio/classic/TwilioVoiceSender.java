@@ -11,6 +11,7 @@ import com.twilio.http.TwilioRestClient;
 import com.twilio.rest.api.v2010.account.Call;
 import com.twilio.type.PhoneNumber;
 import com.twilio.type.Twiml;
+import io.micrometer.core.instrument.MeterRegistry;
 import io.micronaut.context.MessageSource;
 import io.micronaut.context.i18n.ResourceBundleMessageSource;
 import jakarta.inject.Singleton;
@@ -46,7 +47,10 @@ public class TwilioVoiceSender extends AbstractTwilioProvidedCodeSender implemen
 
   public TwilioVoiceSender(final TwilioRestClient twilioRestClient,
       final VerificationCodeGenerator verificationCodeGenerator,
-      final TwilioVoiceConfiguration configuration) {
+      final TwilioVoiceConfiguration configuration,
+      final MeterRegistry meterRegistry) {
+
+    super(meterRegistry);
 
     this.twilioRestClient = twilioRestClient;
     this.verificationCodeGenerator = verificationCodeGenerator;

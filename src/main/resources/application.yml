@@ -8,6 +8,7 @@ micronaut:
         enabled: false
         step: PT20S
     tags:
+      # Note that an `instance` tag is added at runtime in `Application.java`
       service: registration
 
 twilio:

@@ -21,6 +21,7 @@ import com.google.protobuf.ByteString;
 import io.lettuce.core.RedisClient;
 import io.lettuce.core.api.StatefulRedisConnection;
 import io.lettuce.core.codec.ByteArrayCodec;
+import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import io.micronaut.context.event.ApplicationEventPublisher;
 import io.micronaut.core.io.socket.SocketUtils;
 import java.io.IOException;
@@ -96,7 +97,7 @@ class RedisSessionRepositoryTest extends AbstractSessionRepositoryTest {
   @Override
   protected RedisSessionRepository getRepository() {
     try {
-      return new RedisSessionRepository(redisConnection, sessionCompletedEventPublisher, clock);
+      return new RedisSessionRepository(redisConnection, new SimpleMeterRegistry(), sessionCompletedEventPublisher, clock);
     } catch (final IOException e) {
       throw new UncheckedIOException(e);
     }

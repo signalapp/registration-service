@@ -15,7 +15,7 @@ import io.lettuce.core.ScriptOutputType;
 import io.lettuce.core.SetArgs;
 import io.lettuce.core.Value;
 import io.lettuce.core.api.StatefulRedisConnection;
-import io.micrometer.core.instrument.Metrics;
+import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.Timer;
 import io.micronaut.context.event.ApplicationEventPublisher;
 import io.micronaut.retry.annotation.CircuitBreaker;
@@ -42,7 +42,6 @@ import org.signal.registration.session.SessionNotFoundException;
 import org.signal.registration.session.SessionRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import reactor.core.publisher.Mono;
 
 /**
  * A session repository that stores session data in a single (i.e. non-clustered) Redis instance.
@@ -72,19 +71,24 @@ class RedisSessionRepository implements SessionRepository {
   static final byte[] EXPIRATION_QUEUE_KEY = "expiration-queue".getBytes(StandardCharsets.UTF_8);
   private static final Duration FALLBACK_TTL_PADDING = Duration.ofMinutes(2);
 
-  private static final Timer CREATE_SESSION_TIMER = Metrics.timer(MetricsUtil.name(RedisSessionRepository.class, "createSession"));
-  private static final Timer GET_SESSION_TIMER = Metrics.timer(MetricsUtil.name(RedisSessionRepository.class, "getSession"));
-  private static final Timer UPDATE_SESSION_TIMER = Metrics.timer(MetricsUtil.name(RedisSessionRepository.class, "updateSession"));
+  private final Timer createSessionTimer;
+  private final Timer getSessionTimer;
+  private final Timer updateSessionTimer;
 
   private static final Logger logger = LoggerFactory.getLogger(RedisSessionRepository.class);
 
   RedisSessionRepository(final StatefulRedisConnection<byte[], byte[]> redisConnection,
+      final MeterRegistry meterRegistry,
       final ApplicationEventPublisher<SessionCompletedEvent> sessionCompletedEventPublisher,
       final Clock clock) throws IOException {
 
     this.redisConnection = redisConnection;
     this.sessionCompletedEventPublisher = sessionCompletedEventPublisher;
     this.clock = clock;
+
+    createSessionTimer = meterRegistry.timer(MetricsUtil.name(RedisSessionRepository.class, "createSession"));
+    getSessionTimer = meterRegistry.timer(MetricsUtil.name(RedisSessionRepository.class, "getSession"));
+    updateSessionTimer = meterRegistry.timer(MetricsUtil.name(RedisSessionRepository.class, "updateSession"));
 
     try (final InputStream scriptInputStream = Objects.requireNonNull(
         getClass().getResourceAsStream("update-session.lua"))) {
@@ -138,7 +142,7 @@ class RedisSessionRepository implements SessionRepository {
     return redisConnection.async().set(getSessionKey(sessionId), sessionBytes, SetArgs.Builder.px(ttl.plus(FALLBACK_TTL_PADDING)))
         .thenCompose(ignored -> redisConnection.async().zadd(EXPIRATION_QUEUE_KEY, expiration.toEpochMilli(), getSessionKey(sessionId)))
         .thenApply(ignored -> sessionId)
-        .whenComplete((id, throwable) -> sample.stop(CREATE_SESSION_TIMER))
+        .whenComplete((id, throwable) -> sample.stop(createSessionTimer))
         .toCompletableFuture();
   }
 
@@ -158,7 +162,7 @@ class RedisSessionRepository implements SessionRepository {
             throw new CompletionException(new SessionNotFoundException());
           }
         })
-        .whenComplete((session, throwable) -> sample.stop(GET_SESSION_TIMER))
+        .whenComplete((session, throwable) -> sample.stop(getSessionTimer))
         .toCompletableFuture();
   }
 
@@ -184,7 +188,7 @@ class RedisSessionRepository implements SessionRepository {
             }
           });
         })
-        .whenComplete((session, throwable) -> sample.stop(UPDATE_SESSION_TIMER));
+        .whenComplete((session, throwable) -> sample.stop(updateSessionTimer));
   }
 
   @VisibleForTesting

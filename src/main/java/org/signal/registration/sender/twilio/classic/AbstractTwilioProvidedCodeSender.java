@@ -10,6 +10,7 @@ import com.google.i18n.phonenumbers.Phonenumber;
 import com.google.protobuf.InvalidProtocolBufferException;
 import com.twilio.type.PhoneNumber;
 import java.util.concurrent.CompletableFuture;
+import io.micrometer.core.instrument.MeterRegistry;
 import org.apache.commons.lang3.StringUtils;
 import org.signal.registration.sender.VerificationCodeSender;
 import org.signal.registration.sender.twilio.AbstractTwilioSender;
@@ -24,7 +25,11 @@ abstract class AbstractTwilioProvidedCodeSender extends AbstractTwilioSender imp
 
   private final Logger logger = LoggerFactory.getLogger(getClass());
 
-  protected static byte[] buildSessionData(final String verificationCode) {
+    AbstractTwilioProvidedCodeSender(final MeterRegistry meterRegistry) {
+      super(meterRegistry);
+    }
+
+    protected static byte[] buildSessionData(final String verificationCode) {
     return TwilioProvidedCodeSessionData.newBuilder()
         .setVerificationCode(verificationCode)
         .build()

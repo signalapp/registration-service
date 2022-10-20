@@ -15,6 +15,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.stream.Stream;
 import com.twilio.http.TwilioRestClient;
+import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
@@ -34,7 +35,7 @@ class TwilioVerifySenderTest {
     configuration.setServiceFriendlyName("friendly-name");
     configuration.setSupportedLanguages(List.of("en"));
     
-    twilioVerifySender = new TwilioVerifySender(mock(TwilioRestClient.class), configuration);
+    twilioVerifySender = new TwilioVerifySender(mock(TwilioRestClient.class), configuration, new SimpleMeterRegistry());
   }
 
   @ParameterizedTest

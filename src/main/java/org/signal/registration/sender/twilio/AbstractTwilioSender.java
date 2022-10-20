@@ -7,7 +7,7 @@ package org.signal.registration.sender.twilio;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.twilio.exception.ApiException;
-import io.micrometer.core.instrument.Metrics;
+import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.Tag;
 import io.micronaut.core.annotation.Nullable;
 import java.util.ArrayList;
@@ -21,11 +21,17 @@ import org.signal.registration.metrics.MetricsUtil;
  */
 public class AbstractTwilioSender {
 
+  private final MeterRegistry meterRegistry;
+
   private static final String CALL_COUNTER_NAME = MetricsUtil.name(AbstractTwilioSender.class, "apiCalls");
 
   private static final String ENDPOINT_TAG_NAME = "endpoint";
   private static final String SUCCESS_TAG_NAME = "success";
   private static final String ERROR_CODE_TAG_NAME = "code";
+
+  public AbstractTwilioSender(final MeterRegistry meterRegistry) {
+    this.meterRegistry = meterRegistry;
+  }
 
   protected void incrementApiCallCounter(final String endpointName, @Nullable Throwable throwable) {
     final List<Tag> tags = new ArrayList<>(3);
@@ -35,7 +41,7 @@ public class AbstractTwilioSender {
     findCausalApiException(throwable)
         .ifPresent(apiException -> tags.add(Tag.of(ERROR_CODE_TAG_NAME, String.valueOf(apiException.getCode()))));
 
-    Metrics.counter(CALL_COUNTER_NAME, tags).increment();
+    meterRegistry.counter(CALL_COUNTER_NAME, tags).increment();
   }
 
   @VisibleForTesting
