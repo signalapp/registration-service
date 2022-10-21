@@ -20,6 +20,7 @@ import org.signal.registration.sender.twilio.verify.TwilioVerifySender;
 
 import java.util.List;
 import java.util.Locale;
+import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -75,7 +76,10 @@ public class TwilioSenderSelectionStrategy implements SenderSelectionStrategy {
     } else if (fictitiousNumberVerificationCodeSender.supportsDestination(transport, phoneNumber, languageRanges, clientType)) {
       sender = fictitiousNumberVerificationCodeSender;
     } else {
-      final String region = PhoneNumberUtil.getInstance().getRegionCodeForNumber(phoneNumber).toUpperCase();
+      final String region = Optional.ofNullable(PhoneNumberUtil.getInstance().getRegionCodeForNumber(phoneNumber))
+          .map(String::toUpperCase)
+          .orElse("XX");
+
       final boolean useTwilioVerify;
 
       if (alwaysUseVerifyRegions.contains(region)) {

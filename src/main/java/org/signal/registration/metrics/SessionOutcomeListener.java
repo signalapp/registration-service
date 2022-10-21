@@ -17,6 +17,7 @@ import org.signal.registration.session.RegistrationSession;
 import org.signal.registration.session.SessionCompletedEvent;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import java.util.Optional;
 
 /**
  * A session outcome listener reports basic metrics about completed sessions.
@@ -48,7 +49,8 @@ public class SessionOutcomeListener implements ApplicationEventListener<SessionC
               "sender", session.getSenderName(),
               "verified", String.valueOf(StringUtils.isNotBlank(session.getVerifiedCode())),
               "countryCode", String.valueOf(phoneNumber.getCountryCode()),
-              "regionCode", PhoneNumberUtil.getInstance().getRegionCodeForNumber(phoneNumber))
+              "regionCode", Optional.ofNullable(PhoneNumberUtil.getInstance().getRegionCodeForNumber(phoneNumber))
+                  .orElse("XX"))
           .increment();
     } catch (final NumberParseException e) {
       logger.warn("Failed to parse phone number from completed session", e);

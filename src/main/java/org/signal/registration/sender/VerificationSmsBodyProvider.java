@@ -97,7 +97,9 @@ public class VerificationSmsBodyProvider {
       default -> GENERIC_MESSAGE_KEY;
     };
 
-    final String regionCode = PhoneNumberUtil.getInstance().getRegionCodeForNumber(phoneNumber).toUpperCase();
+    final String regionCode = Optional.ofNullable(PhoneNumberUtil.getInstance().getRegionCodeForNumber(phoneNumber))
+        .map(String::toUpperCase)
+        .orElse("XX");
 
     final Optional<String> maybeMessageKeyWithVariant =
         Optional.ofNullable(configuration.getMessageVariantsByRegion().get(regionCode))
