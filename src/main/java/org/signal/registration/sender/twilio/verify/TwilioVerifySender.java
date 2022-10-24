@@ -62,8 +62,11 @@ public class TwilioVerifySender extends AbstractTwilioSender implements Verifica
       final List<Locale.LanguageRange> languageRanges,
       final ClientType clientType) {
 
-    return CHANNELS_BY_TRANSPORT.containsKey(messageTransport) &&
-        Locale.lookupTag(languageRanges, configuration.getSupportedLanguages()) != null;
+    return switch (messageTransport) {
+      case SMS -> true;
+      case VOICE -> CHANNELS_BY_TRANSPORT.containsKey(messageTransport) &&
+          Locale.lookupTag(languageRanges, configuration.getSupportedLanguages()) != null;
+    };
   }
 
   @Override

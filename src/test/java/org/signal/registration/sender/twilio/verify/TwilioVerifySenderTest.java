@@ -60,7 +60,9 @@ class TwilioVerifySenderTest {
         Arguments.of(MessageTransport.SMS, phoneNumber, Locale.LanguageRange.parse("en"), ClientType.ANDROID_WITHOUT_FCM, true),
         Arguments.of(MessageTransport.SMS, phoneNumber, Locale.LanguageRange.parse("en"), ClientType.ANDROID_WITH_FCM, true),
         Arguments.of(MessageTransport.SMS, phoneNumber, Locale.LanguageRange.parse("en"), ClientType.UNKNOWN, true),
-        Arguments.of(MessageTransport.SMS, phoneNumber, Locale.LanguageRange.parse("ja"), ClientType.IOS, false),
-        Arguments.of(MessageTransport.SMS, phoneNumber, Locale.LanguageRange.parse("ja,en;q=0.4"), ClientType.IOS, true));
+        Arguments.of(MessageTransport.SMS, phoneNumber, Locale.LanguageRange.parse("ja"), ClientType.IOS, true),
+        Arguments.of(MessageTransport.VOICE, phoneNumber, Locale.LanguageRange.parse("ja"), ClientType.IOS, false),
+        Arguments.of(MessageTransport.SMS, phoneNumber, Locale.LanguageRange.parse("ja,en;q=0.4"), ClientType.IOS, true),
+        Arguments.of(MessageTransport.VOICE, phoneNumber, Locale.LanguageRange.parse("ja,en;q=0.4"), ClientType.IOS, true));
   }
 }

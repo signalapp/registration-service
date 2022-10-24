@@ -128,7 +128,7 @@ class TwilioSenderSelectionStrategyTest {
   private static Stream<Arguments> chooseVerificationCodeSender() {
     return Stream.of(
         Arguments.of(MessageTransport.SMS,   NON_PRESCRIBED_CODE_NUMBER, "de", ClientType.IOS, TwilioVerifySender.class),
-        Arguments.of(MessageTransport.SMS,   NON_PRESCRIBED_CODE_NUMBER, "fr", ClientType.IOS, TwilioMessagingServiceSmsSender.class),
+        Arguments.of(MessageTransport.SMS,   NON_PRESCRIBED_CODE_NUMBER, "fr", ClientType.IOS, TwilioVerifySender.class),
         Arguments.of(MessageTransport.VOICE, NON_PRESCRIBED_CODE_NUMBER, "de", ClientType.IOS, TwilioVerifySender.class),
         Arguments.of(MessageTransport.VOICE, NON_PRESCRIBED_CODE_NUMBER, "fr", ClientType.IOS, TwilioVoiceSender.class),
         Arguments.of(MessageTransport.SMS,   PRESCRIBED_CODE_NUMBER,     "en", ClientType.IOS, PrescribedVerificationCodeSender.class),
