@@ -280,9 +280,17 @@
         <artifactId>jib-maven-plugin</artifactId>
         <version>${jib-maven-plugin.version}</version>
         <configuration>
-          <!-- Because we have two executable classes (the service itself and the CLI), we need to specify which should
-          be the entrypoint for Docker images -->
+          <from>
+            <image>eclipse-temurin:17-alpine</image>
+          </from>
+
           <container>
+            <jvmFlags>
+              <jvmFlag>-XX:MaxRAMPercentage=75</jvmFlag>
+            </jvmFlags>
+
+            <!-- Because we have two executable classes (the service itself and the CLI), we need to specify which
+            should be the entrypoint for Docker images -->
             <mainClass>org.signal.registration.Application</mainClass>
           </container>
         </configuration>
