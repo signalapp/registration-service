@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: AGPL-3.0-only
  */
 
-package org.signal.registration.sender.gcp;
+package org.signal.registration.gcp;
 
 import com.google.auth.oauth2.GoogleCredentials;
 import com.google.cloud.firestore.Firestore;
