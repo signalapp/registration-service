@@ -20,6 +20,7 @@ import com.google.protobuf.ByteString;
 import com.google.protobuf.InvalidProtocolBufferException;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.Timer;
+import io.micronaut.context.annotation.Primary;
 import io.micronaut.context.annotation.Requires;
 import io.micronaut.context.event.ApplicationEventPublisher;
 import io.micronaut.scheduling.TaskExecutors;
@@ -51,6 +52,7 @@ import org.signal.registration.util.FirestoreUtil;
  * policy that will automatically remove stale sessions after some amount of time.
  */
 @Requires(bean = Firestore.class)
+@Primary
 @Singleton
 public class FirestoreSessionRepository implements SessionRepository {
 
