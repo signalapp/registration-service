@@ -11,8 +11,6 @@ import com.google.i18n.phonenumbers.Phonenumber;
 import com.google.protobuf.ByteString;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.mockito.invocation.InvocationOnMock;
-import org.mockito.stubbing.Answer;
 import org.signal.registration.sender.ClientType;
 import org.signal.registration.sender.MessageTransport;
 import org.signal.registration.sender.SenderSelectionStrategy;
@@ -45,6 +43,7 @@ class RegistrationServiceTest {
 
   private VerificationCodeSender sender;
   private SessionRepository sessionRepository;
+  private SessionRepository secondarySessionRepository;
 
   private static final Phonenumber.PhoneNumber PHONE_NUMBER;
   private static final UUID SESSION_ID = UUID.randomUUID();
@@ -73,10 +72,18 @@ class RegistrationServiceTest {
     sessionRepository = mock(SessionRepository.class);
     when(sessionRepository.updateSession(any(), any())).thenReturn(CompletableFuture.completedFuture(null));
 
+    secondarySessionRepository = mock(SessionRepository.class);
+    when(secondarySessionRepository.getSession(any()))
+        .thenReturn(CompletableFuture.failedFuture(new SessionNotFoundException()));
+
+    when(secondarySessionRepository.updateSession(any(), any()))
+        .thenReturn(CompletableFuture.failedFuture(new SessionNotFoundException()));
+
     final SenderSelectionStrategy senderSelectionStrategy = mock(SenderSelectionStrategy.class);
     when(senderSelectionStrategy.chooseVerificationCodeSender(any(), any(), any(), any())).thenReturn(sender);
 
-    registrationService = new RegistrationService(senderSelectionStrategy, sessionRepository, List.of(sender));
+    registrationService = new RegistrationService(senderSelectionStrategy, sessionRepository, List.of(sessionRepository,
+        secondarySessionRepository), List.of(sender));
   }
 
   @Test
@@ -153,7 +160,7 @@ class RegistrationServiceTest {
     final UUID sessionId = UUID.randomUUID();
 
     assertDoesNotThrow(
-        () -> registrationService.updateSessionWithRetries(sessionId, session -> session, 1).join());
+        () -> registrationService.updateSessionWithRetries(sessionId, session -> session, sessionRepository, 1).join());
 
     verify(sessionRepository, times(2)).updateSession(eq(sessionId), any());
   }
@@ -166,7 +173,7 @@ class RegistrationServiceTest {
     final UUID sessionId = UUID.randomUUID();
 
     assertDoesNotThrow(
-        () -> registrationService.updateSessionWithRetries(sessionId, session -> session, 1).join());
+        () -> registrationService.updateSessionWithRetries(sessionId, session -> session, sessionRepository, 1).join());
 
     verify(sessionRepository).updateSession(eq(sessionId), any());
   }
@@ -180,7 +187,7 @@ class RegistrationServiceTest {
     final int retries = 3;
 
     final CompletionException completionException = assertThrows(CompletionException.class,
-        () -> registrationService.updateSessionWithRetries(sessionId, session -> session, retries).join());
+        () -> registrationService.updateSessionWithRetries(sessionId, session -> session, sessionRepository, retries).join());
 
     assertTrue(completionException.getCause() instanceof ConflictingUpdateException);
 
@@ -196,7 +203,7 @@ class RegistrationServiceTest {
     final UUID sessionId = UUID.randomUUID();
 
     final CompletionException completionException = assertThrows(CompletionException.class,
-        () -> registrationService.updateSessionWithRetries(sessionId, session -> session, 1).join());
+        () -> registrationService.updateSessionWithRetries(sessionId, session -> session, sessionRepository, 1).join());
 
     assertTrue(completionException.getCause() instanceof IllegalArgumentException);
 

@@ -17,6 +17,7 @@ import io.lettuce.core.Value;
 import io.lettuce.core.api.StatefulRedisConnection;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.Timer;
+import io.micronaut.context.annotation.Primary;
 import io.micronaut.context.event.ApplicationEventPublisher;
 import io.micronaut.retry.annotation.CircuitBreaker;
 import io.micronaut.scheduling.annotation.Scheduled;
@@ -56,6 +57,7 @@ import org.slf4j.LoggerFactory;
  * for any reason, though sessions removed in that manner will not trigger a {@code SessionCompletedEvent}.
  */
 @Singleton
+@Primary
 @CircuitBreaker(attempts = "${redis-session-repository.circuit-breaker.attempts:3}",
     delay = "${redis-session-repository.circuit-breaker.delay:500ms}",
     reset = "${redis-session-repository.circuit-breaker.reset:5s}")

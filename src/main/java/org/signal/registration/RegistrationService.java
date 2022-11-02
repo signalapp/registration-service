@@ -8,6 +8,7 @@ package org.signal.registration;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.i18n.phonenumbers.Phonenumber;
 import jakarta.inject.Singleton;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -35,7 +36,8 @@ import org.slf4j.LoggerFactory;
 public class RegistrationService {
 
   private final SenderSelectionStrategy senderSelectionStrategy;
-  private final SessionRepository sessionRepository;
+  private final SessionRepository primarySessionRepository;
+  private final List<SessionRepository> allSessionRepositories;
 
   private final Map<String, VerificationCodeSender> sendersByName;
 
@@ -47,16 +49,19 @@ public class RegistrationService {
    * Constructs a new registration service that chooses verification code senders with the given strategy and stores
    * session data with the given session repository.
    *
-   * @param senderSelectionStrategy the strategy to use to choose verification code senders
-   * @param sessionRepository the repository to use to store session data
-   * @param verificationCodeSenders a list of verification code senders that may be used by this service
+   * @param senderSelectionStrategy  the strategy to use to choose verification code senders
+   * @param primarySessionRepository the repository to use to store session data
+   * @param allSessionRepositories all active session repositories; sessions may be read from any session repository,
+   *                               but will only be written to the primary repository
+   * @param verificationCodeSenders  a list of verification code senders that may be used by this service
    */
   public RegistrationService(final SenderSelectionStrategy senderSelectionStrategy,
-      final SessionRepository sessionRepository,
-      final List<VerificationCodeSender> verificationCodeSenders) {
+      final SessionRepository primarySessionRepository,
+      final List<SessionRepository> allSessionRepositories, final List<VerificationCodeSender> verificationCodeSenders) {
 
     this.senderSelectionStrategy = senderSelectionStrategy;
-    this.sessionRepository = sessionRepository;
+    this.primarySessionRepository = primarySessionRepository;
+    this.allSessionRepositories = allSessionRepositories;
 
     this.sendersByName = verificationCodeSenders.stream()
         .collect(Collectors.toMap(VerificationCodeSender::getName, sender -> sender));
@@ -83,7 +88,7 @@ public class RegistrationService {
         senderSelectionStrategy.chooseVerificationCodeSender(messageTransport, phoneNumber, languageRanges, clientType);
 
     return sender.sendVerificationCode(messageTransport, phoneNumber, languageRanges, clientType)
-        .thenCompose(sessionData -> sessionRepository.createSession(phoneNumber, sender, sender.getSessionTtl(), sessionData));
+        .thenCompose(sessionData -> primarySessionRepository.createSession(phoneNumber, sender, sender.getSessionTtl(), sessionData));
   }
 
   /**
@@ -99,6 +104,18 @@ public class RegistrationService {
    * session or {@code false} otherwise
    */
   public CompletableFuture<Boolean> checkRegistrationCode(final UUID sessionId, final String verificationCode) {
+    @SuppressWarnings("unchecked") final CompletableFuture<Boolean>[] checkCodeFutures =
+        allSessionRepositories.stream()
+            .map(sessionRepository -> checkRegistrationCode(sessionId, verificationCode, sessionRepository))
+            .toList()
+            .toArray(new CompletableFuture[0]);
+
+    return CompletableFuture.allOf(checkCodeFutures)
+        .thenApply(ignored -> Arrays.stream(checkCodeFutures)
+            .anyMatch(CompletableFuture::join));
+  }
+
+  private CompletableFuture<Boolean> checkRegistrationCode(final UUID sessionId, final String verificationCode, final SessionRepository sessionRepository) {
     return sessionRepository.getSession(sessionId)
         .thenCompose(session -> {
           // If a connection was interrupted, a caller may repeat a verification request. Check to see if we already
@@ -118,7 +135,7 @@ public class RegistrationService {
                   if (verified) {
                     // Store the known-verified code for future potentially-repeated calls
                     return updateSessionWithRetries(sessionId,
-                        s -> s.toBuilder().setVerifiedCode(verificationCode).build(), UPDATE_RETRIES)
+                        s -> s.toBuilder().setVerifiedCode(verificationCode).build(), sessionRepository, UPDATE_RETRIES)
                         .thenApply(ignored -> true);
                   } else {
                     return CompletableFuture.completedFuture(false);
@@ -137,12 +154,14 @@ public class RegistrationService {
 
   @VisibleForTesting
   CompletableFuture<RegistrationSession> updateSessionWithRetries(final UUID sessionId,
-      final Function<RegistrationSession, RegistrationSession> sessionUpdater, final int remainingRetries) {
+      final Function<RegistrationSession, RegistrationSession> sessionUpdater,
+      final SessionRepository sessionRepository,
+      final int remainingRetries) {
 
     if (remainingRetries >= 0) {
       return sessionRepository.updateSession(sessionId, sessionUpdater)
           .exceptionallyCompose(throwable -> throwable instanceof ConflictingUpdateException ?
-              updateSessionWithRetries(sessionId, sessionUpdater, remainingRetries - 1) :
+              updateSessionWithRetries(sessionId, sessionUpdater, sessionRepository, remainingRetries - 1) :
               CompletableFuture.failedFuture(throwable));
     } else {
       logger.warn("Exhausted retries while attempting to update session {}", sessionId);
