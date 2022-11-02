@@ -8,7 +8,6 @@ package org.signal.registration;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.i18n.phonenumbers.Phonenumber;
 import jakarta.inject.Singleton;
-import java.util.Arrays;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -36,8 +35,7 @@ import org.slf4j.LoggerFactory;
 public class RegistrationService {
 
   private final SenderSelectionStrategy senderSelectionStrategy;
-  private final SessionRepository primarySessionRepository;
-  private final List<SessionRepository> allSessionRepositories;
+  private final SessionRepository sessionRepository;
 
   private final Map<String, VerificationCodeSender> sendersByName;
 
@@ -50,18 +48,15 @@ public class RegistrationService {
    * session data with the given session repository.
    *
    * @param senderSelectionStrategy  the strategy to use to choose verification code senders
-   * @param primarySessionRepository the repository to use to store session data
-   * @param allSessionRepositories all active session repositories; sessions may be read from any session repository,
-   *                               but will only be written to the primary repository
+   * @param sessionRepository the repository to use to store session data
    * @param verificationCodeSenders  a list of verification code senders that may be used by this service
    */
   public RegistrationService(final SenderSelectionStrategy senderSelectionStrategy,
-      final SessionRepository primarySessionRepository,
-      final List<SessionRepository> allSessionRepositories, final List<VerificationCodeSender> verificationCodeSenders) {
+      final SessionRepository sessionRepository,
+      final List<VerificationCodeSender> verificationCodeSenders) {
 
     this.senderSelectionStrategy = senderSelectionStrategy;
-    this.primarySessionRepository = primarySessionRepository;
-    this.allSessionRepositories = allSessionRepositories;
+    this.sessionRepository = sessionRepository;
 
     this.sendersByName = verificationCodeSenders.stream()
         .collect(Collectors.toMap(VerificationCodeSender::getName, sender -> sender));
@@ -88,7 +83,7 @@ public class RegistrationService {
         senderSelectionStrategy.chooseVerificationCodeSender(messageTransport, phoneNumber, languageRanges, clientType);
 
     return sender.sendVerificationCode(messageTransport, phoneNumber, languageRanges, clientType)
-        .thenCompose(sessionData -> primarySessionRepository.createSession(phoneNumber, sender, sender.getSessionTtl(), sessionData));
+        .thenCompose(sessionData -> sessionRepository.createSession(phoneNumber, sender, sender.getSessionTtl(), sessionData));
   }
 
   /**
@@ -104,18 +99,6 @@ public class RegistrationService {
    * session or {@code false} otherwise
    */
   public CompletableFuture<Boolean> checkRegistrationCode(final UUID sessionId, final String verificationCode) {
-    @SuppressWarnings("unchecked") final CompletableFuture<Boolean>[] checkCodeFutures =
-        allSessionRepositories.stream()
-            .map(sessionRepository -> checkRegistrationCode(sessionId, verificationCode, sessionRepository))
-            .toList()
-            .toArray(new CompletableFuture[0]);
-
-    return CompletableFuture.allOf(checkCodeFutures)
-        .thenApply(ignored -> Arrays.stream(checkCodeFutures)
-            .anyMatch(CompletableFuture::join));
-  }
-
-  private CompletableFuture<Boolean> checkRegistrationCode(final UUID sessionId, final String verificationCode, final SessionRepository sessionRepository) {
     return sessionRepository.getSession(sessionId)
         .thenCompose(session -> {
           // If a connection was interrupted, a caller may repeat a verification request. Check to see if we already

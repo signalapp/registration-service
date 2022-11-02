@@ -43,7 +43,6 @@ class RegistrationServiceTest {
 
   private VerificationCodeSender sender;
   private SessionRepository sessionRepository;
-  private SessionRepository secondarySessionRepository;
 
   private static final Phonenumber.PhoneNumber PHONE_NUMBER;
   private static final UUID SESSION_ID = UUID.randomUUID();
@@ -72,18 +71,10 @@ class RegistrationServiceTest {
     sessionRepository = mock(SessionRepository.class);
     when(sessionRepository.updateSession(any(), any())).thenReturn(CompletableFuture.completedFuture(null));
 
-    secondarySessionRepository = mock(SessionRepository.class);
-    when(secondarySessionRepository.getSession(any()))
-        .thenReturn(CompletableFuture.failedFuture(new SessionNotFoundException()));
-
-    when(secondarySessionRepository.updateSession(any(), any()))
-        .thenReturn(CompletableFuture.failedFuture(new SessionNotFoundException()));
-
     final SenderSelectionStrategy senderSelectionStrategy = mock(SenderSelectionStrategy.class);
     when(senderSelectionStrategy.chooseVerificationCodeSender(any(), any(), any(), any())).thenReturn(sender);
 
-    registrationService = new RegistrationService(senderSelectionStrategy, sessionRepository, List.of(sessionRepository,
-        secondarySessionRepository), List.of(sender));
+    registrationService = new RegistrationService(senderSelectionStrategy, sessionRepository, List.of(sender));
   }
 
   @Test
