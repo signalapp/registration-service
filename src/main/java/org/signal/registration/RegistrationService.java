@@ -5,7 +5,6 @@
 
 package org.signal.registration;
 
-import com.google.common.annotations.VisibleForTesting;
 import com.google.i18n.phonenumbers.Phonenumber;
 import jakarta.inject.Singleton;
 import java.util.List;
@@ -13,15 +12,12 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
-import java.util.function.Function;
 import java.util.stream.Collectors;
 import org.apache.commons.lang3.StringUtils;
 import org.signal.registration.sender.ClientType;
 import org.signal.registration.sender.MessageTransport;
 import org.signal.registration.sender.SenderSelectionStrategy;
 import org.signal.registration.sender.VerificationCodeSender;
-import org.signal.registration.session.ConflictingUpdateException;
-import org.signal.registration.session.RegistrationSession;
 import org.signal.registration.session.SessionNotFoundException;
 import org.signal.registration.session.SessionRepository;
 import org.slf4j.Logger;
@@ -38,8 +34,6 @@ public class RegistrationService {
   private final SessionRepository sessionRepository;
 
   private final Map<String, VerificationCodeSender> sendersByName;
-
-  private static final int UPDATE_RETRIES = 3;
 
   private static final Logger logger = LoggerFactory.getLogger(RegistrationService.class);
 
@@ -117,8 +111,8 @@ public class RegistrationService {
                 .thenCompose(verified -> {
                   if (verified) {
                     // Store the known-verified code for future potentially-repeated calls
-                    return updateSessionWithRetries(sessionId,
-                        s -> s.toBuilder().setVerifiedCode(verificationCode).build(), sessionRepository, UPDATE_RETRIES)
+                    return sessionRepository.updateSession(sessionId,
+                            s -> s.toBuilder().setVerifiedCode(verificationCode).build())
                         .thenApply(ignored -> true);
                   } else {
                     return CompletableFuture.completedFuture(false);
@@ -133,22 +127,5 @@ public class RegistrationService {
 
           return false;
         });
-  }
-
-  @VisibleForTesting
-  CompletableFuture<RegistrationSession> updateSessionWithRetries(final UUID sessionId,
-      final Function<RegistrationSession, RegistrationSession> sessionUpdater,
-      final SessionRepository sessionRepository,
-      final int remainingRetries) {
-
-    if (remainingRetries >= 0) {
-      return sessionRepository.updateSession(sessionId, sessionUpdater)
-          .exceptionallyCompose(throwable -> throwable instanceof ConflictingUpdateException ?
-              updateSessionWithRetries(sessionId, sessionUpdater, sessionRepository, remainingRetries - 1) :
-              CompletableFuture.failedFuture(throwable));
-    } else {
-      logger.warn("Exhausted retries while attempting to update session {}", sessionId);
-      return CompletableFuture.failedFuture(new ConflictingUpdateException());
-    }
   }
 }
