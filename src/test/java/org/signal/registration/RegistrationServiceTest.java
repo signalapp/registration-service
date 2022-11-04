@@ -5,16 +5,15 @@
 
 package org.signal.registration;
 
-import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
-import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -23,18 +22,24 @@ import com.google.i18n.phonenumbers.PhoneNumberUtil;
 import com.google.i18n.phonenumbers.Phonenumber;
 import com.google.protobuf.ByteString;
 import java.nio.charset.StandardCharsets;
+import java.time.Clock;
 import java.time.Duration;
+import java.time.Instant;
+import java.time.temporal.ChronoUnit;
 import java.util.List;
 import java.util.Locale;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.CompletionException;
+import io.micronaut.context.event.ApplicationEventPublisher;
+import org.apache.commons.compress.archivers.sevenz.CLI;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.signal.registration.sender.ClientType;
 import org.signal.registration.sender.MessageTransport;
 import org.signal.registration.sender.SenderSelectionStrategy;
 import org.signal.registration.sender.VerificationCodeSender;
+import org.signal.registration.session.MemorySessionRepository;
+import org.signal.registration.session.RegistrationAttempt;
 import org.signal.registration.session.RegistrationSession;
 import org.signal.registration.session.SessionNotFoundException;
 import org.signal.registration.session.SessionRepository;
@@ -71,12 +76,12 @@ class RegistrationServiceTest {
     when(sender.getSessionTtl()).thenReturn(SESSION_TTL);
 
     sessionRepository = mock(SessionRepository.class);
-    when(sessionRepository.updateSession(any(), any())).thenReturn(CompletableFuture.completedFuture(null));
+    when(sessionRepository.updateSession(any(), any(), any())).thenReturn(CompletableFuture.completedFuture(null));
 
     final SenderSelectionStrategy senderSelectionStrategy = mock(SenderSelectionStrategy.class);
     when(senderSelectionStrategy.chooseVerificationCodeSender(any(), any(), any(), any())).thenReturn(sender);
 
-    registrationService = new RegistrationService(senderSelectionStrategy, sessionRepository, List.of(sender));
+    registrationService = new RegistrationService(senderSelectionStrategy, sessionRepository, List.of(sender), Clock.systemUTC());
   }
 
   @Test
@@ -84,15 +89,23 @@ class RegistrationServiceTest {
     when(sender.sendVerificationCode(MessageTransport.SMS, PHONE_NUMBER, LANGUAGE_RANGES, CLIENT_TYPE))
         .thenReturn(CompletableFuture.completedFuture(VERIFICATION_CODE_BYTES));
 
-    when(sessionRepository.createSession(eq(PHONE_NUMBER), eq(sender), any(), eq(VERIFICATION_CODE_BYTES)))
+    when(sessionRepository.createSession(eq(PHONE_NUMBER), any()))
         .thenReturn(CompletableFuture.completedFuture(SESSION_ID));
+
+    when(sessionRepository.getSession(SESSION_ID))
+        .thenReturn(CompletableFuture.completedFuture(
+            RegistrationSession.newBuilder()
+                .setPhoneNumber(PhoneNumberUtil.getInstance().format(PHONE_NUMBER, PhoneNumberUtil.PhoneNumberFormat.E164))
+                .setSenderName(SENDER_NAME)
+                .setSessionData(ByteString.copyFromUtf8(VERIFICATION_CODE))
+                .build()));
 
     assertEquals(SESSION_ID,
         registrationService.sendRegistrationCode(MessageTransport.SMS, PHONE_NUMBER, null, LANGUAGE_RANGES, CLIENT_TYPE).join());
 
     verify(sender).sendVerificationCode(MessageTransport.SMS, PHONE_NUMBER, LANGUAGE_RANGES, CLIENT_TYPE);
-    verify(sessionRepository).createSession(PHONE_NUMBER, sender, SESSION_TTL, VERIFICATION_CODE_BYTES);
-    verify(sessionRepository, never()).updateSession(any(), any());
+    verify(sessionRepository).createSession(PHONE_NUMBER, RegistrationService.NEW_SESSION_TTL);
+    verify(sessionRepository).updateSession(eq(SESSION_ID), any(), eq(SESSION_TTL));
   }
 
   @Test
@@ -115,8 +128,76 @@ class RegistrationServiceTest {
         registrationService.sendRegistrationCode(MessageTransport.SMS, null, SESSION_ID, LANGUAGE_RANGES, CLIENT_TYPE).join());
 
     verify(sender).sendVerificationCode(MessageTransport.SMS, PHONE_NUMBER, LANGUAGE_RANGES, CLIENT_TYPE);
-    verify(sessionRepository, never()).createSession(any(), any(), any(), any());
-    verify(sessionRepository).updateSession(eq(SESSION_ID), any());
+    verify(sessionRepository, never()).createSession(any(), any());
+    verify(sessionRepository).updateSession(eq(SESSION_ID), any(), any());
+  }
+
+  @Test
+  void resendRegistrationCodeAttempts() {
+    when(sender.sendVerificationCode(MessageTransport.SMS, PHONE_NUMBER, LANGUAGE_RANGES, CLIENT_TYPE))
+        .thenReturn(CompletableFuture.completedFuture(VERIFICATION_CODE_BYTES));
+
+    final Instant currentTime = Instant.now().truncatedTo(ChronoUnit.MILLIS);
+
+    final Clock clock = mock(Clock.class);
+    when(clock.instant()).thenReturn(currentTime);
+    when(clock.millis()).thenReturn(currentTime.toEpochMilli());
+
+    @SuppressWarnings("unchecked") final MemorySessionRepository memorySessionRepository =
+        new MemorySessionRepository(mock(ApplicationEventPublisher.class), clock);
+
+    final SenderSelectionStrategy senderSelectionStrategy = mock(SenderSelectionStrategy.class);
+    when(senderSelectionStrategy.chooseVerificationCodeSender(any(), any(), any(), any())).thenReturn(sender);
+
+    final RegistrationService registrationService =
+        new RegistrationService(senderSelectionStrategy, memorySessionRepository, List.of(sender), clock);
+
+    final String firstVerificationCode = "123456";
+    final String secondVerificationCode = "234567";
+
+    when(sender.sendVerificationCode(any(), eq(PHONE_NUMBER), eq(LANGUAGE_RANGES), eq(CLIENT_TYPE)))
+        .thenReturn(CompletableFuture.completedFuture(firstVerificationCode.getBytes(StandardCharsets.UTF_8)))
+        .thenReturn(CompletableFuture.completedFuture(secondVerificationCode.getBytes(StandardCharsets.UTF_8)));
+
+    final UUID sessionId =
+        registrationService.sendRegistrationCode(MessageTransport.SMS, PHONE_NUMBER, null, LANGUAGE_RANGES, CLIENT_TYPE).join();
+
+    {
+      final RegistrationSession registrationSession = memorySessionRepository.getSession(sessionId).join();
+      final ByteString expectedSessionData = ByteString.copyFromUtf8(firstVerificationCode);
+
+      assertEquals(sender.getName(), registrationSession.getSenderName());
+      assertEquals(expectedSessionData, registrationSession.getSessionData());
+      assertEquals(1, registrationSession.getRegistrationAttemptsList().size());
+
+      final RegistrationAttempt firstAttempt = registrationSession.getRegistrationAttempts(0);
+      assertEquals(sender.getName(), firstAttempt.getSenderName());
+      assertEquals(currentTime.toEpochMilli(), firstAttempt.getTimestamp());
+      assertEquals(expectedSessionData, firstAttempt.getSessionData());
+      assertEquals(org.signal.registration.session.MessageTransport.MESSAGE_TRANSPORT_SMS, firstAttempt.getMessageTransport());
+    }
+
+    final Instant future = currentTime.plus(SESSION_TTL.dividedBy(2));
+    when(clock.instant()).thenReturn(future);
+    when(clock.millis()).thenReturn(future.toEpochMilli());
+
+    assertEquals(sessionId,
+        registrationService.sendRegistrationCode(MessageTransport.VOICE, null, sessionId, LANGUAGE_RANGES, CLIENT_TYPE).join());
+
+    {
+      final RegistrationSession registrationSession = memorySessionRepository.getSession(sessionId).join();
+      final ByteString expectedSessionData = ByteString.copyFromUtf8(secondVerificationCode);
+
+      assertEquals(sender.getName(), registrationSession.getSenderName());
+      assertEquals(expectedSessionData, registrationSession.getSessionData());
+      assertEquals(2, registrationSession.getRegistrationAttemptsList().size());
+
+      final RegistrationAttempt secondAttempt = registrationSession.getRegistrationAttempts(1);
+      assertEquals(sender.getName(), secondAttempt.getSenderName());
+      assertEquals(future.toEpochMilli(), secondAttempt.getTimestamp());
+      assertEquals(expectedSessionData, secondAttempt.getSessionData());
+      assertEquals(org.signal.registration.session.MessageTransport.MESSAGE_TRANSPORT_VOICE, secondAttempt.getMessageTransport());
+    }
   }
 
   @Test
@@ -136,7 +217,7 @@ class RegistrationServiceTest {
 
     verify(sessionRepository).getSession(SESSION_ID);
     verify(sender).checkVerificationCode(VERIFICATION_CODE, VERIFICATION_CODE_BYTES);
-    verify(sessionRepository).updateSession(eq(SESSION_ID), any());
+    verify(sessionRepository).updateSession(eq(SESSION_ID), any(), isNull());
   }
 
   @Test
@@ -148,7 +229,7 @@ class RegistrationServiceTest {
 
     verify(sessionRepository).getSession(SESSION_ID);
     verify(sender, never()).checkVerificationCode(any(), any());
-    verify(sessionRepository, never()).updateSession(any(), any());
+    verify(sessionRepository, never()).updateSession(any(), any(), any());
   }
 
   @Test
@@ -166,6 +247,6 @@ class RegistrationServiceTest {
 
     verify(sessionRepository).getSession(SESSION_ID);
     verify(sender, never()).checkVerificationCode(any(), any());
-    verify(sessionRepository, never()).updateSession(any(), any());
+    verify(sessionRepository, never()).updateSession(any(), any(), any());
   }
 }

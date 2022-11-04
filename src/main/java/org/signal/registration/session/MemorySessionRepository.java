@@ -8,7 +8,6 @@ package org.signal.registration.session;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.i18n.phonenumbers.PhoneNumberUtil;
 import com.google.i18n.phonenumbers.Phonenumber;
-import com.google.protobuf.ByteString;
 import io.micronaut.context.annotation.Requires;
 import io.micronaut.context.event.ApplicationEventPublisher;
 import io.micronaut.scheduling.annotation.Scheduled;
@@ -22,7 +21,7 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Function;
-import org.signal.registration.sender.VerificationCodeSender;
+import javax.annotation.Nullable;
 
 @Singleton
 @Requires(env = {"dev", "test"})
@@ -60,17 +59,13 @@ public class MemorySessionRepository implements SessionRepository {
 
   @Override
   public CompletableFuture<UUID> createSession(final Phonenumber.PhoneNumber phoneNumber,
-      final VerificationCodeSender sender,
-      final Duration ttl,
-      final byte[] sessionData) {
+      final Duration ttl) {
 
     final UUID sessionId = UUID.randomUUID();
 
     sessionsById.put(sessionId, new RegistrationSessionAndExpiration(
         RegistrationSession.newBuilder()
             .setPhoneNumber(PhoneNumberUtil.getInstance().format(phoneNumber, PhoneNumberUtil.PhoneNumberFormat.E164))
-            .setSenderName(sender.getName())
-            .setSessionData(ByteString.copyFrom(sessionData))
             .build(),
         clock.instant().plus(ttl)));
 
@@ -98,7 +93,8 @@ public class MemorySessionRepository implements SessionRepository {
 
   @Override
   public CompletableFuture<RegistrationSession> updateSession(final UUID sessionId,
-      final Function<RegistrationSession, RegistrationSession> sessionUpdater) {
+      final Function<RegistrationSession, RegistrationSession> sessionUpdater,
+      @Nullable final Duration ttl) {
 
     final RegistrationSessionAndExpiration updatedSessionAndExpiration =
         sessionsById.computeIfPresent(sessionId, (id, existingSessionAndExpiration) -> {
@@ -108,9 +104,13 @@ public class MemorySessionRepository implements SessionRepository {
 
             return null;
           } else {
+            final Instant updatedExpiration = ttl != null ?
+                clock.instant().plus(ttl) :
+                existingSessionAndExpiration.expiration();
+
             return new RegistrationSessionAndExpiration(
                 sessionUpdater.apply(existingSessionAndExpiration.session()),
-                existingSessionAndExpiration.expiration());
+                updatedExpiration);
           }
         });
 

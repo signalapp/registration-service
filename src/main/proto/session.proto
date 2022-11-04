@@ -43,4 +43,33 @@ message RegistrationSession {
    * interrupted connection).
    */
   string verified_code = 4;
+
+  repeated RegistrationAttempt registration_attempts = 5;
+}
+
+message RegistrationAttempt {
+
+  uint64 timestamp = 1;
+
+  /**
+   * The name of the `VerificationCodeSender` used in this attempt.
+   */
+  string sender_name = 2;
+
+  MessageTransport message_transport = 3;
+
+  /**
+   * An opaque collection of bytes provided by senders when an attempt is created
+   * and presented to senders when a caller checks a verification code.
+   * Verification code senders can use this space to store whatever state they
+   * may need to check a verification code (the code itself, for example, or an
+   * upstream session ID) after an attempt has been created.
+   */
+  bytes session_data = 4;
+}
+
+enum MessageTransport {
+  MESSAGE_TRANSPORT_UNSPECIFIED = 0;
+  MESSAGE_TRANSPORT_SMS = 1;
+  MESSAGE_TRANSPORT_VOICE = 2;
 }

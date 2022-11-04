@@ -5,11 +5,14 @@
 
 package org.signal.registration;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.i18n.phonenumbers.NumberParseException;
 import com.google.i18n.phonenumbers.PhoneNumberUtil;
 import com.google.i18n.phonenumbers.Phonenumber;
 import com.google.protobuf.ByteString;
 import jakarta.inject.Singleton;
+import java.time.Clock;
+import java.time.Duration;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -23,6 +26,7 @@ import org.signal.registration.sender.ClientType;
 import org.signal.registration.sender.MessageTransport;
 import org.signal.registration.sender.SenderSelectionStrategy;
 import org.signal.registration.sender.VerificationCodeSender;
+import org.signal.registration.session.RegistrationAttempt;
 import org.signal.registration.session.SessionNotFoundException;
 import org.signal.registration.session.SessionRepository;
 import org.slf4j.Logger;
@@ -37,8 +41,12 @@ public class RegistrationService {
 
   private final SenderSelectionStrategy senderSelectionStrategy;
   private final SessionRepository sessionRepository;
+  private final Clock clock;
 
   private final Map<String, VerificationCodeSender> sendersByName;
+
+  @VisibleForTesting
+  static final Duration NEW_SESSION_TTL = Duration.ofMinutes(10);
 
   private static final Logger logger = LoggerFactory.getLogger(RegistrationService.class);
 
@@ -48,16 +56,19 @@ public class RegistrationService {
    * Constructs a new registration service that chooses verification code senders with the given strategy and stores
    * session data with the given session repository.
    *
-   * @param senderSelectionStrategy  the strategy to use to choose verification code senders
-   * @param sessionRepository the repository to use to store session data
-   * @param verificationCodeSenders  a list of verification code senders that may be used by this service
+   * @param senderSelectionStrategy the strategy to use to choose verification code senders
+   * @param sessionRepository       the repository to use to store session data
+   * @param verificationCodeSenders a list of verification code senders that may be used by this service
+   * @param clock                   the time source for this registration service
    */
   public RegistrationService(final SenderSelectionStrategy senderSelectionStrategy,
       final SessionRepository sessionRepository,
-      final List<VerificationCodeSender> verificationCodeSenders) {
+      final List<VerificationCodeSender> verificationCodeSenders,
+      final Clock clock) {
 
     this.senderSelectionStrategy = senderSelectionStrategy;
     this.sessionRepository = sessionRepository;
+    this.clock = clock;
 
     this.sendersByName = verificationCodeSenders.stream()
         .collect(Collectors.toMap(VerificationCodeSender::getName, sender -> sender));
@@ -89,44 +100,62 @@ public class RegistrationService {
       throw new IllegalArgumentException("Must specify a phone number or session ID");
     }
 
-    if (sessionId != null) {
-      // We're re-sending a verification code within an existing session
-      return sessionRepository.getSession(sessionId)
-          .thenCompose(session -> {
-            if (StringUtils.isBlank(session.getVerifiedCode())) {
-              try {
-                final Phonenumber.PhoneNumber phoneNumberFromSession =
-                    PhoneNumberUtil.getInstance().parse(session.getPhoneNumber(), null);
+    return sessionId != null ?
+        sendRegistrationCode(messageTransport, sessionId, languageRanges, clientType) :
+        sessionRepository.createSession(phoneNumber, NEW_SESSION_TTL)
+            .thenCompose(createdSessionId -> sendRegistrationCode(messageTransport, createdSessionId, languageRanges, clientType));
+  }
 
-                final VerificationCodeSender sender =
-                    senderSelectionStrategy.chooseVerificationCodeSender(messageTransport, phoneNumberFromSession, languageRanges, clientType);
+  private CompletableFuture<UUID> sendRegistrationCode(final MessageTransport messageTransport,
+      final UUID sessionId,
+      final List<Locale.LanguageRange> languageRanges,
+      final ClientType clientType) {
 
-                return sender.sendVerificationCode(messageTransport,
-                    phoneNumberFromSession,
-                    languageRanges,
-                    clientType)
-                    .thenApply(sessionData -> new SenderAndSessionData(sender, sessionData));
-              } catch (final NumberParseException e) {
-                throw new CompletionException(e);
-              }
-            } else {
-              throw new IllegalStateException("Session already has a verified code");
+    return sessionRepository.getSession(sessionId)
+        .thenCompose(session -> {
+          if (StringUtils.isBlank(session.getVerifiedCode())) {
+            try {
+              final Phonenumber.PhoneNumber phoneNumberFromSession =
+                  PhoneNumberUtil.getInstance().parse(session.getPhoneNumber(), null);
+
+              final VerificationCodeSender sender =
+                  senderSelectionStrategy.chooseVerificationCodeSender(messageTransport, phoneNumberFromSession, languageRanges, clientType);
+
+              return sender.sendVerificationCode(messageTransport,
+                      phoneNumberFromSession,
+                      languageRanges,
+                      clientType)
+                  .thenApply(sessionData -> new SenderAndSessionData(sender, sessionData));
+            } catch (final NumberParseException e) {
+              throw new CompletionException(e);
             }
-          })
-          .thenCompose(senderAndSessionData -> sessionRepository.updateSession(sessionId, session -> session.toBuilder()
-              .setSenderName(senderAndSessionData.sender().getName())
-              .setSessionData(ByteString.copyFrom(senderAndSessionData.sessionData()))
-              .build()))
-          .thenApply(ignored -> sessionId);
-    } else {
-      final VerificationCodeSender sender =
-          senderSelectionStrategy.chooseVerificationCodeSender(messageTransport, phoneNumber, languageRanges, clientType);
+          } else {
+            throw new IllegalStateException("Session already has a verified code");
+          }
+        })
+        .thenCompose(senderAndSessionData -> sessionRepository.updateSession(sessionId, session -> session.toBuilder()
+            .setSenderName(senderAndSessionData.sender().getName())
+            .setSessionData(ByteString.copyFrom(senderAndSessionData.sessionData()))
+            .addRegistrationAttempts(buildRegistrationAttempt(senderAndSessionData.sender(), messageTransport, senderAndSessionData.sessionData()))
+            .build(), senderAndSessionData.sender().getSessionTtl()))
+        .thenApply(ignored -> sessionId);
+  }
 
-      // We're beginning a new session
-      return sender.sendVerificationCode(messageTransport, phoneNumber, languageRanges, clientType)
-          .thenCompose(sessionData ->
-              sessionRepository.createSession(phoneNumber, sender, sender.getSessionTtl(), sessionData));
-    }
+  private RegistrationAttempt buildRegistrationAttempt(final VerificationCodeSender sender,
+      final MessageTransport messageTransport,
+      final byte[] sessionData) {
+
+    final org.signal.registration.session.MessageTransport sessionMessageTransport = switch (messageTransport) {
+      case SMS -> org.signal.registration.session.MessageTransport.MESSAGE_TRANSPORT_SMS;
+      case VOICE -> org.signal.registration.session.MessageTransport.MESSAGE_TRANSPORT_VOICE;
+    };
+
+    return RegistrationAttempt.newBuilder()
+        .setTimestamp(clock.millis())
+        .setSenderName(sender.getName())
+        .setMessageTransport(sessionMessageTransport)
+        .setSessionData(ByteString.copyFrom(sessionData))
+        .build();
   }
 
   /**
@@ -161,7 +190,7 @@ public class RegistrationService {
                   if (verified) {
                     // Store the known-verified code for future potentially-repeated calls
                     return sessionRepository.updateSession(sessionId,
-                            s -> s.toBuilder().setVerifiedCode(verificationCode).build())
+                            s -> s.toBuilder().setVerifiedCode(verificationCode).build(), null)
                         .thenApply(ignored -> true);
                   } else {
                     return CompletableFuture.completedFuture(false);

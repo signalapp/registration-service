@@ -16,7 +16,6 @@ import com.google.cloud.firestore.QueryDocumentSnapshot;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.i18n.phonenumbers.PhoneNumberUtil;
 import com.google.i18n.phonenumbers.Phonenumber;
-import com.google.protobuf.ByteString;
 import com.google.protobuf.InvalidProtocolBufferException;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.Timer;
@@ -37,8 +36,8 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.Executor;
 import java.util.function.Function;
+import javax.annotation.Nullable;
 import org.signal.registration.metrics.MetricsUtil;
-import org.signal.registration.sender.VerificationCodeSender;
 import org.signal.registration.session.RegistrationSession;
 import org.signal.registration.session.SessionCompletedEvent;
 import org.signal.registration.session.SessionNotFoundException;
@@ -125,16 +124,13 @@ public class FirestoreSessionRepository implements SessionRepository {
   }
 
   @Override
-  public CompletableFuture<UUID> createSession(final Phonenumber.PhoneNumber phoneNumber,
-      final VerificationCodeSender sender, final Duration ttl, final byte[] sessionData) {
+  public CompletableFuture<UUID> createSession(final Phonenumber.PhoneNumber phoneNumber, final Duration ttl) {
 
     final Timer.Sample sample = Timer.start();
 
     final UUID sessionId = UUID.randomUUID();
     final byte[] sessionBytes = RegistrationSession.newBuilder()
         .setPhoneNumber(PhoneNumberUtil.getInstance().format(phoneNumber, PhoneNumberUtil.PhoneNumberFormat.E164))
-        .setSenderName(sender.getName())
-        .setSessionData(ByteString.copyFrom(sessionData))
         .build()
         .toByteArray();
 
@@ -165,7 +161,8 @@ public class FirestoreSessionRepository implements SessionRepository {
 
   @Override
   public CompletableFuture<RegistrationSession> updateSession(final UUID sessionId,
-      final Function<RegistrationSession, RegistrationSession> sessionUpdater) {
+      final Function<RegistrationSession, RegistrationSession> sessionUpdater,
+      @Nullable final Duration ttl) {
 
     final Timer.Sample sample = Timer.start();
 
@@ -177,6 +174,14 @@ public class FirestoreSessionRepository implements SessionRepository {
 
           final RegistrationSession updatedSession = sessionUpdater.apply(extractSession(documentSnapshot));
           transaction.update(documentReference, SESSION_FIELD_NAME, Blob.fromBytes(updatedSession.toByteArray()));
+
+          if (ttl != null) {
+            transaction.update(documentReference, configuration.expirationFieldName(),
+                FirestoreUtil.timestampFromInstant(clock.instant().plus(ttl)));
+
+            transaction.update(documentReference, configuration.removalFieldName(),
+                FirestoreUtil.timestampFromInstant(clock.instant().plus(ttl).plus(REMOVAL_TTL_PADDING)));
+          }
 
           return updatedSession;
         }), executor)

@@ -12,15 +12,14 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import com.google.i18n.phonenumbers.PhoneNumberUtil;
+import io.micronaut.context.event.ApplicationEventPublisher;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.UUID;
 import java.util.concurrent.CompletionException;
 import java.util.function.Function;
-import com.google.i18n.phonenumbers.PhoneNumberUtil;
-import com.google.protobuf.ByteString;
-import io.micronaut.context.event.ApplicationEventPublisher;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.stubbing.Answer;
@@ -51,11 +50,9 @@ class MemorySessionRepositoryTest extends AbstractSessionRepositoryTest {
     final Instant now = Instant.now();
     when(clock.instant()).thenReturn(now);
 
-    final UUID sessionId = repository.createSession(PHONE_NUMBER, SENDER, TTL, SESSION_DATA).join();
+    final UUID sessionId = repository.createSession(PHONE_NUMBER, TTL).join();
     final RegistrationSession expectedSession = RegistrationSession.newBuilder()
         .setPhoneNumber(PhoneNumberUtil.getInstance().format(PHONE_NUMBER, PhoneNumberUtil.PhoneNumberFormat.E164))
-        .setSenderName(SENDER.getName())
-        .setSessionData(ByteString.copyFrom(SESSION_DATA))
         .build();
 
     assertEquals(expectedSession, repository.getSession(sessionId).join());
@@ -81,15 +78,13 @@ class MemorySessionRepositoryTest extends AbstractSessionRepositoryTest {
     final Function<RegistrationSession, RegistrationSession> setVerifiedCodeFunction =
         session -> session.toBuilder().setVerifiedCode(verificationCode).build();
 
-    final UUID sessionId = repository.createSession(PHONE_NUMBER, SENDER, TTL, SESSION_DATA).join();
-    repository.updateSession(sessionId, setVerifiedCodeFunction).join();
+    final UUID sessionId = repository.createSession(PHONE_NUMBER, TTL).join();
+    repository.updateSession(sessionId, setVerifiedCodeFunction, null).join();
 
     final RegistrationSession expectedSession = RegistrationSession.newBuilder()
         .setPhoneNumber(PhoneNumberUtil.getInstance().format(PHONE_NUMBER, PhoneNumberUtil.PhoneNumberFormat.E164))
-        .setSenderName(SENDER.getName())
-        .setSessionData(ByteString.copyFrom(SESSION_DATA))
         .setVerifiedCode(verificationCode)
-        .build();;
+        .build();
 
     assertEquals(expectedSession, repository.getSession(sessionId).join());
 
@@ -97,7 +92,7 @@ class MemorySessionRepositoryTest extends AbstractSessionRepositoryTest {
 
     final CompletionException completionException =
         assertThrows(CompletionException.class,
-            () -> repository.updateSession(sessionId, setVerifiedCodeFunction).join());
+            () -> repository.updateSession(sessionId, setVerifiedCodeFunction, null).join());
 
     assertTrue(completionException.getCause() instanceof SessionNotFoundException);
 
@@ -113,7 +108,7 @@ class MemorySessionRepositoryTest extends AbstractSessionRepositoryTest {
     final Instant now = Instant.now();
     when(clock.instant()).thenReturn(now);
 
-    repository.createSession(PHONE_NUMBER, SENDER, TTL, SESSION_DATA).join();
+    repository.createSession(PHONE_NUMBER, TTL).join();
 
     assertEquals(1, repository.size());
 
@@ -130,8 +125,6 @@ class MemorySessionRepositoryTest extends AbstractSessionRepositoryTest {
 
     final SessionCompletedEvent expectedEvent = new SessionCompletedEvent(RegistrationSession.newBuilder()
         .setPhoneNumber(PhoneNumberUtil.getInstance().format(PHONE_NUMBER, PhoneNumberUtil.PhoneNumberFormat.E164))
-        .setSenderName(SENDER.getName())
-        .setSessionData(ByteString.copyFrom(SESSION_DATA))
         .build());
 
     verify(sessionCompletedEventPublisher).publishEventAsync(expectedEvent);
