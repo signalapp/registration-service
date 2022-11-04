@@ -46,11 +46,16 @@ public class RegistrationServiceGrpcEndpoint extends RegistrationServiceGrpc.Reg
       final StreamObserver<SendVerificationCodeResponse> responseObserver) {
 
     try {
-      final Phonenumber.PhoneNumber phoneNumber =
-          PhoneNumberUtil.getInstance().parse("+" + request.getE164(), null);
+      final Phonenumber.PhoneNumber phoneNumber = request.getE164() > 0 ?
+          PhoneNumberUtil.getInstance().parse("+" + request.getE164(), null) :
+          null;
+
+      final UUID existingSessionId = !request.getSessionId().isEmpty() ?
+          uuidFromByteString(request.getSessionId()) : null;
 
       registrationService.sendRegistrationCode(getServiceMessageTransport(request.getTransport()),
               phoneNumber,
+              existingSessionId,
               getLanguageRanges(request.getAcceptLanguage()),
               getServiceClientType(request.getClientType()))
           .whenComplete((sessionId, throwable) -> {

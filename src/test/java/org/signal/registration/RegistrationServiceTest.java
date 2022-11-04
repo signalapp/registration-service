@@ -5,10 +5,30 @@
 
 package org.signal.registration;
 
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
+
 import com.google.i18n.phonenumbers.NumberParseException;
 import com.google.i18n.phonenumbers.PhoneNumberUtil;
 import com.google.i18n.phonenumbers.Phonenumber;
 import com.google.protobuf.ByteString;
+import java.nio.charset.StandardCharsets;
+import java.time.Duration;
+import java.util.List;
+import java.util.Locale;
+import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionException;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.signal.registration.sender.ClientType;
@@ -18,23 +38,6 @@ import org.signal.registration.sender.VerificationCodeSender;
 import org.signal.registration.session.RegistrationSession;
 import org.signal.registration.session.SessionNotFoundException;
 import org.signal.registration.session.SessionRepository;
-
-import java.nio.charset.StandardCharsets;
-import java.time.Duration;
-import java.util.List;
-import java.util.Locale;
-import java.util.UUID;
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.CompletionException;
-
-import static org.junit.jupiter.api.Assertions.*;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.never;
-import static org.mockito.Mockito.times;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
 
 class RegistrationServiceTest {
 
@@ -85,10 +88,35 @@ class RegistrationServiceTest {
         .thenReturn(CompletableFuture.completedFuture(SESSION_ID));
 
     assertEquals(SESSION_ID,
-        registrationService.sendRegistrationCode(MessageTransport.SMS, PHONE_NUMBER, LANGUAGE_RANGES, CLIENT_TYPE).join());
+        registrationService.sendRegistrationCode(MessageTransport.SMS, PHONE_NUMBER, null, LANGUAGE_RANGES, CLIENT_TYPE).join());
 
     verify(sender).sendVerificationCode(MessageTransport.SMS, PHONE_NUMBER, LANGUAGE_RANGES, CLIENT_TYPE);
     verify(sessionRepository).createSession(PHONE_NUMBER, sender, SESSION_TTL, VERIFICATION_CODE_BYTES);
+    verify(sessionRepository, never()).updateSession(any(), any());
+  }
+
+  @Test
+  void resendRegistrationCode() {
+    assertThrows(IllegalArgumentException.class,
+        () -> registrationService.sendRegistrationCode(MessageTransport.SMS, null, null, LANGUAGE_RANGES, CLIENT_TYPE));
+
+    when(sender.sendVerificationCode(MessageTransport.SMS, PHONE_NUMBER, LANGUAGE_RANGES, CLIENT_TYPE))
+        .thenReturn(CompletableFuture.completedFuture(VERIFICATION_CODE_BYTES));
+
+    when(sessionRepository.getSession(SESSION_ID))
+        .thenReturn(CompletableFuture.completedFuture(
+            RegistrationSession.newBuilder()
+                .setPhoneNumber(PhoneNumberUtil.getInstance().format(PHONE_NUMBER, PhoneNumberUtil.PhoneNumberFormat.E164))
+                .setSenderName(SENDER_NAME)
+                .setSessionData(ByteString.copyFromUtf8(VERIFICATION_CODE))
+                .build()));
+
+    assertEquals(SESSION_ID,
+        registrationService.sendRegistrationCode(MessageTransport.SMS, null, SESSION_ID, LANGUAGE_RANGES, CLIENT_TYPE).join());
+
+    verify(sender).sendVerificationCode(MessageTransport.SMS, PHONE_NUMBER, LANGUAGE_RANGES, CLIENT_TYPE);
+    verify(sessionRepository, never()).createSession(any(), any(), any(), any());
+    verify(sessionRepository).updateSession(eq(SESSION_ID), any());
   }
 
   @Test

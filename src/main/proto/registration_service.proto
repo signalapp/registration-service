@@ -20,7 +20,8 @@ service RegistrationService {
 
 message SendVerificationCodeRequest {
   /**
-   * The phone number to which to send a verification code.
+   * The phone number to which to send a verification code. Ignored (and may be
+   * null if `session_id` is set.
    */
   uint64 e164 = 1;
 
@@ -40,6 +41,11 @@ message SendVerificationCodeRequest {
    * The type of client requesting a verification code.
    */
   ClientType client_type = 4;
+
+  /**
+   * The ID of a session within which to send (or re-send) a verification code.
+   */
+  bytes session_id = 5;
 }
 
 enum MessageTransport {
