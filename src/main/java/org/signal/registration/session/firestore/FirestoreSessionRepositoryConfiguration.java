@@ -21,5 +21,5 @@ import javax.validation.constraints.NotBlank;
 @ConfigurationProperties("session-repository.firestore")
 record FirestoreSessionRepositoryConfiguration(@Bindable(defaultValue = "registration-sessions") @NotBlank String collectionName,
                                                @Bindable(defaultValue = "expiration") @NotBlank String expirationFieldName,
-                                               @Bindable(defaultValue = "remove-after") @NotBlank String removalFieldName) {
+                                               @Bindable(defaultValue = "removal") @NotBlank String removalFieldName) {
 }
