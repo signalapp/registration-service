@@ -21,6 +21,7 @@ import com.google.i18n.phonenumbers.NumberParseException;
 import com.google.i18n.phonenumbers.PhoneNumberUtil;
 import com.google.i18n.phonenumbers.Phonenumber;
 import com.google.protobuf.ByteString;
+import io.micronaut.context.event.ApplicationEventPublisher;
 import java.nio.charset.StandardCharsets;
 import java.time.Clock;
 import java.time.Duration;
@@ -30,8 +31,6 @@ import java.util.List;
 import java.util.Locale;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
-import io.micronaut.context.event.ApplicationEventPublisher;
-import org.apache.commons.compress.archivers.sevenz.CLI;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.signal.registration.sender.ClientType;
@@ -96,8 +95,6 @@ class RegistrationServiceTest {
         .thenReturn(CompletableFuture.completedFuture(
             RegistrationSession.newBuilder()
                 .setPhoneNumber(PhoneNumberUtil.getInstance().format(PHONE_NUMBER, PhoneNumberUtil.PhoneNumberFormat.E164))
-                .setSenderName(SENDER_NAME)
-                .setSessionData(ByteString.copyFromUtf8(VERIFICATION_CODE))
                 .build()));
 
     assertEquals(SESSION_ID,
@@ -120,8 +117,6 @@ class RegistrationServiceTest {
         .thenReturn(CompletableFuture.completedFuture(
             RegistrationSession.newBuilder()
                 .setPhoneNumber(PhoneNumberUtil.getInstance().format(PHONE_NUMBER, PhoneNumberUtil.PhoneNumberFormat.E164))
-                .setSenderName(SENDER_NAME)
-                .setSessionData(ByteString.copyFromUtf8(VERIFICATION_CODE))
                 .build()));
 
     assertEquals(SESSION_ID,
@@ -166,8 +161,6 @@ class RegistrationServiceTest {
       final RegistrationSession registrationSession = memorySessionRepository.getSession(sessionId).join();
       final ByteString expectedSessionData = ByteString.copyFromUtf8(firstVerificationCode);
 
-      assertEquals(sender.getName(), registrationSession.getSenderName());
-      assertEquals(expectedSessionData, registrationSession.getSessionData());
       assertEquals(1, registrationSession.getRegistrationAttemptsList().size());
 
       final RegistrationAttempt firstAttempt = registrationSession.getRegistrationAttempts(0);
@@ -188,8 +181,6 @@ class RegistrationServiceTest {
       final RegistrationSession registrationSession = memorySessionRepository.getSession(sessionId).join();
       final ByteString expectedSessionData = ByteString.copyFromUtf8(secondVerificationCode);
 
-      assertEquals(sender.getName(), registrationSession.getSenderName());
-      assertEquals(expectedSessionData, registrationSession.getSessionData());
       assertEquals(2, registrationSession.getRegistrationAttemptsList().size());
 
       final RegistrationAttempt secondAttempt = registrationSession.getRegistrationAttempts(1);
@@ -206,8 +197,11 @@ class RegistrationServiceTest {
         .thenReturn(CompletableFuture.completedFuture(
             RegistrationSession.newBuilder()
                 .setPhoneNumber(PhoneNumberUtil.getInstance().format(PHONE_NUMBER, PhoneNumberUtil.PhoneNumberFormat.E164))
-                .setSenderName(SENDER_NAME)
-                .setSessionData(ByteString.copyFromUtf8(VERIFICATION_CODE))
+                .addRegistrationAttempts(RegistrationAttempt.newBuilder()
+                    .setMessageTransport(org.signal.registration.session.MessageTransport.MESSAGE_TRANSPORT_SMS)
+                    .setSenderName(SENDER_NAME)
+                    .setSessionData(ByteString.copyFrom(VERIFICATION_CODE_BYTES))
+                    .build())
                 .build()));
 
     when(sender.checkVerificationCode(VERIFICATION_CODE, VERIFICATION_CODE_BYTES))
@@ -238,8 +232,6 @@ class RegistrationServiceTest {
         .thenReturn(CompletableFuture.completedFuture(
             RegistrationSession.newBuilder()
                 .setPhoneNumber(PhoneNumberUtil.getInstance().format(PHONE_NUMBER, PhoneNumberUtil.PhoneNumberFormat.E164))
-                .setSenderName(SENDER_NAME)
-                .setSessionData(ByteString.copyFromUtf8(VERIFICATION_CODE))
                 .setVerifiedCode(VERIFICATION_CODE)
                 .build()));
 

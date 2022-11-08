@@ -134,8 +134,6 @@ public class RegistrationService {
           }
         })
         .thenCompose(senderAndSessionData -> sessionRepository.updateSession(sessionId, session -> session.toBuilder()
-            .setSenderName(senderAndSessionData.sender().getName())
-            .setSessionData(ByteString.copyFrom(senderAndSessionData.sessionData()))
             .addRegistrationAttempts(buildRegistrationAttempt(senderAndSessionData.sender(), messageTransport, senderAndSessionData.sessionData()))
             .build(), senderAndSessionData.sender().getSessionTtl()))
         .thenApply(ignored -> sessionId);
@@ -179,13 +177,20 @@ public class RegistrationService {
           if (StringUtils.isNotBlank(session.getVerifiedCode())) {
             return CompletableFuture.completedFuture(session.getVerifiedCode().equals(verificationCode));
           } else {
-            final VerificationCodeSender sender = sendersByName.get(session.getSenderName());
-
-            if (sender == null) {
-              throw new IllegalArgumentException("Unrecognized sender: " + session.getSenderName());
+            if (session.getRegistrationAttemptsCount() == 0) {
+              throw new IllegalArgumentException("Session does not have any associated verification attempts");
             }
 
-            return sender.checkVerificationCode(verificationCode, session.getSessionData().toByteArray())
+            final RegistrationAttempt currentRegistrationAttempt =
+                session.getRegistrationAttempts(session.getRegistrationAttemptsCount() - 1);
+
+            final VerificationCodeSender sender = sendersByName.get(currentRegistrationAttempt.getSenderName());
+
+            if (sender == null) {
+              throw new IllegalArgumentException("Unrecognized sender: " + currentRegistrationAttempt.getSenderName());
+            }
+
+            return sender.checkVerificationCode(verificationCode, currentRegistrationAttempt.getSessionData().toByteArray())
                 .thenCompose(verified -> {
                   if (verified) {
                     // Store the known-verified code for future potentially-repeated calls

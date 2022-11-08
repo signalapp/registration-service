@@ -15,25 +15,13 @@ package org.signal.registration.session;
  */
 message RegistrationSession {
 
+  reserved 2, 3;
+
   /**
    * The E.164-formatted representation of the phone number being registered in
    * this session.
    */
   string phone_number = 1;
-
-  /**
-   * The name of the `VerificationCodeSender` used in this session.
-   */
-  string sender_name = 2;
-
-  /**
-   * An opaque collection of bytes provided by senders when a session is created
-   * and presented to senders when a caller checks a verification code.
-   * Verification code senders can use this space to store whatever state they
-   * may need to check a verification code (the code itself, for example, or an
-   * upstream session ID) after a session has been created.
-   */
-  bytes session_data = 3;
 
   /**
    * The successfully-verified code associated with this session. If this field

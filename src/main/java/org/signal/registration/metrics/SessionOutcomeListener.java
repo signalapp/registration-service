@@ -12,12 +12,12 @@ import io.micrometer.core.instrument.MeterRegistry;
 import io.micronaut.configuration.metrics.annotation.RequiresMetrics;
 import io.micronaut.context.event.ApplicationEventListener;
 import jakarta.inject.Singleton;
+import java.util.Optional;
 import org.apache.commons.lang3.StringUtils;
 import org.signal.registration.session.RegistrationSession;
 import org.signal.registration.session.SessionCompletedEvent;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import java.util.Optional;
 
 /**
  * A session outcome listener reports basic metrics about completed sessions.
@@ -45,13 +45,26 @@ public class SessionOutcomeListener implements ApplicationEventListener<SessionC
       final Phonenumber.PhoneNumber phoneNumber =
           PhoneNumberUtil.getInstance().parse(event.session().getPhoneNumber(), null);
 
-      meterRegistry.counter(COUNTER_NAME,
-              "sender", session.getSenderName(),
-              "verified", String.valueOf(StringUtils.isNotBlank(session.getVerifiedCode())),
-              "countryCode", String.valueOf(phoneNumber.getCountryCode()),
-              "regionCode", Optional.ofNullable(PhoneNumberUtil.getInstance().getRegionCodeForNumber(phoneNumber))
-                  .orElse("XX"))
-          .increment();
+      for (int i = 0; i < session.getRegistrationAttemptsCount(); i++) {
+        // Assume that all verification attempts before the last one were not successfully verified
+        final boolean attemptVerified = StringUtils.isNotBlank(session.getVerifiedCode()) &&
+            i == session.getRegistrationAttemptsCount() - 1;
+
+        final String transport = switch (session.getRegistrationAttempts(i).getMessageTransport()) {
+          case MESSAGE_TRANSPORT_SMS -> "sms";
+          case MESSAGE_TRANSPORT_VOICE -> "voice";
+          default -> "unknown";
+        };
+
+        meterRegistry.counter(COUNTER_NAME,
+                "sender", session.getRegistrationAttempts(i).getSenderName(),
+                "transport", transport,
+                "verified", String.valueOf(attemptVerified),
+                "countryCode", String.valueOf(phoneNumber.getCountryCode()),
+                "regionCode", Optional.ofNullable(PhoneNumberUtil.getInstance().getRegionCodeForNumber(phoneNumber))
+                    .orElse("XX"))
+            .increment();
+      }
     } catch (final NumberParseException e) {
       logger.warn("Failed to parse phone number from completed session", e);
     }
