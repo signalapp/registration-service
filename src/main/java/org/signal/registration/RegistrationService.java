@@ -76,9 +76,20 @@ public class RegistrationService {
   }
 
   /**
-   * Selects a verification code sender for the given destination and sends a verification code, creating a new
-   * registration session in the process if a phone number is provided or updating an existing session if a session ID
-   * is provided.
+   * Creates a new registration session for the given phone number.
+   *
+   * @param phoneNumber the phone number for which to create a new registration session
+   *
+   * @return a future that yields the identifier of the newly-created registration session the session has been created
+   * and stored in this service's session repository
+   */
+  public CompletableFuture<UUID> createRegistrationSession(final Phonenumber.PhoneNumber phoneNumber) {
+    return sessionRepository.createSession(phoneNumber, NEW_SESSION_TTL);
+  }
+
+  /**
+   * Selects a verification code sender for the destination phone number associated with the given session and sends a
+   * verification code.
    *
    * @param messageTransport the transport via which to send a verification code to the destination phone number
    * @param phoneNumber the phone number to which to send a verification code; may be {@code null} if a session ID is
@@ -92,7 +103,7 @@ public class RegistrationService {
    * has been sent and the session has been stored
    */
   public CompletableFuture<UUID> sendRegistrationCode(final MessageTransport messageTransport,
-      @Nullable final Phonenumber.PhoneNumber phoneNumber,
+      @Deprecated @Nullable final Phonenumber.PhoneNumber phoneNumber,
       @Nullable final UUID sessionId,
       final List<Locale.LanguageRange> languageRanges,
       final ClientType clientType) {

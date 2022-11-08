@@ -42,6 +42,34 @@ public class RegistrationServiceGrpcEndpoint extends RegistrationServiceGrpc.Reg
   }
 
   @Override
+  public void createSession(final CreateRegistrationSessionRequest request,
+      final StreamObserver<CreateRegistrationSessionResponse> responseObserver) {
+
+    try {
+      final Phonenumber.PhoneNumber phoneNumber =
+          PhoneNumberUtil.getInstance().parse("+" + request.getE164(), null);
+
+      registrationService.createRegistrationSession(phoneNumber)
+          .whenComplete((sessionId, throwable) -> {
+            if (throwable != null) {
+              logger.warn("Failed to create registration session", throwable);
+              responseObserver.onError(new StatusException(Status.INTERNAL));
+            } else {
+              responseObserver.onNext(CreateRegistrationSessionResponse.newBuilder()
+                  .setSessionMetadata(RegistrationSessionMetadata.newBuilder()
+                      .setSessionId(uuidToByteString(sessionId))
+                      .build())
+                  .build());
+
+              responseObserver.onCompleted();
+            }
+          });
+    } catch (final NumberParseException e) {
+      responseObserver.onError(new StatusException(Status.INVALID_ARGUMENT));
+    }
+  }
+
+  @Override
   public void sendVerificationCode(final SendVerificationCodeRequest request,
       final StreamObserver<SendVerificationCodeResponse> responseObserver) {
 
