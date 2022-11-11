@@ -23,7 +23,6 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.function.Function;
 import java.util.stream.Collectors;
-import javax.annotation.Nullable;
 import org.apache.commons.lang3.StringUtils;
 import org.signal.registration.ratelimit.RateLimiter;
 import org.signal.registration.sender.ClientType;
@@ -35,6 +34,7 @@ import org.signal.registration.session.SessionNotFoundException;
 import org.signal.registration.session.SessionRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import javax.annotation.Nullable;
 
 /**
  * The registration service is the core orchestrator of registration business logic and manages registration sessions
@@ -102,10 +102,7 @@ public class RegistrationService {
    * verification code.
    *
    * @param messageTransport the transport via which to send a verification code to the destination phone number
-   * @param phoneNumber the phone number to which to send a verification code; may be {@code null} if a session ID is
-   *                    provided instead
-   * @param sessionId if specified, resends a verification code in the context of an existing session; may be
-   *                  {@code null} if a phone number is provided instead
+   * @param sessionId the session within which to send (or re-send) a verification code
    * @param senderName if specified, a preferred sender to use
    * @param languageRanges a prioritized list of languages in which to send the verification code
    * @param clientType the type of client receiving the verification code
@@ -114,27 +111,10 @@ public class RegistrationService {
    * has been sent and the session has been stored
    */
   public CompletableFuture<UUID> sendRegistrationCode(final MessageTransport messageTransport,
-      @Deprecated @Nullable final Phonenumber.PhoneNumber phoneNumber,
-      @Nullable final UUID sessionId,
+      final UUID sessionId,
       @Nullable final String senderName,
       final List<Locale.LanguageRange> languageRanges,
       final ClientType clientType) {
-
-    if (phoneNumber == null && sessionId == null) {
-      throw new IllegalArgumentException("Must specify a phone number or session ID");
-    }
-
-    return sessionId != null ?
-        sendRegistrationCode(messageTransport, sessionId, languageRanges, clientType, senderName) :
-        sessionRepository.createSession(phoneNumber, NEW_SESSION_TTL)
-            .thenCompose(createdSessionId -> sendRegistrationCode(messageTransport, createdSessionId, languageRanges, clientType, senderName));
-  }
-
-  private CompletableFuture<UUID> sendRegistrationCode(final MessageTransport messageTransport,
-      final UUID sessionId,
-      final List<Locale.LanguageRange> languageRanges,
-      final ClientType clientType,
-      @Nullable final String senderName ) {
 
     return sessionRepository.getSession(sessionId)
         .thenCompose(session -> {
@@ -152,6 +132,8 @@ public class RegistrationService {
                       clientType)
                   .thenApply(sessionData -> new SenderAndSessionData(sender, sessionData));
             } catch (final NumberParseException e) {
+              // This should never happen because we're parsing a phone number from the session, which means we've
+              // parsed it successfully in the past
               throw new CompletionException(e);
             }
           } else {

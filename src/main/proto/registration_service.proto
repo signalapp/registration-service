@@ -85,11 +85,8 @@ enum CreateRegistrationSessionErrorType {
 }
 
 message SendVerificationCodeRequest {
-  /**
-   * The phone number to which to send a verification code. Ignored (and may be
-   * null if `session_id` is set.
-   */
-  uint64 e164 = 1;
+
+  reserved 1;
 
   /**
    * The message transport to use to send a verification code to the destination

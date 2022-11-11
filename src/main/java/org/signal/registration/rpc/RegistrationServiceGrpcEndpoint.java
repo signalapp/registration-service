@@ -88,16 +88,8 @@ public class RegistrationServiceGrpcEndpoint extends RegistrationServiceGrpc.Reg
       final StreamObserver<SendVerificationCodeResponse> responseObserver) {
 
     try {
-      final Phonenumber.PhoneNumber phoneNumber = request.getE164() > 0 ?
-          PhoneNumberUtil.getInstance().parse("+" + request.getE164(), null) :
-          null;
-
-      final UUID existingSessionId = !request.getSessionId().isEmpty() ?
-          uuidFromByteString(request.getSessionId()) : null;
-
       registrationService.sendRegistrationCode(getServiceMessageTransport(request.getTransport()),
-              phoneNumber,
-              existingSessionId,
+              uuidFromByteString(request.getSessionId()),
               request.getSenderName().isBlank() ? null : request.getSenderName(),
               getLanguageRanges(request.getAcceptLanguage()),
               getServiceClientType(request.getClientType()))
@@ -113,7 +105,7 @@ public class RegistrationServiceGrpcEndpoint extends RegistrationServiceGrpc.Reg
               responseObserver.onError(new StatusException(Status.INTERNAL));
             }
           });
-    } catch (final NumberParseException | IllegalArgumentException e) {
+    } catch (final IllegalArgumentException e) {
       responseObserver.onError(new StatusException(Status.INVALID_ARGUMENT));
     }
   }

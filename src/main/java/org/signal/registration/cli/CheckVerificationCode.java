@@ -18,7 +18,7 @@ import java.io.UncheckedIOException;
 @CommandLine.Command(name = "check-verification-code",
     aliases = "check",
     description = "Check a verification code for a registration session")
-public class CheckVerificationCode implements Runnable {
+class CheckVerificationCode implements Runnable {
 
   @CommandLine.ParentCommand
   private RegistrationClient registrationClient;

@@ -9,6 +9,7 @@ import picocli.CommandLine;
 import java.io.File;
 
 @CommandLine.Command(subcommands = {
+    CreateSession.class,
     SendVerificationCode.class,
     CheckVerificationCode.class
 })

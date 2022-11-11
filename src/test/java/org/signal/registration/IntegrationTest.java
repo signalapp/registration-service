@@ -7,6 +7,7 @@ package org.signal.registration;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
@@ -15,6 +16,8 @@ import static org.mockito.Mockito.when;
 import com.google.i18n.phonenumbers.PhoneNumberUtil;
 import com.google.i18n.phonenumbers.Phonenumber;
 import com.google.protobuf.ByteString;
+import io.grpc.Status;
+import io.grpc.StatusRuntimeException;
 import io.micronaut.test.annotation.MockBean;
 import io.micronaut.test.extensions.junit5.annotation.MicronautTest;
 import jakarta.inject.Inject;
@@ -62,29 +65,15 @@ public class IntegrationTest {
 
   @Test
   void register() {
-    final SendVerificationCodeResponse sendVerificationCodeResponse =
-        blockingStub.sendVerificationCode(SendVerificationCodeRequest.newBuilder()
-            .setE164(12025550123L)
-            .setTransport(MessageTransport.MESSAGE_TRANSPORT_SMS)
-            .build());
-
-    final CheckVerificationCodeResponse checkVerificationCodeResponse =
-        blockingStub.checkVerificationCode(CheckVerificationCodeRequest.newBuilder()
-            .setSessionId(sendVerificationCodeResponse.getSessionId())
-            .setVerificationCode("550123")
-            .build());
-
-    assertTrue(checkVerificationCodeResponse.getVerified());
-  }
-
-  @Test
-  void registerWithExplicitSessionCreation() {
     final Phonenumber.PhoneNumber phoneNumber = PhoneNumberUtil.getInstance().getExampleNumber("US");
 
     final CreateRegistrationSessionResponse createRegistrationSessionResponse =
         blockingStub.createSession(CreateRegistrationSessionRequest.newBuilder()
             .setE164(phoneNumberToLong(phoneNumber))
             .build());
+
+    assertEquals(CreateRegistrationSessionResponse.ResponseCase.SESSION_METADATA,
+        createRegistrationSessionResponse.getResponseCase());
 
     final SendVerificationCodeResponse sendVerificationCodeResponse =
         blockingStub.sendVerificationCode(SendVerificationCodeRequest.newBuilder()
@@ -151,7 +140,18 @@ public class IntegrationTest {
   }
 
   @Test
-  void registerNoSession() {
+  void sendVerificationCodeNoSession() {
+    @SuppressWarnings("ResultOfMethodCallIgnored") final StatusRuntimeException exception =
+        assertThrows(StatusRuntimeException.class,
+            () -> blockingStub.sendVerificationCode(SendVerificationCodeRequest.newBuilder()
+                .setTransport(MessageTransport.MESSAGE_TRANSPORT_SMS)
+                .build()));
+
+    assertEquals(Status.INVALID_ARGUMENT, exception.getStatus());
+  }
+
+  @Test
+  void checkVerificationCodeNoSession() {
     final CheckVerificationCodeResponse checkVerificationCodeResponse =
         blockingStub.checkVerificationCode(CheckVerificationCodeRequest.newBuilder()
             .setSessionId(ByteString.copyFrom(new byte[16]))

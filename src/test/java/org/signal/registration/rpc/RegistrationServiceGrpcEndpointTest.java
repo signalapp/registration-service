@@ -9,14 +9,11 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.isNull;
+import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-import com.google.i18n.phonenumbers.NumberParseException;
-import com.google.i18n.phonenumbers.PhoneNumberUtil;
-import com.google.i18n.phonenumbers.Phonenumber;
 import io.micronaut.test.annotation.MockBean;
 import io.micronaut.test.extensions.junit5.annotation.MicronautTest;
 import jakarta.inject.Inject;
@@ -82,24 +79,21 @@ class RegistrationServiceGrpcEndpointTest {
   }
 
   @Test
-  void sendVerificationCode() throws NumberParseException {
-    final long e164 = 12025550123L;
+  void sendVerificationCode() {
     final UUID sessionUuid = UUID.randomUUID();
 
-    when(registrationService.sendRegistrationCode(any(), any(), isNull(), isNull(), any(), any()))
+    when(registrationService.sendRegistrationCode(any(), any(), isNull(), any(), any()))
         .thenReturn(CompletableFuture.completedFuture(sessionUuid));
 
     final SendVerificationCodeResponse response =
         blockingStub.sendVerificationCode(SendVerificationCodeRequest.newBuilder()
-            .setE164(e164)
+            .setSessionId(RegistrationServiceGrpcEndpoint.uuidToByteString(sessionUuid))
             .setTransport(org.signal.registration.rpc.MessageTransport.MESSAGE_TRANSPORT_SMS)
             .setAcceptLanguage("en")
             .build());
 
-    final Phonenumber.PhoneNumber expectedPhoneNumber = PhoneNumberUtil.getInstance().parse("+" + e164, null);
-
     verify(registrationService)
-        .sendRegistrationCode(MessageTransport.SMS, expectedPhoneNumber, null, null, Locale.LanguageRange.parse("en"), ClientType.UNKNOWN);
+        .sendRegistrationCode(MessageTransport.SMS, sessionUuid, null, Locale.LanguageRange.parse("en"), ClientType.UNKNOWN);
 
     assertEquals(sessionUuid, RegistrationServiceGrpcEndpoint.uuidFromByteString(response.getSessionId()));
   }

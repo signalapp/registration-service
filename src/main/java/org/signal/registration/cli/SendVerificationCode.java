@@ -5,26 +5,26 @@
 
 package org.signal.registration.cli;
 
+import com.google.protobuf.ByteString;
+import java.io.IOException;
+import java.io.UncheckedIOException;
+import org.apache.commons.codec.DecoderException;
+import org.apache.commons.codec.binary.Hex;
 import org.signal.registration.rpc.SendVerificationCodeRequest;
-import org.signal.registration.rpc.SendVerificationCodeResponse;
 import org.signal.registration.sender.ClientType;
 import org.signal.registration.sender.MessageTransport;
 import picocli.CommandLine;
 
-import java.io.IOException;
-import java.io.UncheckedIOException;
-import java.util.HexFormat;
-
 @CommandLine.Command(name = "send-verification-code",
     aliases = "send",
-    description = "Send a verification code to a phone number")
-public class SendVerificationCode implements Runnable {
+    description = "Send a verification code to a phone number associated with a session")
+class SendVerificationCode implements Runnable {
 
   @CommandLine.ParentCommand
   private RegistrationClient registrationClient;
 
-  @CommandLine.Parameters(index = "0", description = "Destination phone number (e.g. 18005551234)")
-  private long e164;
+  @CommandLine.Parameters(index = "0", description = "Hex-formatted registration session ID")
+  private String sessionId;
 
   @CommandLine.Option(names = {"--transport"},
       description = "Message transport (one of ${COMPLETION-CANDIDATES}; default ${DEFAULT-VALUE})",
@@ -61,7 +61,7 @@ public class SendVerificationCode implements Runnable {
       };
 
       final SendVerificationCodeRequest.Builder requestBuilder = SendVerificationCodeRequest.newBuilder()
-          .setE164(e164)
+          .setSessionId(ByteString.copyFrom(Hex.decodeHex(sessionId)))
           .setTransport(rpcTransport)
           .setClientType(rpcClientType);
 
@@ -73,14 +73,14 @@ public class SendVerificationCode implements Runnable {
         requestBuilder.setSenderName(senderName);
       }
 
-      final SendVerificationCodeResponse response =
-          stubSupplier.get().sendVerificationCode(requestBuilder.build());
+      //noinspection ResultOfMethodCallIgnored
+      stubSupplier.get().sendVerificationCode(requestBuilder.build());
 
-      final String sessionIdHex = HexFormat.of().formatHex(response.getSessionId().toByteArray());
-
-      System.out.println("Sent code and created registration session " + sessionIdHex);
+      System.out.println("Sent verification code");
     } catch (final IOException e) {
       throw new UncheckedIOException(e);
+    } catch (DecoderException e) {
+      throw new IllegalArgumentException("Could not decode session ID as a hexadecimal value", e);
     }
   }
 }

@@ -97,25 +97,11 @@ class RegistrationServiceTest {
   }
 
   @Test
-  void sendRegistrationCode() {
-    when(sender.sendVerificationCode(MessageTransport.SMS, PHONE_NUMBER, LANGUAGE_RANGES, CLIENT_TYPE))
-        .thenReturn(CompletableFuture.completedFuture(VERIFICATION_CODE_BYTES));
-
+  void createSession() {
     when(sessionRepository.createSession(eq(PHONE_NUMBER), any()))
         .thenReturn(CompletableFuture.completedFuture(SESSION_ID));
 
-    when(sessionRepository.getSession(SESSION_ID))
-        .thenReturn(CompletableFuture.completedFuture(
-            RegistrationSession.newBuilder()
-                .setPhoneNumber(PhoneNumberUtil.getInstance().format(PHONE_NUMBER, PhoneNumberUtil.PhoneNumberFormat.E164))
-                .build()));
-
-    assertEquals(SESSION_ID,
-        registrationService.sendRegistrationCode(MessageTransport.SMS, PHONE_NUMBER, null, null, LANGUAGE_RANGES, CLIENT_TYPE).join());
-
-    verify(sender).sendVerificationCode(MessageTransport.SMS, PHONE_NUMBER, LANGUAGE_RANGES, CLIENT_TYPE);
-    verify(sessionRepository).createSession(PHONE_NUMBER, RegistrationService.NEW_SESSION_TTL);
-    verify(sessionRepository).updateSession(eq(SESSION_ID), any(), eq(SESSION_TTL));
+    assertEquals(SESSION_ID, registrationService.createRegistrationSession(PHONE_NUMBER).join());
   }
 
   @Test
@@ -133,10 +119,7 @@ class RegistrationServiceTest {
   }
 
   @Test
-  void resendRegistrationCode() {
-    assertThrows(IllegalArgumentException.class,
-        () -> registrationService.sendRegistrationCode(MessageTransport.SMS, null, null,null, LANGUAGE_RANGES, CLIENT_TYPE));
-
+  void sendRegistrationCode() {
     when(sender.sendVerificationCode(MessageTransport.SMS, PHONE_NUMBER, LANGUAGE_RANGES, CLIENT_TYPE))
         .thenReturn(CompletableFuture.completedFuture(VERIFICATION_CODE_BYTES));
 
@@ -147,15 +130,15 @@ class RegistrationServiceTest {
                 .build()));
 
     assertEquals(SESSION_ID,
-        registrationService.sendRegistrationCode(MessageTransport.SMS, null, SESSION_ID, null, LANGUAGE_RANGES, CLIENT_TYPE).join());
+        registrationService.sendRegistrationCode(MessageTransport.SMS, SESSION_ID, null, LANGUAGE_RANGES, CLIENT_TYPE).join());
 
     verify(sender).sendVerificationCode(MessageTransport.SMS, PHONE_NUMBER, LANGUAGE_RANGES, CLIENT_TYPE);
     verify(sessionRepository, never()).createSession(any(), any());
-    verify(sessionRepository).updateSession(eq(SESSION_ID), any(), any());
+    verify(sessionRepository).updateSession(eq(SESSION_ID), any(), eq(SESSION_TTL));
   }
 
   @Test
-  void resendRegistrationCodeAttempts() {
+  void registrationAttempts() {
     when(sender.sendVerificationCode(MessageTransport.SMS, PHONE_NUMBER, LANGUAGE_RANGES, CLIENT_TYPE))
         .thenReturn(CompletableFuture.completedFuture(VERIFICATION_CODE_BYTES));
 
@@ -181,8 +164,8 @@ class RegistrationServiceTest {
         .thenReturn(CompletableFuture.completedFuture(firstVerificationCode.getBytes(StandardCharsets.UTF_8)))
         .thenReturn(CompletableFuture.completedFuture(secondVerificationCode.getBytes(StandardCharsets.UTF_8)));
 
-    final UUID sessionId =
-        registrationService.sendRegistrationCode(MessageTransport.SMS, PHONE_NUMBER, null, null, LANGUAGE_RANGES, CLIENT_TYPE).join();
+    final UUID sessionId = registrationService.createRegistrationSession(PHONE_NUMBER).join();
+    registrationService.sendRegistrationCode(MessageTransport.SMS, sessionId, null, LANGUAGE_RANGES, CLIENT_TYPE).join();
 
     {
       final RegistrationSession registrationSession = memorySessionRepository.getSession(sessionId).join();
@@ -202,7 +185,7 @@ class RegistrationServiceTest {
     when(clock.millis()).thenReturn(future.toEpochMilli());
 
     assertEquals(sessionId,
-        registrationService.sendRegistrationCode(MessageTransport.VOICE, null, sessionId, null, LANGUAGE_RANGES, CLIENT_TYPE).join());
+        registrationService.sendRegistrationCode(MessageTransport.VOICE, sessionId, null, LANGUAGE_RANGES, CLIENT_TYPE).join());
 
     {
       final RegistrationSession registrationSession = memorySessionRepository.getSession(sessionId).join();
