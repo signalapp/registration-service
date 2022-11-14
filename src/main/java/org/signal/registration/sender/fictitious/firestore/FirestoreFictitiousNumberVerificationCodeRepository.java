@@ -51,18 +51,11 @@ class FirestoreFictitiousNumberVerificationCodeRepository implements FictitiousN
       final String verificationCode,
       final Duration ttl) {
 
-    final String e164 = PhoneNumberUtil.getInstance().format(phoneNumber, PhoneNumberUtil.PhoneNumberFormat.E164);
-
     return FirestoreUtil.toCompletableFuture(firestore.collection(configuration.getCollectionName())
-            .document(e164)
+            .document(PhoneNumberUtil.getInstance().format(phoneNumber, PhoneNumberUtil.PhoneNumberFormat.E164))
             .set(Map.of(VERIFICATION_CODE_KEY, verificationCode,
-                configuration.getExpirationFieldName(), getExpirationTimestamp(ttl))), executor)
+                configuration.getExpirationFieldName(), FirestoreUtil.timestampFromInstant(clock.instant().plus(ttl)))),
+            executor)
         .thenAccept(ignored -> {});
-  }
-
-  @VisibleForTesting
-  Timestamp getExpirationTimestamp(final Duration ttl) {
-    final Instant expirationInstant = clock.instant().plus(ttl);
-    return Timestamp.ofTimeSecondsAndNanos(expirationInstant.getEpochSecond(), expirationInstant.getNano());
   }
 }
