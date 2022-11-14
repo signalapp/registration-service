@@ -11,6 +11,8 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.i18n.phonenumbers.NumberParseException;
 import com.google.i18n.phonenumbers.PhoneNumberUtil;
 import com.google.i18n.phonenumbers.Phonenumber;
+import io.micrometer.core.instrument.MeterRegistry;
+import io.micrometer.core.instrument.Timer;
 import io.micronaut.context.annotation.Requires;
 import io.micronaut.scheduling.TaskExecutors;
 import jakarta.inject.Named;
@@ -20,6 +22,7 @@ import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
 import org.apache.commons.lang3.StringUtils;
+import org.signal.registration.metrics.MetricsUtil;
 import org.signal.registration.sender.prescribed.PrescribedVerificationCodeRepository;
 import org.signal.registration.util.FirestoreUtil;
 import org.slf4j.Logger;
@@ -38,6 +41,8 @@ class FirestorePrescribedVerificationCodeRepository implements PrescribedVerific
   private final Executor executor;
   private final FirestorePrescribedVerificationCodeRepositoryConfiguration configuration;
 
+  private final Timer getVerificationCodesTimer;
+
   @VisibleForTesting
   static final String VERIFICATION_CODE_KEY = "verification-code";
 
@@ -45,15 +50,19 @@ class FirestorePrescribedVerificationCodeRepository implements PrescribedVerific
 
   public FirestorePrescribedVerificationCodeRepository(final Firestore firestore,
       @Named(TaskExecutors.IO) final Executor executor,
-      final FirestorePrescribedVerificationCodeRepositoryConfiguration configuration) {
+      final FirestorePrescribedVerificationCodeRepositoryConfiguration configuration, final MeterRegistry meterRegistry) {
 
     this.firestore = firestore;
     this.executor = executor;
     this.configuration = configuration;
+
+    getVerificationCodesTimer = meterRegistry.timer(MetricsUtil.name(FirestorePrescribedVerificationCodeRepository.class, "getVerificationCodes"));
   }
 
   @Override
   public CompletableFuture<Map<Phonenumber.PhoneNumber, String>> getVerificationCodes() {
+    final Timer.Sample sample = Timer.start();
+
     return FirestoreUtil.toCompletableFuture(firestore.collection(configuration.getCollectionName()).get(), executor)
         .thenApply(querySnapshot -> {
           final Map<Phonenumber.PhoneNumber, String> verificationCodes =
@@ -79,6 +88,7 @@ class FirestorePrescribedVerificationCodeRepository implements PrescribedVerific
           }
 
           return verificationCodes;
-        });
+        })
+        .whenComplete((ignored, cause) -> sample.stop(getVerificationCodesTimer));
   }
 }

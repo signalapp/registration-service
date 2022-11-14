@@ -64,6 +64,7 @@ public class FirestoreSessionRepository implements SessionRepository {
   private final Timer createSessionTimer;
   private final Timer getSessionTimer;
   private final Timer updateSessionTimer;
+  private final Timer deleteSessionTimer;
 
   private static final String SESSION_FIELD_NAME = "session";
   private static final Duration REMOVAL_TTL_PADDING = Duration.ofMinutes(5);
@@ -84,6 +85,7 @@ public class FirestoreSessionRepository implements SessionRepository {
     createSessionTimer = meterRegistry.timer(MetricsUtil.name(FirestoreSessionRepository.class, "createSession"));
     getSessionTimer = meterRegistry.timer(MetricsUtil.name(FirestoreSessionRepository.class, "getSession"));
     updateSessionTimer = meterRegistry.timer(MetricsUtil.name(FirestoreSessionRepository.class, "updateSession"));
+    deleteSessionTimer = meterRegistry.timer(MetricsUtil.name(FirestoreSessionRepository.class, "deleteSession"));
   }
 
   @Scheduled(fixedDelay = "${firestore-session-repository.remove-expired-sessions-interval:10s}")
@@ -102,6 +104,9 @@ public class FirestoreSessionRepository implements SessionRepository {
   }
 
   CompletableFuture<Void> deleteExpiredSession(final QueryDocumentSnapshot queryDocumentSnapshot) {
+
+    final Timer.Sample sample = Timer.start();
+
     return FirestoreUtil.toCompletableFuture(firestore.runTransaction(transaction -> {
           final DocumentReference documentReference =
               firestore.collection(configuration.collectionName()).document(queryDocumentSnapshot.getId());
@@ -120,7 +125,8 @@ public class FirestoreSessionRepository implements SessionRepository {
           return maybeSession;
         }), executor)
         .thenAccept(maybeSession -> maybeSession.ifPresent(session ->
-            sessionCompletedEventPublisher.publishEventAsync(new SessionCompletedEvent(session))));
+            sessionCompletedEventPublisher.publishEventAsync(new SessionCompletedEvent(session))))
+        .whenComplete((ignored, throwable) -> sample.stop(deleteSessionTimer));
   }
 
   @Override

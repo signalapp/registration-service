@@ -20,6 +20,7 @@ import java.time.Instant;
 import java.time.ZoneId;
 import java.time.temporal.ChronoUnit;
 import java.util.concurrent.ExecutionException;
+import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.signal.registration.util.FirestoreUtil;
@@ -66,7 +67,8 @@ class FirestoreFictitiousNumberVerificationCodeRepositoryTest {
     repository = new FirestoreFictitiousNumberVerificationCodeRepository(firestore,
         MoreExecutors.directExecutor(),
         configuration,
-        Clock.fixed(CURRENT_TIME, ZoneId.systemDefault()));
+        Clock.fixed(CURRENT_TIME, ZoneId.systemDefault()),
+        new SimpleMeterRegistry());
   }
 
   @Test

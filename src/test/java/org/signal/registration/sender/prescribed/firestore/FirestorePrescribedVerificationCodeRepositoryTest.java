@@ -15,6 +15,7 @@ import com.google.i18n.phonenumbers.PhoneNumberUtil;
 import com.google.i18n.phonenumbers.Phonenumber;
 import java.util.Map;
 import java.util.concurrent.ExecutionException;
+import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.testcontainers.containers.FirestoreEmulatorContainer;
@@ -52,8 +53,10 @@ class FirestorePrescribedVerificationCodeRepositoryTest {
         .build()
         .getService();
 
-    repository =
-        new FirestorePrescribedVerificationCodeRepository(firestore, MoreExecutors.directExecutor(), configuration);
+    repository = new FirestorePrescribedVerificationCodeRepository(firestore,
+        MoreExecutors.directExecutor(),
+        configuration,
+        new SimpleMeterRegistry());
   }
 
   @Test
