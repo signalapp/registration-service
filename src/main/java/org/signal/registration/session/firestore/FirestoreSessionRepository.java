@@ -5,6 +5,7 @@
 
 package org.signal.registration.session.firestore;
 
+import com.google.api.core.ApiFutures;
 import com.google.cloud.Timestamp;
 import com.google.cloud.firestore.Blob;
 import com.google.cloud.firestore.CollectionReference;
@@ -107,22 +108,27 @@ public class FirestoreSessionRepository implements SessionRepository {
 
     final Timer.Sample sample = Timer.start();
 
-    return FirestoreUtil.toCompletableFuture(firestore.runTransaction(transaction -> {
+    return FirestoreUtil.toCompletableFuture(firestore.runAsyncTransaction(transaction -> {
           final DocumentReference documentReference =
               firestore.collection(configuration.collectionName()).document(queryDocumentSnapshot.getId());
 
-          final DocumentSnapshot documentSnapshot = transaction.get(documentReference).get();
+          return ApiFutures.transform(transaction.get(documentReference), documentSnapshot -> {
+            final Optional<RegistrationSession> maybeSession;
 
-          final Optional<RegistrationSession> maybeSession;
+            if (documentSnapshot.exists() && documentSnapshot.get(SESSION_FIELD_NAME) instanceof Blob sessionBlob) {
+              transaction.delete(documentReference);
 
-          if (documentSnapshot.exists() && documentSnapshot.get(SESSION_FIELD_NAME) instanceof Blob sessionBlob) {
-            transaction.delete(documentReference);
-            maybeSession = Optional.of(RegistrationSession.parseFrom(sessionBlob.toBytes()));
-          } else {
-            maybeSession = Optional.empty();
-          }
+              try {
+                maybeSession = Optional.of(RegistrationSession.parseFrom(sessionBlob.toBytes()));
+              } catch (final InvalidProtocolBufferException e) {
+                throw new CompletionException(e);
+              }
+            } else {
+              maybeSession = Optional.empty();
+            }
 
-          return maybeSession;
+            return maybeSession;
+          }, executor);
         }), executor)
         .thenAccept(maybeSession -> maybeSession.ifPresent(session ->
             sessionCompletedEventPublisher.publishEventAsync(new SessionCompletedEvent(session))))
@@ -172,24 +178,30 @@ public class FirestoreSessionRepository implements SessionRepository {
 
     final Timer.Sample sample = Timer.start();
 
-    return FirestoreUtil.toCompletableFuture(firestore.runTransaction(transaction -> {
+    return FirestoreUtil.toCompletableFuture(firestore.runAsyncTransaction(transaction -> {
           final DocumentReference documentReference =
               firestore.collection(configuration.collectionName()).document(sessionId.toString());
 
-          final DocumentSnapshot documentSnapshot = transaction.get(documentReference).get();
+          return ApiFutures.transform(transaction.get(documentReference), documentSnapshot -> {
+            final RegistrationSession updatedSession;
 
-          final RegistrationSession updatedSession = sessionUpdater.apply(extractSession(documentSnapshot));
-          transaction.update(documentReference, SESSION_FIELD_NAME, Blob.fromBytes(updatedSession.toByteArray()));
+            try {
+              updatedSession = sessionUpdater.apply(extractSession(documentSnapshot));
+            } catch (final SessionNotFoundException e) {
+              throw new CompletionException(e);
+            }
 
-          if (ttl != null) {
-            transaction.update(documentReference, configuration.expirationFieldName(),
-                FirestoreUtil.timestampFromInstant(clock.instant().plus(ttl)));
+            transaction.update(documentReference, SESSION_FIELD_NAME, Blob.fromBytes(updatedSession.toByteArray()));
 
-            transaction.update(documentReference, configuration.removalFieldName(),
-                FirestoreUtil.timestampFromInstant(clock.instant().plus(ttl).plus(REMOVAL_TTL_PADDING)));
-          }
+            if (ttl != null) {
+              transaction.update(documentReference, Map.of(
+                  configuration.expirationFieldName(), FirestoreUtil.timestampFromInstant(clock.instant().plus(ttl)),
+                  configuration.removalFieldName(), FirestoreUtil.timestampFromInstant(clock.instant().plus(ttl).plus(REMOVAL_TTL_PADDING))
+              ));
+            }
 
-          return updatedSession;
+            return updatedSession;
+          }, executor);
         }), executor)
         .whenComplete((session, throwable) -> sample.stop(updateSessionTimer));
   }

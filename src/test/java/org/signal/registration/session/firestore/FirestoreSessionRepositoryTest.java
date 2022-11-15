@@ -17,7 +17,6 @@ import com.google.cloud.NoCredentials;
 import com.google.cloud.firestore.Firestore;
 import com.google.cloud.firestore.FirestoreOptions;
 import com.google.i18n.phonenumbers.PhoneNumberUtil;
-import com.google.protobuf.ByteString;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import io.micronaut.context.event.ApplicationEventPublisher;
 import java.io.IOException;
