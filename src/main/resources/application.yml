@@ -3,10 +3,16 @@ micronaut:
     name: registrationService
 
   metrics:
+    binders:
+      netty:
+        queues:
+          enabled: true
+
     export:
       datadog:
         enabled: false
         step: PT20S
+
     tags:
       # Note that an `instance` tag is added at runtime in `Application.java`
       service: registration
