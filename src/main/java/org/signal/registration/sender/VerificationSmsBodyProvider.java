@@ -12,6 +12,7 @@ import io.micronaut.context.MessageSource;
 import io.micronaut.context.i18n.ResourceBundleMessageSource;
 import jakarta.inject.Inject;
 import jakarta.inject.Singleton;
+import org.apache.commons.lang3.StringUtils;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -92,14 +93,14 @@ public class VerificationSmsBodyProvider {
    * @param phoneNumber the phone number that will receive the verification message
    * @param clientType the type of client that will receive the verification message
    * @param verificationCode the verification code to include in the verification message
-   * @param locale the preferred locale for the verification message
+   * @param languageRanges the preferred languages for the verification message
    *
    * @return a localized, client-appropriate verification message that includes the given verification code
    */
   public String getVerificationSmsBody(final Phonenumber.PhoneNumber phoneNumber,
       final ClientType clientType,
       final String verificationCode,
-      final Locale locale) {
+      final List<Locale.LanguageRange> languageRanges) {
 
     final String messageKey = switch (clientType) {
       case IOS -> IOS_MESSAGE_KEY;
@@ -114,6 +115,18 @@ public class VerificationSmsBodyProvider {
     final Optional<String> maybeMessageKeyWithVariant =
         Optional.ofNullable(configuration.getMessageVariantsByRegion().get(regionCode))
             .map(variant -> getMessageKeyForVariant(messageKey, variant));
+
+    final Locale locale;
+    {
+      final String preferredLanguage =
+          Locale.lookupTag(languageRanges, configuration.getSupportedLanguages());
+
+      if (StringUtils.isNotBlank(preferredLanguage)) {
+        locale = Locale.forLanguageTag(preferredLanguage);
+      } else {
+        locale = null;
+      }
+    }
 
     final MessageSource.MessageContext messageContext =
         MessageSource.MessageContext.of(locale, Map.of(

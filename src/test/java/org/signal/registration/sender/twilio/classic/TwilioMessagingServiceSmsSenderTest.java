@@ -7,12 +7,10 @@ package org.signal.registration.sender.twilio.classic;
 
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.when;
 
 import com.google.i18n.phonenumbers.PhoneNumberUtil;
 import com.twilio.http.TwilioRestClient;
 import java.util.Collections;
-import java.util.List;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import org.junit.jupiter.api.Test;
 import org.signal.registration.sender.ClientType;
@@ -25,9 +23,6 @@ class TwilioMessagingServiceSmsSenderTest {
 
   @Test
   void sendVerificationCodeUnsupportedTransport() {
-    final VerificationSmsBodyProvider smsBodyProvider = mock(VerificationSmsBodyProvider.class);
-    when(smsBodyProvider.getSupportedLanguages()).thenReturn(List.of("en"));
-
     final TwilioMessagingServiceSmsSender sender = new TwilioMessagingServiceSmsSender(mock(TwilioRestClient.class),
         mock(VerificationCodeGenerator.class),
         mock(VerificationSmsBodyProvider.class),

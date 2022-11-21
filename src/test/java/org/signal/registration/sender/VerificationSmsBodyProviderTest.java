@@ -17,6 +17,8 @@ import static org.mockito.Mockito.when;
 import com.google.i18n.phonenumbers.PhoneNumberUtil;
 import com.google.i18n.phonenumbers.Phonenumber;
 import io.micronaut.context.MessageSource;
+import java.util.Collections;
+import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
@@ -38,32 +40,33 @@ class VerificationSmsBodyProviderTest {
   void setUp() {
     configuration = new VerificationSmsConfiguration();
     configuration.setAndroidAppHash("app-hash");
+    configuration.setSupportedLanguages(List.of("en"));
   }
 
   @ParameterizedTest
   @MethodSource
-  void getMessageBody(final Phonenumber.PhoneNumber phoneNumber, final ClientType clientType, final Locale locale) {
+  void getMessageBody(final Phonenumber.PhoneNumber phoneNumber, final ClientType clientType, final List<Locale.LanguageRange> languageRanges) {
     final VerificationSmsBodyProvider bodyProvider = new VerificationSmsBodyProvider(configuration);
     final String verificationCode = new VerificationCodeGenerator().generateVerificationCode();
 
     final String messageBody =
-        assertDoesNotThrow(() -> bodyProvider.getVerificationSmsBody(phoneNumber, clientType, verificationCode, locale));
+        assertDoesNotThrow(() -> bodyProvider.getVerificationSmsBody(phoneNumber, clientType, verificationCode, languageRanges));
 
     assertTrue(messageBody.contains(verificationCode));
   }
 
   private static Stream<Arguments> getMessageBody() {
     return Stream.of(
-        Arguments.of(US_NUMBER, ClientType.IOS, Locale.US),
-        Arguments.of(US_NUMBER, ClientType.ANDROID_WITHOUT_FCM, Locale.US),
-        Arguments.of(US_NUMBER, ClientType.ANDROID_WITH_FCM, Locale.US),
-        Arguments.of(US_NUMBER, ClientType.UNKNOWN, Locale.US),
-        Arguments.of(US_NUMBER, ClientType.UNKNOWN, null),
-        Arguments.of(CN_NUMBER, ClientType.IOS, Locale.CHINA),
-        Arguments.of(CN_NUMBER, ClientType.ANDROID_WITHOUT_FCM, Locale.CHINA),
-        Arguments.of(CN_NUMBER, ClientType.ANDROID_WITH_FCM, Locale.CHINA),
-        Arguments.of(CN_NUMBER, ClientType.UNKNOWN, Locale.CHINA),
-        Arguments.of(CN_NUMBER, ClientType.UNKNOWN, null)
+        Arguments.of(US_NUMBER, ClientType.IOS, Locale.LanguageRange.parse("en")),
+        Arguments.of(US_NUMBER, ClientType.ANDROID_WITHOUT_FCM, Locale.LanguageRange.parse("en")),
+        Arguments.of(US_NUMBER, ClientType.ANDROID_WITH_FCM, Locale.LanguageRange.parse("en")),
+        Arguments.of(US_NUMBER, ClientType.UNKNOWN, Locale.LanguageRange.parse("en")),
+        Arguments.of(US_NUMBER, ClientType.UNKNOWN, Collections.emptyList()),
+        Arguments.of(CN_NUMBER, ClientType.IOS, Locale.LanguageRange.parse("zh")),
+        Arguments.of(CN_NUMBER, ClientType.ANDROID_WITHOUT_FCM, Locale.LanguageRange.parse("zh")),
+        Arguments.of(CN_NUMBER, ClientType.ANDROID_WITH_FCM, Locale.LanguageRange.parse("zh")),
+        Arguments.of(CN_NUMBER, ClientType.UNKNOWN, Locale.LanguageRange.parse("zh")),
+        Arguments.of(CN_NUMBER, ClientType.UNKNOWN, Collections.emptyList())
     );
   }
 
@@ -71,8 +74,8 @@ class VerificationSmsBodyProviderTest {
   void getMessageBodyChina() {
     final VerificationSmsBodyProvider bodyProvider = new VerificationSmsBodyProvider(configuration);
 
-    assertFalse(bodyProvider.getVerificationSmsBody(US_NUMBER, ClientType.UNKNOWN, "123456", Locale.FRANCE).contains("\u2008"));
-    assertTrue(bodyProvider.getVerificationSmsBody(CN_NUMBER, ClientType.UNKNOWN, "123456", Locale.FRANCE).contains("\u2008"));
+    assertFalse(bodyProvider.getVerificationSmsBody(US_NUMBER, ClientType.UNKNOWN, "123456", Locale.LanguageRange.parse("fr")).contains("\u2008"));
+    assertTrue(bodyProvider.getVerificationSmsBody(CN_NUMBER, ClientType.UNKNOWN, "123456", Locale.LanguageRange.parse("fr")).contains("\u2008"));
   }
 
   @Test
@@ -106,12 +109,12 @@ class VerificationSmsBodyProviderTest {
     final Phonenumber.PhoneNumber phoneNumberWithUnrecognizedVariant = PhoneNumberUtil.getInstance().getExampleNumber("FR");
 
     assertEquals(boringVerificationMessage,
-        bodyProvider.getVerificationSmsBody(phoneNumberWithoutVariant, ClientType.UNKNOWN, "123456", Locale.ENGLISH));
+        bodyProvider.getVerificationSmsBody(phoneNumberWithoutVariant, ClientType.UNKNOWN, "123456", Locale.LanguageRange.parse("en")));
 
     assertEquals(fancyVerificationMessage,
-        bodyProvider.getVerificationSmsBody(phoneNumberWithVariant, ClientType.UNKNOWN, "123456", Locale.ENGLISH));
+        bodyProvider.getVerificationSmsBody(phoneNumberWithVariant, ClientType.UNKNOWN, "123456", Locale.LanguageRange.parse("en")));
 
     assertEquals(boringVerificationMessage,
-        bodyProvider.getVerificationSmsBody(phoneNumberWithUnrecognizedVariant, ClientType.UNKNOWN, "123456", Locale.ENGLISH));
+        bodyProvider.getVerificationSmsBody(phoneNumberWithUnrecognizedVariant, ClientType.UNKNOWN, "123456", Locale.LanguageRange.parse("en")));
   }
 }

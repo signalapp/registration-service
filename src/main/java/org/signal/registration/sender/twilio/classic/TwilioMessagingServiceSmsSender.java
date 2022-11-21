@@ -15,7 +15,6 @@ import java.time.Duration;
 import java.util.List;
 import java.util.Locale;
 import java.util.concurrent.CompletableFuture;
-import org.apache.commons.lang3.StringUtils;
 import org.signal.registration.sender.ClientType;
 import org.signal.registration.sender.MessageTransport;
 import org.signal.registration.sender.UnsupportedMessageTransportException;
@@ -79,25 +78,13 @@ public class TwilioMessagingServiceSmsSender extends AbstractTwilioProvidedCodeS
       throw new UnsupportedMessageTransportException();
     }
 
-    final Locale locale;
-    {
-      final String preferredLanguage =
-          Locale.lookupTag(languageRanges, verificationSmsBodyProvider.getSupportedLanguages());
-
-      if (StringUtils.isNotBlank(preferredLanguage)) {
-        locale = Locale.forLanguageTag(preferredLanguage);
-      } else {
-        locale = null;
-      }
-    }
-
     final String messagingServiceSid = phoneNumber.getCountryCode() == 1 ?
         configuration.getNanpaMessagingServiceSid() : configuration.getGlobalMessagingServiceSid();
 
     final String verificationCode = verificationCodeGenerator.generateVerificationCode();
 
     return Message.creator(twilioNumberFromPhoneNumber(phoneNumber), messagingServiceSid,
-            verificationSmsBodyProvider.getVerificationSmsBody(phoneNumber, clientType, verificationCode, locale))
+            verificationSmsBodyProvider.getVerificationSmsBody(phoneNumber, clientType, verificationCode, languageRanges))
         .createAsync(twilioRestClient)
         .whenComplete((message, throwable) -> incrementApiCallCounter("message.create", throwable))
         .handle((ignored, throwable) -> {
