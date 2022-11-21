@@ -8,7 +8,6 @@ package org.signal.registration.sender.twilio.classic;
 import io.micronaut.context.annotation.ConfigurationProperties;
 import io.micronaut.context.annotation.Context;
 import java.time.Duration;
-import java.util.List;
 import javax.validation.constraints.NotBlank;
 
 @Context
@@ -20,8 +19,6 @@ class TwilioMessagingConfiguration {
 
   @NotBlank
   private String globalMessagingServiceSid;
-
-  private List<@NotBlank String> supportedLanguages;
 
   private Duration sessionTtl = Duration.ofMinutes(10);
 
@@ -39,14 +36,6 @@ class TwilioMessagingConfiguration {
 
   public void setGlobalMessagingServiceSid(final String globalMessagingServiceSid) {
     this.globalMessagingServiceSid = globalMessagingServiceSid;
-  }
-
-  public List<String> getSupportedLanguages() {
-    return supportedLanguages;
-  }
-
-  public void setSupportedLanguages(final List<String> supportedLanguages) {
-    this.supportedLanguages = supportedLanguages;
   }
 
   public Duration getSessionTtl() {

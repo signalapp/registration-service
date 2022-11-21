@@ -17,11 +17,12 @@ micronaut:
       # Note that an `instance` tag is added at runtime in `Application.java`
       service: registration
 
-twilio:
-  messaging:
+verification:
+  sms:
     supported-languages:
       - en
 
+twilio:
   verify:
     # For a current list of supported languages, please see https://www.twilio.com/docs/verify/supported-languages
     supported-languages:

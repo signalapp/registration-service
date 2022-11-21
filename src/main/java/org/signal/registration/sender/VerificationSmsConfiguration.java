@@ -8,6 +8,7 @@ package org.signal.registration.sender;
 import io.micronaut.context.annotation.ConfigurationProperties;
 import javax.validation.constraints.NotBlank;
 import java.util.Collections;
+import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 
@@ -16,6 +17,8 @@ public class VerificationSmsConfiguration {
 
   @NotBlank
   private String androidAppHash;
+
+  private List<@NotBlank String> supportedLanguages;
 
   /**
    * A map of region codes (e.g. "US" or "MX") to message body "variant" names. Variant names should have corresponding
@@ -30,6 +33,14 @@ public class VerificationSmsConfiguration {
 
   public void setAndroidAppHash(final String androidAppHash) {
     this.androidAppHash = androidAppHash;
+  }
+
+  public List<String> getSupportedLanguages() {
+    return supportedLanguages;
+  }
+
+  public void setSupportedLanguages(final List<String> supportedLanguages) {
+    this.supportedLanguages = supportedLanguages;
   }
 
   public Map<String, String> getMessageVariantsByRegion() {

@@ -12,6 +12,7 @@ import io.micronaut.context.MessageSource;
 import io.micronaut.context.i18n.ResourceBundleMessageSource;
 import jakarta.inject.Inject;
 import jakarta.inject.Singleton;
+import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
@@ -73,6 +74,15 @@ public class VerificationSmsBodyProvider {
   VerificationSmsBodyProvider(final VerificationSmsConfiguration configuration, final MessageSource messageSource) {
     this.configuration = configuration;
     this.messageSource = messageSource;
+  }
+
+  /**
+   * Returns a list of language tags for which this provider has translated SMS body text.
+   *
+   * @return a list of language tags for which this provider has translated SMS body text
+   */
+  public List<String> getSupportedLanguages() {
+    return configuration.getSupportedLanguages();
   }
 
   /**

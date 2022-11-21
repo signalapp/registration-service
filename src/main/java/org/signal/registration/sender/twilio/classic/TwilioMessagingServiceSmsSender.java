@@ -81,7 +81,8 @@ public class TwilioMessagingServiceSmsSender extends AbstractTwilioProvidedCodeS
 
     final Locale locale;
     {
-      final String preferredLanguage = Locale.lookupTag(languageRanges, configuration.getSupportedLanguages());
+      final String preferredLanguage =
+          Locale.lookupTag(languageRanges, verificationSmsBodyProvider.getSupportedLanguages());
 
       if (StringUtils.isNotBlank(preferredLanguage)) {
         locale = Locale.forLanguageTag(preferredLanguage);
