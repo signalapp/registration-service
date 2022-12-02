@@ -8,12 +8,10 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
-import java.util.Set;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
-import javax.annotation.Nullable;
 import org.apache.commons.math3.distribution.EnumeratedDistribution;
 import org.apache.commons.math3.random.AbstractRandomGenerator;
 import org.apache.commons.math3.random.RandomGenerator;
@@ -21,6 +19,8 @@ import org.apache.commons.math3.util.Pair;
 import org.signal.registration.sender.fictitious.FictitiousNumberVerificationCodeSender;
 import org.signal.registration.sender.prescribed.PrescribedVerificationCodeSender;
 import org.signal.registration.util.PhoneNumbers;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * Selects a sender for a specific {@link MessageTransport}
@@ -33,6 +33,7 @@ import org.signal.registration.util.PhoneNumbers;
 @EachBean(WeightedSelectorConfiguration.class)
 @Singleton
 public class WeightedSelector {
+  private static final Logger logger = LoggerFactory.getLogger(WeightedSelector.class);
 
   private final MessageTransport transport;
   private final List<VerificationCodeSender> fallbackSenders;
@@ -52,6 +53,8 @@ public class WeightedSelector {
       final RandomGenerator random,
       final WeightedSelectorConfiguration config,
       final List<VerificationCodeSender> verificationCodeSenders) {
+    logger.info("Configuring WeightedSelector for transport {} with {}", config.transport(), config);
+
     this.transport = config.transport();
 
     // used to lookup senders from configuration strings
