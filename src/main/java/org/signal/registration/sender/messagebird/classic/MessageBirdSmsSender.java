@@ -92,12 +92,7 @@ public class MessageBirdSmsSender implements VerificationCodeSender {
     final String body = this.verificationSmsBodyProvider.getVerificationSmsBody(phoneNumber, clientType,
         verificationCode, languageRanges);
     final Message message = new Message(configuration.originator(), body, e164);
-    // Messagebird SDK doesn't serialize DataCodingType correctly. Explicitly setting
-    // to null is the only way to avoid sending it as part of the request. This will use
-    // encoding plain (GSM 03.38 characters only).
-    // See https://github.com/messagebird/java-rest-api/issues/220
-    // message.setDatacoding(DataCodingType.auto);
-    message.setDatacoding(null);
+    message.setDatacoding(DataCodingType.auto);
     message.setValidity((int) getSessionTtl().toSeconds());
     return CompletableFuture.supplyAsync(() -> {
           try {

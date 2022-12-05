@@ -68,12 +68,12 @@ public class MessageBirdVerifySenderTest {
     return Stream.of(
         // all mb supported languages should be supported
         Arrays.stream(Language.values())
-            .map(Language::toString)
+            .map(Language::getCode)
             .map(lang -> Arguments.of(lang, true)),
 
         // same tags without extlang should also be supported
         Arrays.stream(Language.values())
-            .map(Language::toString)
+            .map(Language::getCode)
             .map(l -> l.split("-")[0])
             .map(lang -> Arguments.of(lang, true)),
 

@@ -11,6 +11,7 @@ import com.google.i18n.phonenumbers.Phonenumber;
 import com.google.protobuf.InvalidProtocolBufferException;
 import com.messagebird.MessageBirdClient;
 import com.messagebird.exceptions.MessageBirdException;
+import com.messagebird.objects.DataCodingType;
 import com.messagebird.objects.Language;
 import com.messagebird.objects.Verify;
 import com.messagebird.objects.VerifyRequest;
@@ -105,12 +106,7 @@ public class MessageBirdVerifySender implements VerificationCodeSender {
     final VerifyRequest request = new VerifyRequest(e164);
     request.setType(verifyType(messageTransport));
 
-    // Messagebird SDK doesn't serialize DataCodingType correctly. Explicitly setting
-    // to null is the only way to avoid sending it as part of the request. This will use
-    // encoding plain (GSM 03.38 characters only).
-    // See https://github.com/messagebird/java-rest-api/issues/220
-    // request.setDatacoding(DataCodingType.auto);
-    request.setDatacoding(null);
+    request.setDatacoding(DataCodingType.auto);
     request.setOriginator(this.configuration.originator());
     request.setTimeout((int) this.configuration.sessionTtl().toSeconds());
 
@@ -261,12 +257,12 @@ public class MessageBirdVerifySender implements VerificationCodeSender {
   private static Map<String, Language> supportedVoiceLanguages() {
     final Map<String, Language> mbTags = Arrays
         .stream(Language.values())
-        .collect(Collectors.toMap(Language::toString, Function.identity()));
+        .collect(Collectors.toMap(Language::getCode, Function.identity()));
 
     // map of less specific language tags (ex. "en") to an extlang specific equivalent (ex "en-us")
     final Map<String, Language> equivalents = Arrays.stream(Language.values())
         .collect(Collectors.toMap(
-            lang -> lang.toString().split("-")[0],
+            lang -> lang.getCode().split("-")[0],
             Function.identity(),
             // just use the first tag in enum order
             (a, b) -> a
