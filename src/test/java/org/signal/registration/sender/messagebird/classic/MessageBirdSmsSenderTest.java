@@ -26,6 +26,7 @@ import org.signal.registration.sender.ClientType;
 import org.signal.registration.sender.MessageTransport;
 import org.signal.registration.sender.VerificationCodeGenerator;
 import org.signal.registration.sender.VerificationSmsBodyProvider;
+import org.signal.registration.sender.messagebird.SenderIdSelector;
 import org.signal.registration.util.CompletionExceptions;
 
 public class MessageBirdSmsSenderTest {
@@ -44,18 +45,18 @@ public class MessageBirdSmsSenderTest {
 
   @BeforeEach
   public void setup() {
-    final MessageBirdSmsConfiguration config = new MessageBirdSmsConfiguration("orgin", Duration.ofSeconds(1));
+    final MessageBirdSmsConfiguration config = new MessageBirdSmsConfiguration(Duration.ofSeconds(1));
     codeGenerator = mock(VerificationCodeGenerator.class);
     bodyProvider = mock(VerificationSmsBodyProvider.class);
     client = mock(MessageBirdClient.class);
+    final SenderIdSelector senderId = mock(SenderIdSelector.class);
 
     when(codeGenerator.generateVerificationCode()).thenReturn(CODE);
-    when(bodyProvider.getVerificationSmsBody(NUMBER, ClientType.IOS, CODE, EN))
-        .thenReturn(BODY);
-
+    when(bodyProvider.getVerificationSmsBody(NUMBER, ClientType.IOS, CODE, EN)).thenReturn(BODY);
+    when(senderId.getSenderId(NUMBER)).thenReturn("test");
 
     sender = new MessageBirdSmsSender(Runnable::run, config, codeGenerator, bodyProvider, client, mock(
-        ApiClientInstrumenter.class));
+        ApiClientInstrumenter.class), senderId);
   }
 
   private static MessageResponse response(int failedDeliveryCount) {

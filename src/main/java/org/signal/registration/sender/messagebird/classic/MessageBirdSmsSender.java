@@ -28,6 +28,7 @@ import org.signal.registration.sender.VerificationCodeSender;
 import org.signal.registration.sender.VerificationSmsBodyProvider;
 import org.signal.registration.sender.messagebird.MessageBirdClassicSessionData;
 import org.signal.registration.sender.messagebird.MessageBirdErrorCodeExtractor;
+import org.signal.registration.sender.messagebird.SenderIdSelector;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -49,6 +50,7 @@ public class MessageBirdSmsSender implements VerificationCodeSender {
   private final VerificationSmsBodyProvider verificationSmsBodyProvider;
   private final MessageBirdClient client;
   private final ApiClientInstrumenter apiClientInstrumenter;
+  private final SenderIdSelector senderIdSelector;
 
   public MessageBirdSmsSender(
       final @Named(TaskExecutors.IO) Executor executor,
@@ -56,13 +58,15 @@ public class MessageBirdSmsSender implements VerificationCodeSender {
       final VerificationCodeGenerator verificationCodeGenerator,
       final VerificationSmsBodyProvider verificationSmsBodyProvider,
       final MessageBirdClient messageBirdClient,
-      final ApiClientInstrumenter apiClientInstrumenter) {
+      final ApiClientInstrumenter apiClientInstrumenter,
+      final SenderIdSelector senderIdSelector) {
     this.configuration = configuration;
     this.executor = executor;
     this.verificationCodeGenerator = verificationCodeGenerator;
     this.verificationSmsBodyProvider = verificationSmsBodyProvider;
     this.client = messageBirdClient;
     this.apiClientInstrumenter = apiClientInstrumenter;
+    this.senderIdSelector = senderIdSelector;
   }
 
   @Override
@@ -91,7 +95,7 @@ public class MessageBirdSmsSender implements VerificationCodeSender {
     final String verificationCode = verificationCodeGenerator.generateVerificationCode();
     final String body = this.verificationSmsBodyProvider.getVerificationSmsBody(phoneNumber, clientType,
         verificationCode, languageRanges);
-    final Message message = new Message(configuration.originator(), body, e164);
+    final Message message = new Message(senderIdSelector.getSenderId(phoneNumber), body, e164);
     message.setDatacoding(DataCodingType.auto);
     message.setValidity((int) getSessionTtl().toSeconds());
     return CompletableFuture.supplyAsync(() -> {

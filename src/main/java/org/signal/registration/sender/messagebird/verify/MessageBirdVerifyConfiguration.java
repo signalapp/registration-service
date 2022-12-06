@@ -14,11 +14,8 @@ import javax.validation.constraints.NotNull;
 import java.time.Duration;
 
 /**
- * @param originator The originating number or sender id for MessageBird verify attempts
  * @param sessionTtl How long verification sessions are valid for
  */
 @Context
 @ConfigurationProperties("messagebird.verify")
-public record MessageBirdVerifyConfiguration(
-    @Nullable String originator,
-    @Bindable(defaultValue = "PT10M") @NotNull Duration sessionTtl) {}
+public record MessageBirdVerifyConfiguration(@Bindable(defaultValue = "PT10M") @NotNull Duration sessionTtl) {}

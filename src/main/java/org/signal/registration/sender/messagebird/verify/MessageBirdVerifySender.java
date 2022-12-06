@@ -40,6 +40,7 @@ import org.signal.registration.sender.UnsupportedMessageTransportException;
 import org.signal.registration.sender.VerificationCodeSender;
 import org.signal.registration.sender.VerificationSmsBodyProvider;
 import org.signal.registration.sender.messagebird.MessageBirdErrorCodeExtractor;
+import org.signal.registration.sender.messagebird.SenderIdSelector;
 import org.signal.registration.sender.messagebird.MessageBirdVerifySessionData;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -61,6 +62,7 @@ public class MessageBirdVerifySender implements VerificationCodeSender {
   private final Executor executor;
   private final VerificationSmsBodyProvider verificationSmsBodyProvider;
   private final ApiClientInstrumenter apiClientInstrumenter;
+  private final SenderIdSelector senderIdSelector;
   private static final String VERIFY_COUNTER_NAME = MetricsUtil.name(MessageBirdVerifySender.class, "verify");
 
 
@@ -69,12 +71,14 @@ public class MessageBirdVerifySender implements VerificationCodeSender {
       final @Named(TaskExecutors.IO) Executor executor,
       final MessageBirdClient messageBirdClient,
       final VerificationSmsBodyProvider verificationSmsBodyProvider,
-      final ApiClientInstrumenter apiClientInstrumenter) {
+      final ApiClientInstrumenter apiClientInstrumenter,
+      final SenderIdSelector senderIdSelector) {
     this.configuration = configuration;
     this.executor = executor;
     this.client = messageBirdClient;
     this.apiClientInstrumenter = apiClientInstrumenter;
     this.verificationSmsBodyProvider = verificationSmsBodyProvider;
+    this.senderIdSelector = senderIdSelector;
   }
 
   @Override
@@ -107,7 +111,7 @@ public class MessageBirdVerifySender implements VerificationCodeSender {
     request.setType(verifyType(messageTransport));
 
     request.setDatacoding(DataCodingType.auto);
-    request.setOriginator(this.configuration.originator());
+    request.setOriginator(this.senderIdSelector.getSenderId(phoneNumber));
     request.setTimeout((int) this.configuration.sessionTtl().toSeconds());
 
     switch (messageTransport) {

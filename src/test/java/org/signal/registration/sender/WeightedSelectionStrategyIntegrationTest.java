@@ -64,7 +64,7 @@ import org.signal.registration.sender.twilio.verify.TwilioVerifySender;
 @Property(name = "verification.sms.android-app-hash", value = "android-app-hash")
 @Property(name = "verification.sms.supported-languages", value = "en")
 @Property(name = "messagebird.access-key", value = "access-key")
-@Property(name = "messagebird.sms.originator", value = "origin")
+@Property(name = "messagebird.default-sender-id", value = "test")
 class WeightedSelectionStrategyIntegrationTest {
 
   @MockBean(RegistrationService.class)

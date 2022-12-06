@@ -14,7 +14,6 @@ import javax.validation.constraints.NotNull;
 @Context
 @ConfigurationProperties("messagebird.sms")
 public record MessageBirdSmsConfiguration(
-    @NotNull @NotBlank String originator,
     @Bindable(defaultValue = "PT10M") @NotNull Duration sessionTtl) {
 
 }
