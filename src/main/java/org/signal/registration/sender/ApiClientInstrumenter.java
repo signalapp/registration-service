@@ -7,6 +7,7 @@ package org.signal.registration.sender;
 
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.Tag;
+import io.micrometer.core.instrument.Timer;
 import io.micronaut.core.annotation.Nullable;
 import jakarta.inject.Singleton;
 import java.util.ArrayList;
@@ -18,6 +19,7 @@ import org.signal.registration.metrics.MetricsUtil;
 public class ApiClientInstrumenter {
 
   private static final String CALL_COUNTER_NAME = MetricsUtil.name(ApiClientInstrumenter.class, "apiCalls");
+  private static final String CALL_TIMER_NAME = MetricsUtil.name(ApiClientInstrumenter.class, "apiCallDuration");
 
   private static final String ENDPOINT_TAG_NAME = "endpoint";
   private static final String PROVIDER_TAG_NAME = "provider";
@@ -29,20 +31,24 @@ public class ApiClientInstrumenter {
     this.meterRegistry = meterRegistry;
   }
 
-  public void incrementCounter(
+  public void recordApiCallMetrics(
       final String providerName,
       final String endpointName,
       final boolean success,
-      @Nullable String errorCode) {
+      @Nullable final String errorCode,
+      final Timer.Sample timerSample) {
+
     final List<Tag> tags = new ArrayList<>(4);
     tags.add(Tag.of(ENDPOINT_TAG_NAME, endpointName));
     tags.add(Tag.of(PROVIDER_TAG_NAME, providerName));
     tags.add(Tag.of(SUCCESS_TAG_NAME, String.valueOf(success)));
+
     Optional
         .ofNullable(errorCode)
         .ifPresent(s -> tags.add(Tag.of(ERROR_CODE_TAG_NAME, s)));
 
     meterRegistry.counter(CALL_COUNTER_NAME, tags).increment();
+    timerSample.stop(meterRegistry.timer(CALL_TIMER_NAME, ENDPOINT_TAG_NAME, endpointName, PROVIDER_TAG_NAME, providerName));
   }
 
 }

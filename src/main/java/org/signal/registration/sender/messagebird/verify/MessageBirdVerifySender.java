@@ -17,6 +17,7 @@ import com.messagebird.objects.Verify;
 import com.messagebird.objects.VerifyRequest;
 import com.messagebird.objects.VerifyType;
 import io.micrometer.core.instrument.Metrics;
+import io.micrometer.core.instrument.Timer;
 import io.micronaut.scheduling.TaskExecutors;
 import jakarta.inject.Named;
 import jakarta.inject.Singleton;
@@ -130,6 +131,8 @@ public class MessageBirdVerifySender implements VerificationCodeSender {
     }
 
     final String endpointName = "verification." + messageTransport.name().toLowerCase() + ".create";
+    final Timer.Sample sample = Timer.start();
+
     return CompletableFuture
         .supplyAsync(() -> {
           try {
@@ -147,11 +150,12 @@ public class MessageBirdVerifySender implements VerificationCodeSender {
           }
         }, this.executor)
         .whenComplete((ignored, throwable) ->
-            this.apiClientInstrumenter.incrementCounter(
+            this.apiClientInstrumenter.recordApiCallMetrics(
                 this.getName(),
                 endpointName,
                 throwable == null,
-                MessageBirdErrorCodeExtractor.extract(throwable)));
+                MessageBirdErrorCodeExtractor.extract(throwable),
+                sample));
   }
 
   @Override
@@ -164,6 +168,8 @@ public class MessageBirdVerifySender implements VerificationCodeSender {
       return CompletableFuture.failedFuture(e);
     }
 
+    final Timer.Sample sample = Timer.start();
+
     return CompletableFuture
         .supplyAsync(() -> {
           try {
@@ -175,11 +181,12 @@ public class MessageBirdVerifySender implements VerificationCodeSender {
           }
         }, this.executor)
         .whenComplete((ignored, throwable) ->
-            this.apiClientInstrumenter.incrementCounter(
+            this.apiClientInstrumenter.recordApiCallMetrics(
                 this.getName(),
                 "verification_check.create",
                 throwable == null,
-                MessageBirdErrorCodeExtractor.extract(throwable)));
+                MessageBirdErrorCodeExtractor.extract(throwable),
+                sample));
   }
 
   @VisibleForTesting

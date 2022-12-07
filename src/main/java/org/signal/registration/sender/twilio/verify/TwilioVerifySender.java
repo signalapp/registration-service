@@ -13,6 +13,7 @@ import com.twilio.http.TwilioRestClient;
 import com.twilio.rest.verify.v2.service.Verification;
 import com.twilio.rest.verify.v2.service.VerificationCheck;
 import com.twilio.rest.verify.v2.service.VerificationCreator;
+import io.micrometer.core.instrument.Timer;
 import jakarta.inject.Singleton;
 import java.time.Duration;
 import java.util.EnumMap;
@@ -100,13 +101,16 @@ public class TwilioVerifySender implements VerificationCodeSender {
       verificationCreator.setAppHash(configuration.getAndroidAppHash());
     }
 
+    final Timer.Sample sample = Timer.start();
+
     return verificationCreator.createAsync(twilioRestClient)
         .whenComplete((sessionData, throwable) ->
-            this.apiClientInstrumenter.incrementCounter(
+            this.apiClientInstrumenter.recordApiCallMetrics(
                 this.getName(),
                 "verification." + messageTransport.name().toLowerCase() + ".create",
                 throwable == null,
-                TwilioErrorCodeExtractor.extract(throwable))
+                TwilioErrorCodeExtractor.extract(throwable),
+                sample)
         )
         .handle((verification, throwable) -> {
           if (throwable == null || CompletionExceptions.unwrap(throwable) instanceof ApiException) {
@@ -125,17 +129,20 @@ public class TwilioVerifySender implements VerificationCodeSender {
     try {
       final String verificationSid = TwilioVerifySessionData.parseFrom(sessionData).getVerificationSid();
 
+      final Timer.Sample sample = Timer.start();
+
       return VerificationCheck.creator(configuration.getServiceSid())
           .setVerificationSid(verificationSid)
           .setCode(verificationCode)
           .createAsync(twilioRestClient)
           .thenApply(VerificationCheck::getValid)
           .whenComplete((verificationCheck, throwable) ->
-              apiClientInstrumenter.incrementCounter(
+              apiClientInstrumenter.recordApiCallMetrics(
                   this.getName(),
                   "verification_check.create",
                   throwable == null,
-                  TwilioErrorCodeExtractor.extract(throwable)));
+                  TwilioErrorCodeExtractor.extract(throwable),
+                  sample));
     } catch (final InvalidProtocolBufferException e) {
       logger.error("Failed to parse stored session data", e);
       return CompletableFuture.failedFuture(e);

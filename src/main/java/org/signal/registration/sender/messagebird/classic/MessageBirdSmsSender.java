@@ -5,9 +5,9 @@ import com.google.i18n.phonenumbers.Phonenumber;
 import com.google.protobuf.InvalidProtocolBufferException;
 import com.messagebird.MessageBirdClient;
 import com.messagebird.exceptions.MessageBirdException;
-import com.messagebird.objects.DataCodingType;
 import com.messagebird.objects.Message;
 import com.messagebird.objects.MessageResponse;
+import io.micrometer.core.instrument.Timer;
 import io.micronaut.scheduling.TaskExecutors;
 import jakarta.inject.Named;
 import jakarta.inject.Singleton;
@@ -98,6 +98,9 @@ public class MessageBirdSmsSender implements VerificationCodeSender {
     final Message message = new Message(senderIdSelector.getSenderId(phoneNumber), body, e164);
     message.setDatacoding(DataCodingType.auto);
     message.setValidity((int) getSessionTtl().toSeconds());
+
+    final Timer.Sample sample = Timer.start();
+
     return CompletableFuture.supplyAsync(() -> {
           try {
             final MessageResponse messageResponse = this.client.sendMessage(message);
@@ -112,11 +115,12 @@ public class MessageBirdSmsSender implements VerificationCodeSender {
           }
         }, this.executor)
         .whenComplete((ignored, throwable) ->
-            apiClientInstrumenter.incrementCounter(
+            apiClientInstrumenter.recordApiCallMetrics(
                 getName(),
                 "sms.create",
                 throwable == null,
-                MessageBirdErrorCodeExtractor.extract(throwable)));
+                MessageBirdErrorCodeExtractor.extract(throwable),
+                sample));
   }
 
   @Override

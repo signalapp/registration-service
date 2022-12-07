@@ -12,6 +12,7 @@ import com.twilio.http.TwilioRestClient;
 import com.twilio.rest.api.v2010.account.Call;
 import com.twilio.type.PhoneNumber;
 import com.twilio.type.Twiml;
+import io.micrometer.core.instrument.Timer;
 import io.micronaut.context.MessageSource;
 import io.micronaut.context.i18n.ResourceBundleMessageSource;
 import jakarta.inject.Singleton;
@@ -98,15 +99,18 @@ public class TwilioVoiceSender extends AbstractTwilioProvidedCodeSender implemen
 
     final String verificationCode = verificationCodeGenerator.generateVerificationCode();
 
+    final Timer.Sample sample = Timer.start();
+
     return Call.creator(twilioNumberFromPhoneNumber(phoneNumber), fromPhoneNumber,
             buildCallTwiml(verificationCode, languageTag))
         .createAsync(twilioRestClient)
         .whenComplete((call, throwable) ->
-            this.apiClientInstrumenter.incrementCounter(
+            this.apiClientInstrumenter.recordApiCallMetrics(
                 this.getName(),
                 "call.create",
                 throwable == null,
-                TwilioErrorCodeExtractor.extract(throwable)))
+                TwilioErrorCodeExtractor.extract(throwable),
+                sample))
         .handle((ignored, throwable) -> {
           if (throwable == null || CompletionExceptions.unwrap(throwable) instanceof ApiException) {
             return buildSessionData(verificationCode);

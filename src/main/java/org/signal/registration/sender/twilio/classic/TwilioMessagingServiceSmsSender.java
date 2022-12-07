@@ -9,6 +9,7 @@ import com.google.i18n.phonenumbers.Phonenumber;
 import com.twilio.exception.ApiException;
 import com.twilio.http.TwilioRestClient;
 import com.twilio.rest.api.v2010.account.Message;
+import io.micrometer.core.instrument.Timer;
 import jakarta.inject.Singleton;
 import java.time.Duration;
 import java.util.List;
@@ -85,15 +86,18 @@ public class TwilioMessagingServiceSmsSender extends AbstractTwilioProvidedCodeS
 
     final String verificationCode = verificationCodeGenerator.generateVerificationCode();
 
+    final Timer.Sample sample = Timer.start();
+
     return Message.creator(twilioNumberFromPhoneNumber(phoneNumber), messagingServiceSid,
             verificationSmsBodyProvider.getVerificationSmsBody(phoneNumber, clientType, verificationCode, languageRanges))
         .createAsync(twilioRestClient)
         .whenComplete((message, throwable) ->
-            apiClientInstrumenter.incrementCounter(
+            apiClientInstrumenter.recordApiCallMetrics(
                 this.getName(),
                 "message.create",
                 throwable == null,
-                TwilioErrorCodeExtractor.extract(throwable)))
+                TwilioErrorCodeExtractor.extract(throwable),
+                sample))
         .handle((ignored, throwable) -> {
           if (throwable == null || CompletionExceptions.unwrap(throwable) instanceof ApiException) {
             return buildSessionData(verificationCode);
