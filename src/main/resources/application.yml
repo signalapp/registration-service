@@ -65,6 +65,7 @@ verification:
       - nl
       - pa-IN
       - pl
+      - pt
       - pt-BR
       - pt-PT
       - ro-RO
@@ -83,6 +84,7 @@ verification:
       - uk-UA
       - ur
       - vi
+      - zh
       - zh-CN
       - zh-HK
       - zh-TW
