@@ -20,12 +20,12 @@ micronaut:
 verification:
   sms:
     supported-languages:
-      - af-ZA
+      - af
       - ar
-      - az-AZ
-      - bg-BG
-      - bn-BD
-      - bs-BA
+      - az
+      - bg
+      - bn
+      - bs
       - ca
       - cs
       - da
@@ -33,55 +33,55 @@ verification:
       - el
       - en
       - es
-      - et-EE
+      - et
       - eu
-      - fa-IR
+      - fa
       - fi
       - fr
-      - ga-IE
-      - gl-ES
-      - gu-IN
+      - ga
+      - gl
+      - gu
       - he
-      - hi-IN
-      - hr-HR
+      - hi
+      - hr
       - hu
       - id
       - it
       - ja
-      - ka-GE
-      - kk-KZ
-      - km-KH
-      - kn-IN
+      - ka
+      - kk
+      - km
+      - kn
       - ko
-      - ky-KG
-      - lt-LT
-      - lv-LV
-      - mk-MK
-      - ml-IN
-      - mr-IN
+      - ky
+      - lt
+      - lv
+      - mk
+      - ml
+      - mr
       - ms
       - my
       - nb
       - nl
-      - pa-IN
+      - pa
       - pl
       - pt
       - pt-BR
       - pt-PT
-      - ro-RO
+      - ro
       - ru
-      - sk-SK
-      - sl-SI
-      - sq-AL
-      - sr-YR
+      - sk
+      - sl
+      - sq
+      - sr
       - sv
       - sw
-      - ta-IN
-      - te-IN
+      - ta
+      - te
       - th
-      - tl-PH
+      - tl
       - tr
-      - uk-UA
+      - uk
       - ur
       - vi
       - zh
