@@ -131,7 +131,8 @@ public class VerificationSmsBodyProvider {
           Locale.lookupTag(languageRanges, configuration.getSupportedLanguages());
 
       meterRegistry.counter(GET_VERIFICATION_SMS_BODY_COUNTER_NAME,
-          SMS_LANGUAGE_TAG, StringUtils.defaultIfBlank(preferredLanguage, "unknown"));
+          SMS_LANGUAGE_TAG, StringUtils.defaultIfBlank(preferredLanguage, "unknown"))
+          .increment();
 
       if (StringUtils.isNotBlank(preferredLanguage)) {
         locale = Locale.forLanguageTag(preferredLanguage);
