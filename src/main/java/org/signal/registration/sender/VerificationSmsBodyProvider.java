@@ -6,21 +6,20 @@
 package org.signal.registration.sender;
 
 import com.google.common.annotations.VisibleForTesting;
-import com.google.i18n.phonenumbers.PhoneNumberUtil;
 import com.google.i18n.phonenumbers.Phonenumber;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micronaut.context.MessageSource;
 import io.micronaut.context.i18n.ResourceBundleMessageSource;
 import jakarta.inject.Inject;
 import jakarta.inject.Singleton;
-import org.apache.commons.lang3.StringUtils;
-import org.signal.registration.metrics.MetricsUtil;
-import org.signal.registration.util.PhoneNumbers;
-import javax.annotation.Nullable;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
+import javax.annotation.Nullable;
+import org.apache.commons.lang3.StringUtils;
+import org.signal.registration.metrics.MetricsUtil;
+import org.signal.registration.util.PhoneNumbers;
 
 /**
  * A verification SMS body provider supplies localized, client-appropriate body text for use in SMS verification
@@ -89,12 +88,15 @@ public class VerificationSmsBodyProvider {
   }
 
   /**
-   * Returns a list of language tags for which this provider has translated SMS body text.
+   * Tests whether this provider has a translation for at least one language in the provided list of language ranges.
    *
-   * @return a list of language tags for which this provider has translated SMS body text
+   * @param languageRanges the preferred languages for SMS body text
+   *
+   * @return {@code true} if this provider has a translation for at least one of the given language ranges or
+   * {@code false} otherwise
    */
-  public List<String> getSupportedLanguages() {
-    return configuration.getSupportedLanguages();
+  public boolean supportsLanguage(final List<Locale.LanguageRange> languageRanges) {
+    return Locale.lookupTag(languageRanges, configuration.getSupportedLanguages()) != null;
   }
 
   /**

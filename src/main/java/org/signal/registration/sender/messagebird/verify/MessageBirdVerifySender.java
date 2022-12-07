@@ -96,7 +96,7 @@ public class MessageBirdVerifySender implements VerificationCodeSender {
   public boolean supportsDestination(final MessageTransport messageTransport, final Phonenumber.PhoneNumber phoneNumber,
       final List<Locale.LanguageRange> languageRanges, final ClientType clientType) {
     return switch (messageTransport) {
-      case SMS -> Locale.lookupTag(languageRanges, verificationSmsBodyProvider.getSupportedLanguages()) != null;
+      case SMS -> verificationSmsBodyProvider.supportsLanguage(languageRanges);
       case VOICE -> lookupMessageBirdLanguage(languageRanges).isPresent();
     };
   }

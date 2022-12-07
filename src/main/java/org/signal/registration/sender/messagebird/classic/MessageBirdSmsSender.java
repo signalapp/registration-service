@@ -81,10 +81,12 @@ public class MessageBirdSmsSender implements VerificationCodeSender {
   }
 
   @Override
-  public boolean supportsDestination(final MessageTransport messageTransport, final Phonenumber.PhoneNumber phoneNumber,
-      final List<Locale.LanguageRange> languageRanges, final ClientType clientType) {
-    return messageTransport == MessageTransport.SMS
-        && Locale.lookupTag(languageRanges, verificationSmsBodyProvider.getSupportedLanguages()) != null;
+  public boolean supportsDestination(final MessageTransport messageTransport,
+      final Phonenumber.PhoneNumber phoneNumber,
+      final List<Locale.LanguageRange> languageRanges,
+      final ClientType clientType) {
+
+    return messageTransport == MessageTransport.SMS && verificationSmsBodyProvider.supportsLanguage(languageRanges);
   }
 
   @Override

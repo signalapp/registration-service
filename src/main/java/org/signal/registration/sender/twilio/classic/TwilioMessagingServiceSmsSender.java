@@ -67,8 +67,7 @@ public class TwilioMessagingServiceSmsSender extends AbstractTwilioProvidedCodeS
       final List<Locale.LanguageRange> languageRanges,
       final ClientType clientType) {
 
-    return messageTransport == MessageTransport.SMS
-        && Locale.lookupTag(languageRanges, verificationSmsBodyProvider.getSupportedLanguages()) != null;
+    return messageTransport == MessageTransport.SMS && verificationSmsBodyProvider.supportsLanguage(languageRanges);
   }
 
   @Override

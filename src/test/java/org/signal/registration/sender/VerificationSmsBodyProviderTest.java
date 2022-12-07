@@ -118,4 +118,19 @@ class VerificationSmsBodyProviderTest {
     assertEquals(boringVerificationMessage,
         bodyProvider.getVerificationSmsBody(phoneNumberWithUnrecognizedVariant, ClientType.UNKNOWN, "123456", Locale.LanguageRange.parse("en")));
   }
+
+  @Test
+  void supportsLanguage() {
+    final VerificationSmsConfiguration configuration = new VerificationSmsConfiguration();
+    configuration.setAndroidAppHash("app-hash");
+    configuration.setSupportedLanguages(List.of("fr"));
+
+    final VerificationSmsBodyProvider bodyProvider =
+        new VerificationSmsBodyProvider(configuration, new SimpleMeterRegistry());
+
+    assertFalse(bodyProvider.supportsLanguage(Locale.LanguageRange.parse("en")));
+    assertTrue(bodyProvider.supportsLanguage(Locale.LanguageRange.parse("fr")));
+    assertTrue(bodyProvider.supportsLanguage(Locale.LanguageRange.parse("fr-CA")));
+    assertTrue(bodyProvider.supportsLanguage(Locale.LanguageRange.parse("fr-FR")));
+  }
 }
