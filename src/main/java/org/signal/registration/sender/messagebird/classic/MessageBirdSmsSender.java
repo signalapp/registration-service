@@ -5,6 +5,7 @@ import com.google.i18n.phonenumbers.Phonenumber;
 import com.google.protobuf.InvalidProtocolBufferException;
 import com.messagebird.MessageBirdClient;
 import com.messagebird.exceptions.MessageBirdException;
+import com.messagebird.objects.DataCodingType;
 import com.messagebird.objects.Message;
 import com.messagebird.objects.MessageResponse;
 import io.micrometer.core.instrument.Timer;
