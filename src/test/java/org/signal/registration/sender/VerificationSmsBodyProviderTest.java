@@ -16,6 +16,7 @@ import static org.mockito.Mockito.when;
 
 import com.google.i18n.phonenumbers.PhoneNumberUtil;
 import com.google.i18n.phonenumbers.Phonenumber;
+import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import io.micronaut.context.MessageSource;
 import java.util.Collections;
 import java.util.List;
@@ -46,7 +47,7 @@ class VerificationSmsBodyProviderTest {
   @ParameterizedTest
   @MethodSource
   void getMessageBody(final Phonenumber.PhoneNumber phoneNumber, final ClientType clientType, final List<Locale.LanguageRange> languageRanges) {
-    final VerificationSmsBodyProvider bodyProvider = new VerificationSmsBodyProvider(configuration);
+    final VerificationSmsBodyProvider bodyProvider = new VerificationSmsBodyProvider(configuration, new SimpleMeterRegistry());
     final String verificationCode = new VerificationCodeGenerator().generateVerificationCode();
 
     final String messageBody =
@@ -72,7 +73,7 @@ class VerificationSmsBodyProviderTest {
 
   @Test
   void getMessageBodyChina() {
-    final VerificationSmsBodyProvider bodyProvider = new VerificationSmsBodyProvider(configuration);
+    final VerificationSmsBodyProvider bodyProvider = new VerificationSmsBodyProvider(configuration, new SimpleMeterRegistry());
 
     assertFalse(bodyProvider.getVerificationSmsBody(US_NUMBER, ClientType.UNKNOWN, "123456", Locale.LanguageRange.parse("fr")).contains("\u2008"));
     assertTrue(bodyProvider.getVerificationSmsBody(CN_NUMBER, ClientType.UNKNOWN, "123456", Locale.LanguageRange.parse("fr")).contains("\u2008"));
@@ -102,7 +103,7 @@ class VerificationSmsBodyProviderTest {
         any(MessageSource.MessageContext.class)))
         .thenReturn(Optional.of(fancyVerificationMessage));
 
-    final VerificationSmsBodyProvider bodyProvider = new VerificationSmsBodyProvider(configuration, messageSource);
+    final VerificationSmsBodyProvider bodyProvider = new VerificationSmsBodyProvider(configuration, messageSource, new SimpleMeterRegistry());
 
     final Phonenumber.PhoneNumber phoneNumberWithoutVariant = PhoneNumberUtil.getInstance().getExampleNumber("US");
     final Phonenumber.PhoneNumber phoneNumberWithVariant = PhoneNumberUtil.getInstance().getExampleNumber("MX");

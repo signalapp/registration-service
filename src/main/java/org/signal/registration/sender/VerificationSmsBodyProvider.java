@@ -8,12 +8,15 @@ package org.signal.registration.sender;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.i18n.phonenumbers.PhoneNumberUtil;
 import com.google.i18n.phonenumbers.Phonenumber;
+import io.micrometer.core.instrument.MeterRegistry;
 import io.micronaut.context.MessageSource;
 import io.micronaut.context.i18n.ResourceBundleMessageSource;
 import jakarta.inject.Inject;
 import jakarta.inject.Singleton;
 import org.apache.commons.lang3.StringUtils;
+import org.signal.registration.metrics.MetricsUtil;
 import org.signal.registration.util.PhoneNumbers;
+import javax.annotation.Nullable;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -55,6 +58,7 @@ public class VerificationSmsBodyProvider {
   private final VerificationSmsConfiguration configuration;
 
   private final MessageSource messageSource;
+  private final MeterRegistry meterRegistry;
 
   @VisibleForTesting
   static final String IOS_MESSAGE_KEY = "verification.sms.ios";
@@ -67,15 +71,21 @@ public class VerificationSmsBodyProvider {
 
   private static final int COUNTRY_CODE_CN = 86;
 
+  private static final String GET_VERIFICATION_SMS_BODY_COUNTER_NAME =
+      MetricsUtil.name(VerificationSmsBodyProvider.class, "getVerificationSmsBody");
+
+  private static final String SMS_LANGUAGE_TAG = "language";
+
   @Inject
-  public VerificationSmsBodyProvider(final VerificationSmsConfiguration configuration) {
-    this(configuration, new ResourceBundleMessageSource("org.signal.registration.sender.sms"));
+  public VerificationSmsBodyProvider(final VerificationSmsConfiguration configuration, final MeterRegistry meterRegistry) {
+    this(configuration, new ResourceBundleMessageSource("org.signal.registration.sender.sms"), meterRegistry);
   }
 
   @VisibleForTesting
-  VerificationSmsBodyProvider(final VerificationSmsConfiguration configuration, final MessageSource messageSource) {
+  VerificationSmsBodyProvider(final VerificationSmsConfiguration configuration, final MessageSource messageSource, final MeterRegistry meterRegistry) {
     this.configuration = configuration;
     this.messageSource = messageSource;
+    this.meterRegistry = meterRegistry;
   }
 
   /**
@@ -115,10 +125,13 @@ public class VerificationSmsBodyProvider {
         Optional.ofNullable(configuration.getMessageVariantsByRegion().get(regionCode))
             .map(variant -> getMessageKeyForVariant(messageKey, variant));
 
-    final Locale locale;
+    @Nullable final Locale locale;
     {
       final String preferredLanguage =
           Locale.lookupTag(languageRanges, configuration.getSupportedLanguages());
+
+      meterRegistry.counter(GET_VERIFICATION_SMS_BODY_COUNTER_NAME,
+          SMS_LANGUAGE_TAG, StringUtils.defaultIfBlank(preferredLanguage, "unknown"));
 
       if (StringUtils.isNotBlank(preferredLanguage)) {
         locale = Locale.forLanguageTag(preferredLanguage);
