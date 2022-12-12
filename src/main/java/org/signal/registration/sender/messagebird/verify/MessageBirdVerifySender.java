@@ -177,6 +177,7 @@ public class MessageBirdVerifySender implements VerificationCodeSender {
             Metrics.counter(VERIFY_COUNTER_NAME, "outcome", verify.getStatus()).increment();
             return VerifyStatus.fromName(verify.getStatus()) == VerifyStatus.VERIFIED;
           } catch (MessageBirdException e) {
+            logger.debug("Failed verification with {}, errors={}", e.getMessage(), e.getErrors());
             throw new CompletionException(e);
           }
         }, this.executor)

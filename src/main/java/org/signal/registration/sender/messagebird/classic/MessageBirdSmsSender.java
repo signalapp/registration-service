@@ -114,6 +114,7 @@ public class MessageBirdSmsSender implements VerificationCodeSender {
             }
             return MessageBirdClassicSessionData.newBuilder().setVerificationCode(verificationCode).build().toByteArray();
           } catch (MessageBirdException e) {
+            logger.debug("Failed verification with {}, errors={}", e.getMessage(), e.getErrors());
             throw new CompletionException(e);
           }
         }, this.executor)
