@@ -8,13 +8,12 @@ import com.google.i18n.phonenumbers.Phonenumber;
 import io.micronaut.context.annotation.Primary;
 import io.micronaut.context.annotation.Requires;
 import jakarta.inject.Singleton;
-import java.util.Arrays;
-import java.util.EnumMap;
-import java.util.List;
-import java.util.Locale;
-import java.util.Map;
+
+import java.util.*;
+
 import org.signal.registration.sender.fictitious.FictitiousNumberVerificationCodeSender;
 import org.signal.registration.sender.prescribed.PrescribedVerificationCodeSender;
+import javax.annotation.Nullable;
 
 @Singleton
 @Primary
@@ -45,7 +44,8 @@ public class WeightedSenderSelectionStrategy implements SenderSelectionStrategy 
   public VerificationCodeSender chooseVerificationCodeSender(final MessageTransport transport,
       final Phonenumber.PhoneNumber phoneNumber,
       final List<Locale.LanguageRange> languageRanges,
-      final ClientType clientType) {
+      final ClientType clientType,
+      final @Nullable String preferredSender) {
 
     final VerificationCodeSender sender;
 
@@ -56,7 +56,7 @@ public class WeightedSenderSelectionStrategy implements SenderSelectionStrategy 
       sender = fictitiousNumberVerificationCodeSender;
     } else {
       sender = this.selectorsByTransport.get(transport)
-          .chooseVerificationCodeSender(phoneNumber, languageRanges, clientType);
+          .chooseVerificationCodeSender(phoneNumber, languageRanges, clientType, preferredSender);
     }
     return sender;
   }

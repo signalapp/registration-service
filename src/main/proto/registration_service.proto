@@ -112,6 +112,12 @@ message SendVerificationCodeRequest {
    * The ID of a session within which to send (or re-send) a verification code.
    */
   bytes session_id = 5;
+
+  /**
+   * If provided, always attempt to use the specified sender to send
+   * this message.
+   */
+  string sender_name = 6;
 }
 
 enum MessageTransport {

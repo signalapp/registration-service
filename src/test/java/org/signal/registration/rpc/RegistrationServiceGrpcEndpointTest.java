@@ -86,7 +86,7 @@ class RegistrationServiceGrpcEndpointTest {
     final long e164 = 12025550123L;
     final UUID sessionUuid = UUID.randomUUID();
 
-    when(registrationService.sendRegistrationCode(any(), any(), isNull(), any(), any()))
+    when(registrationService.sendRegistrationCode(any(), any(), isNull(), isNull(), any(), any()))
         .thenReturn(CompletableFuture.completedFuture(sessionUuid));
 
     final SendVerificationCodeResponse response =
@@ -99,7 +99,7 @@ class RegistrationServiceGrpcEndpointTest {
     final Phonenumber.PhoneNumber expectedPhoneNumber = PhoneNumberUtil.getInstance().parse("+" + e164, null);
 
     verify(registrationService)
-        .sendRegistrationCode(MessageTransport.SMS, expectedPhoneNumber, null, Locale.LanguageRange.parse("en"), ClientType.UNKNOWN);
+        .sendRegistrationCode(MessageTransport.SMS, expectedPhoneNumber, null, null, Locale.LanguageRange.parse("en"), ClientType.UNKNOWN);
 
     assertEquals(sessionUuid, RegistrationServiceGrpcEndpoint.uuidFromByteString(response.getSessionId()));
   }

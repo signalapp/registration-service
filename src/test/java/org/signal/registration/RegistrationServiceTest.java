@@ -83,7 +83,7 @@ class RegistrationServiceTest {
     when(sessionRepository.updateSession(any(), any(), any())).thenReturn(CompletableFuture.completedFuture(null));
 
     final SenderSelectionStrategy senderSelectionStrategy = mock(SenderSelectionStrategy.class);
-    when(senderSelectionStrategy.chooseVerificationCodeSender(any(), any(), any(), any())).thenReturn(sender);
+    when(senderSelectionStrategy.chooseVerificationCodeSender(any(), any(), any(), any(), any())).thenReturn(sender);
 
     //noinspection unchecked
     sessionCreationRateLimiter = mock(RateLimiter.class);
@@ -111,7 +111,7 @@ class RegistrationServiceTest {
                 .build()));
 
     assertEquals(SESSION_ID,
-        registrationService.sendRegistrationCode(MessageTransport.SMS, PHONE_NUMBER, null, LANGUAGE_RANGES, CLIENT_TYPE).join());
+        registrationService.sendRegistrationCode(MessageTransport.SMS, PHONE_NUMBER, null, null, LANGUAGE_RANGES, CLIENT_TYPE).join());
 
     verify(sender).sendVerificationCode(MessageTransport.SMS, PHONE_NUMBER, LANGUAGE_RANGES, CLIENT_TYPE);
     verify(sessionRepository).createSession(PHONE_NUMBER, RegistrationService.NEW_SESSION_TTL);
@@ -135,7 +135,7 @@ class RegistrationServiceTest {
   @Test
   void resendRegistrationCode() {
     assertThrows(IllegalArgumentException.class,
-        () -> registrationService.sendRegistrationCode(MessageTransport.SMS, null, null, LANGUAGE_RANGES, CLIENT_TYPE));
+        () -> registrationService.sendRegistrationCode(MessageTransport.SMS, null, null,null, LANGUAGE_RANGES, CLIENT_TYPE));
 
     when(sender.sendVerificationCode(MessageTransport.SMS, PHONE_NUMBER, LANGUAGE_RANGES, CLIENT_TYPE))
         .thenReturn(CompletableFuture.completedFuture(VERIFICATION_CODE_BYTES));
@@ -147,7 +147,7 @@ class RegistrationServiceTest {
                 .build()));
 
     assertEquals(SESSION_ID,
-        registrationService.sendRegistrationCode(MessageTransport.SMS, null, SESSION_ID, LANGUAGE_RANGES, CLIENT_TYPE).join());
+        registrationService.sendRegistrationCode(MessageTransport.SMS, null, SESSION_ID, null, LANGUAGE_RANGES, CLIENT_TYPE).join());
 
     verify(sender).sendVerificationCode(MessageTransport.SMS, PHONE_NUMBER, LANGUAGE_RANGES, CLIENT_TYPE);
     verify(sessionRepository, never()).createSession(any(), any());
@@ -169,7 +169,7 @@ class RegistrationServiceTest {
         new MemorySessionRepository(mock(ApplicationEventPublisher.class), clock);
 
     final SenderSelectionStrategy senderSelectionStrategy = mock(SenderSelectionStrategy.class);
-    when(senderSelectionStrategy.chooseVerificationCodeSender(any(), any(), any(), any())).thenReturn(sender);
+    when(senderSelectionStrategy.chooseVerificationCodeSender(any(), any(), any(), any(), any())).thenReturn(sender);
 
     final RegistrationService registrationService =
         new RegistrationService(senderSelectionStrategy, memorySessionRepository, sessionCreationRateLimiter, List.of(sender), clock);
@@ -182,7 +182,7 @@ class RegistrationServiceTest {
         .thenReturn(CompletableFuture.completedFuture(secondVerificationCode.getBytes(StandardCharsets.UTF_8)));
 
     final UUID sessionId =
-        registrationService.sendRegistrationCode(MessageTransport.SMS, PHONE_NUMBER, null, LANGUAGE_RANGES, CLIENT_TYPE).join();
+        registrationService.sendRegistrationCode(MessageTransport.SMS, PHONE_NUMBER, null, null, LANGUAGE_RANGES, CLIENT_TYPE).join();
 
     {
       final RegistrationSession registrationSession = memorySessionRepository.getSession(sessionId).join();
@@ -202,7 +202,7 @@ class RegistrationServiceTest {
     when(clock.millis()).thenReturn(future.toEpochMilli());
 
     assertEquals(sessionId,
-        registrationService.sendRegistrationCode(MessageTransport.VOICE, null, sessionId, LANGUAGE_RANGES, CLIENT_TYPE).join());
+        registrationService.sendRegistrationCode(MessageTransport.VOICE, null, sessionId, null, LANGUAGE_RANGES, CLIENT_TYPE).join());
 
     {
       final RegistrationSession registrationSession = memorySessionRepository.getSession(sessionId).join();

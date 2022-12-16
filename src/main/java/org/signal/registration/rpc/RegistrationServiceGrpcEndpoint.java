@@ -98,6 +98,7 @@ public class RegistrationServiceGrpcEndpoint extends RegistrationServiceGrpc.Reg
       registrationService.sendRegistrationCode(getServiceMessageTransport(request.getTransport()),
               phoneNumber,
               existingSessionId,
+              request.getSenderName().isBlank() ? null : request.getSenderName(),
               getLanguageRanges(request.getAcceptLanguage()),
               getServiceClientType(request.getClientType()))
           .whenComplete((sessionId, throwable) -> {

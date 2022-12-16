@@ -21,6 +21,7 @@ import org.signal.registration.sender.prescribed.PrescribedVerificationCodeSende
 import org.signal.registration.util.PhoneNumbers;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import javax.annotation.Nullable;
 
 /**
  * Selects a sender for a specific {@link MessageTransport}
@@ -41,6 +42,7 @@ public class WeightedSelector {
   private final Map<String, EnumeratedDistribution<VerificationCodeSender>> regionalDist;
   private final Map<Phonenumber.PhoneNumber, VerificationCodeSender> e164Overrides;
   private final Map<String, VerificationCodeSender> regionOverrides;
+  private final Map<String, VerificationCodeSender> senders;
 
   public WeightedSelector(
       final WeightedSelectorConfiguration config,
@@ -58,7 +60,7 @@ public class WeightedSelector {
     this.transport = config.transport();
 
     // used to lookup senders from configuration strings
-    final Map<String, VerificationCodeSender> senders = verificationCodeSenders
+    senders = verificationCodeSenders
         .stream()
         .filter(sender -> !(sender instanceof FictitiousNumberVerificationCodeSender || sender instanceof PrescribedVerificationCodeSender))
         .collect(Collectors.toMap(VerificationCodeSender::getName, Function.identity()));
@@ -100,7 +102,12 @@ public class WeightedSelector {
   public VerificationCodeSender chooseVerificationCodeSender(
       final Phonenumber.PhoneNumber phoneNumber,
       final List<Locale.LanguageRange> languageRanges,
-      final ClientType clientType) {
+      final ClientType clientType,
+      final @Nullable String preferredSender) {
+
+    if (preferredSender != null && senders.containsKey(preferredSender)) {
+      return this.senders.get(preferredSender);
+    }
 
     // check for number based overrides
     if (this.e164Overrides.containsKey(phoneNumber)) {

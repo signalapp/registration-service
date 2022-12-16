@@ -40,6 +40,11 @@ public class SendVerificationCode implements Runnable {
       description = "Accepted languages (value of an Accept-Language header)")
   private String acceptLanguage;
 
+  @CommandLine.Option(names = {"--sender-name"},
+      description = "Always use this sender"
+  )
+  private String senderName;
+
   @Override
   public void run() {
     try (final CloseableRegistrationServiceGrpcBlockingStubSupplier stubSupplier = registrationClient.getBlockingStubSupplier()) {
@@ -62,6 +67,10 @@ public class SendVerificationCode implements Runnable {
 
       if (acceptLanguage != null) {
         requestBuilder.setAcceptLanguage(acceptLanguage);
+      }
+
+      if (senderName != null) {
+        requestBuilder.setSenderName(senderName);
       }
 
       final SendVerificationCodeResponse response =

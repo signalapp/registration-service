@@ -8,8 +8,10 @@ package org.signal.registration.sender;
 import com.google.i18n.phonenumbers.Phonenumber;
 import io.micronaut.context.annotation.Requires;
 import jakarta.inject.Singleton;
+import javax.annotation.Nullable;
 import java.util.List;
 import java.util.Locale;
+import java.util.Optional;
 
 /**
  * A trivial sender selection strategy that unconditionally selects a
@@ -23,7 +25,8 @@ public class LastDigitsOfPhoneNumberSenderSelectionStrategy implements SenderSel
 
   private final LastDigitsOfPhoneNumberVerificationCodeSender lastDigitsSender;
 
-  public LastDigitsOfPhoneNumberSenderSelectionStrategy(final LastDigitsOfPhoneNumberVerificationCodeSender lastDigitsSender) {
+  public LastDigitsOfPhoneNumberSenderSelectionStrategy(
+      final LastDigitsOfPhoneNumberVerificationCodeSender lastDigitsSender) {
     this.lastDigitsSender = lastDigitsSender;
   }
 
@@ -31,7 +34,8 @@ public class LastDigitsOfPhoneNumberSenderSelectionStrategy implements SenderSel
   public VerificationCodeSender chooseVerificationCodeSender(final MessageTransport transport,
       final Phonenumber.PhoneNumber phoneNumber,
       final List<Locale.LanguageRange> languageRanges,
-      final ClientType clientType) {
+      final ClientType clientType,
+      final @Nullable String preferredSender) {
 
     return lastDigitsSender;
   }

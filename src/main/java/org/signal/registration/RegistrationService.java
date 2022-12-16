@@ -17,6 +17,7 @@ import java.time.Duration;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
@@ -105,6 +106,7 @@ public class RegistrationService {
    *                    provided instead
    * @param sessionId if specified, resends a verification code in the context of an existing session; may be
    *                  {@code null} if a phone number is provided instead
+   * @param senderName if specified, a preferred sender to use
    * @param languageRanges a prioritized list of languages in which to send the verification code
    * @param clientType the type of client receiving the verification code
    *
@@ -114,6 +116,7 @@ public class RegistrationService {
   public CompletableFuture<UUID> sendRegistrationCode(final MessageTransport messageTransport,
       @Deprecated @Nullable final Phonenumber.PhoneNumber phoneNumber,
       @Nullable final UUID sessionId,
+      @Nullable final String senderName,
       final List<Locale.LanguageRange> languageRanges,
       final ClientType clientType) {
 
@@ -122,15 +125,16 @@ public class RegistrationService {
     }
 
     return sessionId != null ?
-        sendRegistrationCode(messageTransport, sessionId, languageRanges, clientType) :
+        sendRegistrationCode(messageTransport, sessionId, languageRanges, clientType, senderName) :
         sessionRepository.createSession(phoneNumber, NEW_SESSION_TTL)
-            .thenCompose(createdSessionId -> sendRegistrationCode(messageTransport, createdSessionId, languageRanges, clientType));
+            .thenCompose(createdSessionId -> sendRegistrationCode(messageTransport, createdSessionId, languageRanges, clientType, senderName));
   }
 
   private CompletableFuture<UUID> sendRegistrationCode(final MessageTransport messageTransport,
       final UUID sessionId,
       final List<Locale.LanguageRange> languageRanges,
-      final ClientType clientType) {
+      final ClientType clientType,
+      @Nullable final String senderName ) {
 
     return sessionRepository.getSession(sessionId)
         .thenCompose(session -> {
@@ -139,8 +143,8 @@ public class RegistrationService {
               final Phonenumber.PhoneNumber phoneNumberFromSession =
                   PhoneNumberUtil.getInstance().parse(session.getPhoneNumber(), null);
 
-              final VerificationCodeSender sender =
-                  senderSelectionStrategy.chooseVerificationCodeSender(messageTransport, phoneNumberFromSession, languageRanges, clientType);
+              final VerificationCodeSender sender = senderSelectionStrategy.chooseVerificationCodeSender(
+                  messageTransport, phoneNumberFromSession, languageRanges, clientType, senderName);
 
               return sender.sendVerificationCode(messageTransport,
                       phoneNumberFromSession,

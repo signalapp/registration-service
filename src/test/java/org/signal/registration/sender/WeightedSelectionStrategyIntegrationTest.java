@@ -19,6 +19,7 @@ import jakarta.inject.Inject;
 import java.util.Collections;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.Stream;
 import org.junit.jupiter.api.BeforeEach;
@@ -142,7 +143,7 @@ class WeightedSelectionStrategyIntegrationTest {
 
     assertEquals(senderClass,
         selectionStrategy.chooseVerificationCodeSender(
-            messageTransport, phoneNumber, Locale.LanguageRange.parse(acceptLanguage), clientType).getClass());
+            messageTransport, phoneNumber, Locale.LanguageRange.parse(acceptLanguage), clientType, null).getClass());
   }
 
   private static Stream<Arguments> chooseVerificationCodeSender() {

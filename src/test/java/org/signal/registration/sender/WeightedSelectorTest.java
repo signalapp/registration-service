@@ -5,23 +5,20 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
-import com.google.i18n.phonenumbers.NumberParseException;
 import com.google.i18n.phonenumbers.PhoneNumberUtil;
 import com.google.i18n.phonenumbers.Phonenumber;
-import java.time.Duration;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
-import java.util.Locale;
 import java.util.Map;
-import java.util.Set;
+import java.util.Optional;
 import java.util.TreeMap;
-import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import javax.annotation.Nullable;
 import org.apache.commons.math3.random.AbstractRandomGenerator;
 import org.apache.commons.math3.random.RandomGenerator;
+import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
@@ -32,11 +29,6 @@ public class WeightedSelectorTest {
   private static final VerificationCodeSender SENDER_A = buildMockSender("A", true);
   private static final VerificationCodeSender SENDER_B = buildMockSender("B", true);
   private static final VerificationCodeSender UNSUPPORTED = buildMockSender("unsupported", false);
-
-  private final static String MX_NUM = PhoneNumberUtil.getInstance().format(
-      PhoneNumberUtil.getInstance().getExampleNumber("MX"),
-      PhoneNumberUtil.PhoneNumberFormat.E164
-  );
 
   static Stream<Arguments> select() {
     final Stream<Arguments> args = Stream.of(
@@ -117,12 +109,13 @@ public class WeightedSelectorTest {
     final VerificationCodeSender actual = ts.chooseVerificationCodeSender(
         PhoneNumberUtil.getInstance().getExampleNumber(region),
         Collections.emptyList(),
-        ClientType.IOS);
+        ClientType.IOS,
+        null);
 
     assertEquals(actual, expected);
   }
 
-  static Stream<Arguments> override() throws NumberParseException {
+  static Stream<Arguments> override() {
     final Phonenumber.PhoneNumber number = PhoneNumberUtil.getInstance().getExampleNumber("US");
     final Phonenumber.PhoneNumber mxNumber = PhoneNumberUtil.getInstance().getExampleNumber("MX");
 
@@ -162,7 +155,8 @@ public class WeightedSelectorTest {
     final VerificationCodeSender actual = ts.chooseVerificationCodeSender(
         number,
         Collections.emptyList(),
-        ClientType.IOS);
+        ClientType.IOS,
+        null);
     assertEquals(expected, actual);
   }
 
@@ -196,8 +190,24 @@ public class WeightedSelectorTest {
         List.of(SENDER_A, SENDER_B, UNSUPPORTED, SENDER_FALLBACK));
     final Phonenumber.PhoneNumber num = PhoneNumberUtil.getInstance().getExampleNumber("US");
     final VerificationCodeSender actual = ts.chooseVerificationCodeSender(num, Collections.emptyList(),
-        ClientType.IOS);
+        ClientType.IOS, null);
     assertEquals(actual, expected);
+  }
+
+  @Test
+  public void preferredSender() {
+    final WeightedSelectorConfiguration config = new WeightedSelectorConfiguration(
+        MessageTransport.SMS,
+        List.of(SENDER_FALLBACK.getName()),
+        Map.of(), Map.of(), Map.of(), Map.of());
+
+    final WeightedSelector ts = new WeightedSelector(config, List.of(SENDER_FALLBACK, SENDER_A));
+    final VerificationCodeSender actual = ts.chooseVerificationCodeSender(
+        PhoneNumberUtil.getInstance().getExampleNumber("US"),
+        Collections.emptyList(),
+        ClientType.IOS,
+        SENDER_A.getName());
+    assertEquals(SENDER_A, actual);
   }
 
   private static VerificationCodeSender buildMockSender(final String name, final boolean supports) {
