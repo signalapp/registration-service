@@ -45,7 +45,6 @@ import org.signal.registration.sender.twilio.verify.TwilioVerifySender;
 @Property(name = "selection.sms.region-weights.gl.messagebird-sms", value = "1")
 @Property(name = "selection.sms.region-overrides.cn", value = "twilio-verify")
 @Property(name = "selection.sms.region-overrides.mx", value = "twilio-programmable-messaging")
-@Property(name = "selection.sms.e164-overrides.+12223334444", value = "messagebird-verify")
 @Property(name = "selection.voice.fallback-senders", value = "twilio-verify,twilio-programmable-voice")
 @Property(name = "selection.voice.default-weights.twilio-verify", value = "1")
 @Property(name = "selection.voice.default-weights.messagebird-verify", value = "0")
@@ -162,7 +161,6 @@ class WeightedSelectionStrategyIntegrationTest {
         Arguments.of(MessageTransport.VOICE, NEVER_USE_VERIFY_NUMBER,     "de", ClientType.IOS, TwilioVoiceSender.class),
         Arguments.of(MessageTransport.VOICE, NEVER_USE_VERIFY_NUMBER,     "fr", ClientType.IOS, TwilioVoiceSender.class),
         Arguments.of(MessageTransport.SMS,   USE_MB_VERIFY_NUMBER,        "en", ClientType.IOS, MessageBirdVerifySender.class),
-        Arguments.of(MessageTransport.SMS,   USE_MB_SMS_NUMBER,           "en", ClientType.IOS, MessageBirdSmsSender.class),
-        Arguments.of(MessageTransport.SMS,   USE_MB_E164_OVERRIDE_NUMBER, "fr", ClientType.IOS, MessageBirdVerifySender.class));
+        Arguments.of(MessageTransport.SMS,   USE_MB_SMS_NUMBER,           "en", ClientType.IOS, MessageBirdSmsSender.class));
   }
 }

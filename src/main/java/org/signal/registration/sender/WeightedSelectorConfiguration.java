@@ -17,7 +17,6 @@ import javax.validation.constraints.NotEmpty;
  *                        used, or the first sender if no sender supports the request.
  * @param defaultWeights  The proportion of each service type to use
  * @param regionWeights   Override of weights by region
- * @param e164Overrides   Map from phone number to service that should always be used for that number
  * @param regionOverrides Map from region to service that should always be used for that region
  */
 @EachProperty("selection")
@@ -26,7 +25,6 @@ public record WeightedSelectorConfiguration(
     @NotEmpty List<@NotBlank String> fallbackSenders,
     Map<@NotBlank String, Integer> defaultWeights,
     Map<@NotBlank String, Map<@NotBlank String, Integer>> regionWeights,
-    Map<Phonenumber.PhoneNumber, @NotBlank String> e164Overrides,
     Map<@NotBlank String, @NotBlank String> regionOverrides
 ) {
 

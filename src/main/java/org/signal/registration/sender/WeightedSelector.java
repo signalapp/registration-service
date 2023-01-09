@@ -40,7 +40,6 @@ public class WeightedSelector {
   private final List<VerificationCodeSender> fallbackSenders;
   private final Optional<EnumeratedDistribution<VerificationCodeSender>> defaultDist;
   private final Map<String, EnumeratedDistribution<VerificationCodeSender>> regionalDist;
-  private final Map<Phonenumber.PhoneNumber, VerificationCodeSender> e164Overrides;
   private final Map<String, VerificationCodeSender> regionOverrides;
   private final Map<String, VerificationCodeSender> senders;
 
@@ -75,11 +74,6 @@ public class WeightedSelector {
         weights -> parseDistribution(random, senders, weights.getValue())
     ));
 
-    this.e164Overrides = config.e164Overrides().entrySet().stream()
-        .collect(Collectors.toMap(
-            Map.Entry::getKey,
-            e -> parseSender(senders, e.getValue())));
-
     this.regionOverrides = config.regionOverrides().entrySet().stream()
         .collect(Collectors.toMap(
             e -> e.getKey().toUpperCase(),
@@ -107,11 +101,6 @@ public class WeightedSelector {
 
     if (preferredSender != null && senders.containsKey(preferredSender)) {
       return this.senders.get(preferredSender);
-    }
-
-    // check for number based overrides
-    if (this.e164Overrides.containsKey(phoneNumber)) {
-      return this.e164Overrides.get(phoneNumber);
     }
 
     // check for region based overrides

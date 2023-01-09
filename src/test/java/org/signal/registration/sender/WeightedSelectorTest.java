@@ -11,7 +11,6 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 import java.util.TreeMap;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -96,7 +95,6 @@ public class WeightedSelectorTest {
         List.of(SENDER_FALLBACK.getName()),
         sortedDefaults,
         sortedOverrides,
-        Collections.emptyMap(),
         Collections.emptyMap()
     );
 
@@ -121,24 +119,15 @@ public class WeightedSelectorTest {
 
     return Stream.of(
         // no override
-        Arguments.of(Map.of(), Map.of(), number, SENDER_FALLBACK),
-        // override same as default
-        Arguments.of(Map.of(number, SENDER_FALLBACK.getName()), Map.of(), number, SENDER_FALLBACK),
-        // override to A
-        Arguments.of(Map.of(number, SENDER_A.getName()), Map.of(), number, SENDER_A),
-        // override of different number
-        Arguments.of(Map.of(number, SENDER_A.getName()), Map.of(), mxNumber, SENDER_FALLBACK),
+        Arguments.of(Map.of(), number, SENDER_FALLBACK),
         // override by region
-        Arguments.of(Map.of(), Map.of("mx", SENDER_A.getName()), mxNumber, SENDER_A),
-        // override by region and e164
-        Arguments.of(Map.of(mxNumber, SENDER_A.getName()), Map.of("mx", SENDER_B.getName()), mxNumber, SENDER_A)
+        Arguments.of(Map.of("mx", SENDER_A.getName()), mxNumber, SENDER_A)
     );
   }
 
   @ParameterizedTest
   @MethodSource
   void override(
-      Map<Phonenumber.PhoneNumber, String> e164Overrides,
       Map<String, String> regionOverrides,
       final Phonenumber.PhoneNumber number,
       VerificationCodeSender expected) {
@@ -148,7 +137,6 @@ public class WeightedSelectorTest {
         List.of(SENDER_FALLBACK.getName()),
         Map.of(),
         Map.of(),
-        e164Overrides,
         regionOverrides);
 
     final WeightedSelector ts = new WeightedSelector(config, List.of(SENDER_A, SENDER_B, UNSUPPORTED, SENDER_FALLBACK));
@@ -184,7 +172,6 @@ public class WeightedSelectorTest {
         fallbacks.stream().map(VerificationCodeSender::getName).toList(),
         choice == null ? Map.of() : Map.of(choice.getName(), 1),
         Map.of(),
-        Map.of(),
         Map.of());
     final WeightedSelector ts = new WeightedSelector(config,
         List.of(SENDER_A, SENDER_B, UNSUPPORTED, SENDER_FALLBACK));
@@ -199,7 +186,7 @@ public class WeightedSelectorTest {
     final WeightedSelectorConfiguration config = new WeightedSelectorConfiguration(
         MessageTransport.SMS,
         List.of(SENDER_FALLBACK.getName()),
-        Map.of(), Map.of(), Map.of(), Map.of());
+        Map.of(), Map.of(), Map.of());
 
     final WeightedSelector ts = new WeightedSelector(config, List.of(SENDER_FALLBACK, SENDER_A));
     final VerificationCodeSender actual = ts.chooseVerificationCodeSender(
