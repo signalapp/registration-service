@@ -31,10 +31,17 @@ message CreateRegistrationSessionRequest {
 }
 
 message CreateRegistrationSessionResponse {
-  /**
-   * Metadata for the newly-created session.
-   */
-  RegistrationSessionMetadata session_metadata = 1;
+  oneof response {
+    /**
+     * Metadata for the newly-created session.
+     */
+    RegistrationSessionMetadata session_metadata = 1;
+
+    /**
+     * A response explaining why a session could not be created as requested.
+     */
+    CreateRegistrationSessionError error = 2;
+  }
 }
 
 message RegistrationSessionMetadata {
@@ -43,6 +50,38 @@ message RegistrationSessionMetadata {
    * session associated with this registration attempt.
    */
   bytes session_id = 1;
+}
+
+message CreateRegistrationSessionError {
+  /**
+   * The type of error that prevented a session from being created.
+   */
+  CreateRegistrationSessionErrorType error_type = 1;
+
+  /**
+   * Indicates that this error is fatal and should not be retried without
+   * modification. Non-fatal errors may be retried without modification after
+   * the duration indicated by `retry_after_seconds`.
+   */
+  bool fatal = 2;
+
+  /**
+   * If this error is not fatal (see `fatal`), indicates the duration in seconds
+   * from the present after which the request may be retried without
+   * modification. This value has no meaning otherwise.
+   */
+  uint64 retry_after_seconds = 3;
+}
+
+enum CreateRegistrationSessionErrorType {
+  ERROR_TYPE_UNSPECIFIED = 0;
+
+  /**
+   * Indicates that a session could not be created because too many requests to
+   * create a session for the given phone number have been received in some
+   * window of time. Callers should wait and try again later.
+   */
+  ERROR_TYPE_RATE_LIMITED = 1;
 }
 
 message SendVerificationCodeRequest {

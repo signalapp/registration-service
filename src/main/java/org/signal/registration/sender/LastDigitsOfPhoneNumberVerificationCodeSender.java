@@ -49,14 +49,16 @@ public class LastDigitsOfPhoneNumberVerificationCodeSender implements Verificati
       final List<Locale.LanguageRange> languageRanges,
       final ClientType clientType) {
 
-    final String e164String = PhoneNumberUtil.getInstance().format(phoneNumber, PhoneNumberUtil.PhoneNumberFormat.E164);
-    final String verificationCode = e164String.substring(e164String.length() - 6);
-
-    return CompletableFuture.completedFuture(verificationCode.getBytes(StandardCharsets.UTF_8));
+    return CompletableFuture.completedFuture(getVerificationCode(phoneNumber).getBytes(StandardCharsets.UTF_8));
   }
 
   @Override
   public CompletableFuture<Boolean> checkVerificationCode(final String verificationCode, final byte[] sessionData) {
     return CompletableFuture.completedFuture(verificationCode.equals(new String(sessionData, StandardCharsets.UTF_8)));
+  }
+
+  public static String getVerificationCode(final Phonenumber.PhoneNumber phoneNumber) {
+    final String e164String = PhoneNumberUtil.getInstance().format(phoneNumber, PhoneNumberUtil.PhoneNumberFormat.E164);
+    return e164String.substring(e164String.length() - 6);
   }
 }

@@ -15,9 +15,11 @@ import io.grpc.StatusException;
 import io.grpc.stub.StreamObserver;
 import jakarta.inject.Singleton;
 import org.apache.commons.lang3.StringUtils;
+import org.signal.registration.ratelimit.RateLimitExceededException;
 import org.signal.registration.sender.ClientType;
 import org.signal.registration.sender.MessageTransport;
 import org.signal.registration.RegistrationService;
+import org.signal.registration.util.CompletionExceptions;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -51,10 +53,7 @@ public class RegistrationServiceGrpcEndpoint extends RegistrationServiceGrpc.Reg
 
       registrationService.createRegistrationSession(phoneNumber)
           .whenComplete((sessionId, throwable) -> {
-            if (throwable != null) {
-              logger.warn("Failed to create registration session", throwable);
-              responseObserver.onError(new StatusException(Status.INTERNAL));
-            } else {
+            if (throwable == null) {
               responseObserver.onNext(CreateRegistrationSessionResponse.newBuilder()
                   .setSessionMetadata(RegistrationSessionMetadata.newBuilder()
                       .setSessionId(uuidToByteString(sessionId))
@@ -62,6 +61,21 @@ public class RegistrationServiceGrpcEndpoint extends RegistrationServiceGrpc.Reg
                   .build());
 
               responseObserver.onCompleted();
+            } else {
+              if (CompletionExceptions.unwrap(throwable) instanceof RateLimitExceededException rateLimitExceededException) {
+                responseObserver.onNext(CreateRegistrationSessionResponse.newBuilder()
+                        .setError(CreateRegistrationSessionError.newBuilder()
+                            .setErrorType(CreateRegistrationSessionErrorType.ERROR_TYPE_RATE_LIMITED)
+                            .setFatal(false)
+                            .setRetryAfterSeconds(rateLimitExceededException.getRetryAfterDuration().getSeconds())
+                            .build())
+                    .build());
+
+                responseObserver.onCompleted();
+              } else {
+                logger.warn("Failed to create registration session", throwable);
+                responseObserver.onError(new StatusException(Status.INTERNAL));
+              }
             }
           });
     } catch (final NumberParseException e) {

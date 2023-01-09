@@ -10,6 +10,7 @@ import com.google.i18n.phonenumbers.NumberParseException;
 import com.google.i18n.phonenumbers.PhoneNumberUtil;
 import com.google.i18n.phonenumbers.Phonenumber;
 import com.google.protobuf.ByteString;
+import jakarta.inject.Named;
 import jakarta.inject.Singleton;
 import java.time.Clock;
 import java.time.Duration;
@@ -23,6 +24,7 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 import javax.annotation.Nullable;
 import org.apache.commons.lang3.StringUtils;
+import org.signal.registration.ratelimit.RateLimiter;
 import org.signal.registration.sender.ClientType;
 import org.signal.registration.sender.MessageTransport;
 import org.signal.registration.sender.SenderSelectionStrategy;
@@ -42,6 +44,7 @@ public class RegistrationService {
 
   private final SenderSelectionStrategy senderSelectionStrategy;
   private final SessionRepository sessionRepository;
+  private final RateLimiter<Phonenumber.PhoneNumber> sessionCreationRateLimiter;
   private final Clock clock;
 
   private final Map<String, VerificationCodeSender> sendersByName;
@@ -57,18 +60,22 @@ public class RegistrationService {
    * Constructs a new registration service that chooses verification code senders with the given strategy and stores
    * session data with the given session repository.
    *
-   * @param senderSelectionStrategy the strategy to use to choose verification code senders
-   * @param sessionRepository       the repository to use to store session data
-   * @param verificationCodeSenders a list of verification code senders that may be used by this service
-   * @param clock                   the time source for this registration service
+   * @param senderSelectionStrategy    the strategy to use to choose verification code senders
+   * @param sessionRepository          the repository to use to store session data
+   * @param sessionCreationRateLimiter a rate limiter that controls the rate at which sessions may be created for
+   *                                   individual phone numbers
+   * @param verificationCodeSenders    a list of verification code senders that may be used by this service
+   * @param clock                      the time source for this registration service
    */
   public RegistrationService(final SenderSelectionStrategy senderSelectionStrategy,
       final SessionRepository sessionRepository,
+      @Named("session-creation") final RateLimiter<Phonenumber.PhoneNumber> sessionCreationRateLimiter,
       final List<VerificationCodeSender> verificationCodeSenders,
       final Clock clock) {
 
     this.senderSelectionStrategy = senderSelectionStrategy;
     this.sessionRepository = sessionRepository;
+    this.sessionCreationRateLimiter = sessionCreationRateLimiter;
     this.clock = clock;
 
     this.sendersByName = verificationCodeSenders.stream()
@@ -81,10 +88,12 @@ public class RegistrationService {
    * @param phoneNumber the phone number for which to create a new registration session
    *
    * @return a future that yields the identifier of the newly-created registration session the session has been created
-   * and stored in this service's session repository
+   * and stored in this service's session repository; the returned future may fail with a
+   * {@link org.signal.registration.ratelimit.RateLimitExceededException}
    */
   public CompletableFuture<UUID> createRegistrationSession(final Phonenumber.PhoneNumber phoneNumber) {
-    return sessionRepository.createSession(phoneNumber, NEW_SESSION_TTL);
+    return sessionCreationRateLimiter.checkRateLimit(phoneNumber)
+        .thenCompose(ignored -> sessionRepository.createSession(phoneNumber, NEW_SESSION_TTL));
   }
 
   /**

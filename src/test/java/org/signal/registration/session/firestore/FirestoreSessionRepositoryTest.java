@@ -6,7 +6,6 @@
 package org.signal.registration.session.firestore;
 
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
-import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.mock;
@@ -20,11 +19,6 @@ import com.google.i18n.phonenumbers.PhoneNumberUtil;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import io.micronaut.context.event.ApplicationEventPublisher;
 import java.io.IOException;
-import java.net.URI;
-import java.net.URISyntaxException;
-import java.net.http.HttpClient;
-import java.net.http.HttpRequest;
-import java.net.http.HttpResponse;
 import java.time.Clock;
 import java.time.Instant;
 import java.util.UUID;
@@ -38,6 +32,7 @@ import org.signal.registration.session.RegistrationSession;
 import org.signal.registration.session.SessionCompletedEvent;
 import org.signal.registration.session.SessionNotFoundException;
 import org.signal.registration.session.SessionRepository;
+import org.signal.registration.util.FirestoreTestUtil;
 import org.testcontainers.containers.FirestoreEmulatorContainer;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
@@ -63,25 +58,13 @@ class FirestoreSessionRepositoryTest extends AbstractSessionRepositoryTest {
       DockerImageName.parse(FIRESTORE_EMULATOR_IMAGE_NAME));
 
   @BeforeEach
-  void setUp() throws URISyntaxException, IOException, InterruptedException {
-    // Clear the Firestore database before each test run; see
-    // https://firebase.google.com/docs/emulator-suite/connect_firestore#clear_your_database_between_tests for details.
-    final URI clearDatabaseUri = new URI("http", null, CONTAINER.getHost(), CONTAINER.getMappedPort(8080), "/emulator/v1/projects/" + PROJECT_ID + "/databases/(default)/documents", null, null);
-    final HttpResponse<String> response = HttpClient.newHttpClient().send(
-        HttpRequest.newBuilder(clearDatabaseUri).DELETE().build(),
-        HttpResponse.BodyHandlers.ofString());
-
-    assertEquals(200, response.statusCode());
+  void setUp() throws IOException {
+    FirestoreTestUtil.clearFirestoreDatabase(CONTAINER, PROJECT_ID);
 
     final FirestoreSessionRepositoryConfiguration configuration =
         new FirestoreSessionRepositoryConfiguration("registration-sessions", "expiration", "remove-after");
 
-    firestore = FirestoreOptions.getDefaultInstance().toBuilder()
-        .setHost(CONTAINER.getEmulatorEndpoint())
-        .setCredentials(NoCredentials.getInstance())
-        .setProjectId(PROJECT_ID)
-        .build()
-        .getService();
+    firestore = FirestoreTestUtil.buildFirestoreClient(CONTAINER, PROJECT_ID);
 
     //noinspection unchecked
     sessionCompletedEventPublisher = mock(ApplicationEventPublisher.class);

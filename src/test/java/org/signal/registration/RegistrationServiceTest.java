@@ -31,8 +31,11 @@ import java.util.List;
 import java.util.Locale;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionException;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.signal.registration.ratelimit.RateLimitExceededException;
+import org.signal.registration.ratelimit.RateLimiter;
 import org.signal.registration.sender.ClientType;
 import org.signal.registration.sender.MessageTransport;
 import org.signal.registration.sender.SenderSelectionStrategy;
@@ -42,6 +45,7 @@ import org.signal.registration.session.RegistrationAttempt;
 import org.signal.registration.session.RegistrationSession;
 import org.signal.registration.session.SessionNotFoundException;
 import org.signal.registration.session.SessionRepository;
+import org.signal.registration.util.CompletionExceptions;
 
 class RegistrationServiceTest {
 
@@ -49,6 +53,7 @@ class RegistrationServiceTest {
 
   private VerificationCodeSender sender;
   private SessionRepository sessionRepository;
+  private RateLimiter<Phonenumber.PhoneNumber> sessionCreationRateLimiter;
 
   private static final Phonenumber.PhoneNumber PHONE_NUMBER;
   private static final UUID SESSION_ID = UUID.randomUUID();
@@ -80,7 +85,15 @@ class RegistrationServiceTest {
     final SenderSelectionStrategy senderSelectionStrategy = mock(SenderSelectionStrategy.class);
     when(senderSelectionStrategy.chooseVerificationCodeSender(any(), any(), any(), any())).thenReturn(sender);
 
-    registrationService = new RegistrationService(senderSelectionStrategy, sessionRepository, List.of(sender), Clock.systemUTC());
+    //noinspection unchecked
+    sessionCreationRateLimiter = mock(RateLimiter.class);
+    when(sessionCreationRateLimiter.checkRateLimit(any())).thenReturn(CompletableFuture.completedFuture(null));
+
+    registrationService = new RegistrationService(senderSelectionStrategy,
+        sessionRepository,
+        sessionCreationRateLimiter,
+        List.of(sender),
+        Clock.systemUTC());
   }
 
   @Test
@@ -103,6 +116,20 @@ class RegistrationServiceTest {
     verify(sender).sendVerificationCode(MessageTransport.SMS, PHONE_NUMBER, LANGUAGE_RANGES, CLIENT_TYPE);
     verify(sessionRepository).createSession(PHONE_NUMBER, RegistrationService.NEW_SESSION_TTL);
     verify(sessionRepository).updateSession(eq(SESSION_ID), any(), eq(SESSION_TTL));
+  }
+
+  @Test
+  void createSessionRateLimited() {
+    final RateLimitExceededException rateLimitExceededException = new RateLimitExceededException(Duration.ZERO);
+
+    when(sessionCreationRateLimiter.checkRateLimit(any()))
+        .thenReturn(CompletableFuture.failedFuture(rateLimitExceededException));
+
+    final CompletionException completionException = assertThrows(CompletionException.class,
+        () -> registrationService.createRegistrationSession(PHONE_NUMBER).join());
+
+    assertEquals(rateLimitExceededException, CompletionExceptions.unwrap(completionException));
+    verify(sessionRepository, never()).createSession(any(), any());
   }
 
   @Test
@@ -145,7 +172,7 @@ class RegistrationServiceTest {
     when(senderSelectionStrategy.chooseVerificationCodeSender(any(), any(), any(), any())).thenReturn(sender);
 
     final RegistrationService registrationService =
-        new RegistrationService(senderSelectionStrategy, memorySessionRepository, List.of(sender), clock);
+        new RegistrationService(senderSelectionStrategy, memorySessionRepository, sessionCreationRateLimiter, List.of(sender), clock);
 
     final String firstVerificationCode = "123456";
     final String secondVerificationCode = "234567";

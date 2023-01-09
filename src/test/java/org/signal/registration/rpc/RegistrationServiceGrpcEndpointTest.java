@@ -5,28 +5,34 @@
 
 package org.signal.registration.rpc;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.isNull;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
+
 import com.google.i18n.phonenumbers.NumberParseException;
 import com.google.i18n.phonenumbers.PhoneNumberUtil;
 import com.google.i18n.phonenumbers.Phonenumber;
 import io.micronaut.test.annotation.MockBean;
 import io.micronaut.test.extensions.junit5.annotation.MicronautTest;
 import jakarta.inject.Inject;
+import java.time.Duration;
+import java.util.Locale;
+import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
+import java.util.stream.Stream;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 import org.signal.registration.RegistrationService;
+import org.signal.registration.ratelimit.RateLimitExceededException;
 import org.signal.registration.sender.ClientType;
 import org.signal.registration.sender.MessageTransport;
-
-import java.util.Locale;
-import java.util.UUID;
-import java.util.concurrent.CompletableFuture;
-import java.util.stream.Stream;
-
-import static org.junit.jupiter.api.Assertions.*;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.*;
 
 @MicronautTest
 class RegistrationServiceGrpcEndpointTest {
@@ -41,6 +47,39 @@ class RegistrationServiceGrpcEndpointTest {
 
   @Inject
   private RegistrationService registrationService;
+
+  @Test
+  void createSession() {
+    final UUID sessionId = UUID.randomUUID();
+
+    when(registrationService.createRegistrationSession(any()))
+        .thenReturn(CompletableFuture.completedFuture(sessionId));
+
+    final CreateRegistrationSessionResponse response =
+        blockingStub.createSession(CreateRegistrationSessionRequest.newBuilder()
+            .setE164(18005550123L)
+            .build());
+
+    assertEquals(CreateRegistrationSessionResponse.ResponseCase.SESSION_METADATA, response.getResponseCase());
+    assertEquals(RegistrationServiceGrpcEndpoint.uuidToByteString(sessionId), response.getSessionMetadata().getSessionId());
+  }
+
+  @Test
+  void createSessionRateLimited() {
+    final Duration retryAfter = Duration.ofSeconds(60);
+
+    when(registrationService.createRegistrationSession(any()))
+        .thenReturn(CompletableFuture.failedFuture(new RateLimitExceededException(retryAfter)));
+
+    final CreateRegistrationSessionResponse response =
+        blockingStub.createSession(CreateRegistrationSessionRequest.newBuilder()
+            .setE164(18005550123L)
+            .build());
+
+    assertEquals(CreateRegistrationSessionResponse.ResponseCase.ERROR, response.getResponseCase());
+    assertEquals(CreateRegistrationSessionErrorType.ERROR_TYPE_RATE_LIMITED, response.getError().getErrorType());
+    assertEquals(retryAfter.toSeconds(), response.getError().getRetryAfterSeconds());
+  }
 
   @Test
   void sendVerificationCode() throws NumberParseException {
