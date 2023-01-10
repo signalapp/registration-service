@@ -6,6 +6,7 @@
 package org.signal.registration.sender;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.google.i18n.phonenumbers.PhoneNumberUtil;
 import com.google.i18n.phonenumbers.Phonenumber;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micronaut.context.MessageSource;
@@ -17,6 +18,7 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import javax.annotation.Nullable;
+import net.logstash.logback.marker.Markers;
 import org.apache.commons.lang3.StringUtils;
 import org.signal.registration.metrics.MetricsUtil;
 import org.signal.registration.util.PhoneNumbers;
@@ -137,7 +139,12 @@ public class VerificationSmsBodyProvider {
           Locale.lookupTag(languageRanges, configuration.getSupportedLanguages());
 
       if (preferredLanguage == null) {
-        logger.debug("No supported language for ranges: {}", languageRanges);
+        logger.debug(Markers.appendEntries(Map.of(
+                "countryCode", phoneNumber.getCountryCode(),
+                "regionCode", StringUtils.defaultIfBlank(PhoneNumberUtil.getInstance().getRegionCodeForNumber(phoneNumber), "XX"),
+                "client", clientType.name()
+            )),
+            "No supported language for ranges: {}", languageRanges);
       }
 
       meterRegistry.counter(GET_VERIFICATION_SMS_BODY_COUNTER_NAME,
