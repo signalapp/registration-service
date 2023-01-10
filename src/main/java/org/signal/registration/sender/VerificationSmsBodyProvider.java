@@ -20,6 +20,8 @@ import javax.annotation.Nullable;
 import org.apache.commons.lang3.StringUtils;
 import org.signal.registration.metrics.MetricsUtil;
 import org.signal.registration.util.PhoneNumbers;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * A verification SMS body provider supplies localized, client-appropriate body text for use in SMS verification
@@ -74,6 +76,8 @@ public class VerificationSmsBodyProvider {
       MetricsUtil.name(VerificationSmsBodyProvider.class, "getVerificationSmsBody");
 
   private static final String SMS_LANGUAGE_TAG = "language";
+
+  private static final Logger logger = LoggerFactory.getLogger(VerificationSmsBodyProvider.class);
 
   @Inject
   public VerificationSmsBodyProvider(final VerificationSmsConfiguration configuration, final MeterRegistry meterRegistry) {
@@ -131,6 +135,10 @@ public class VerificationSmsBodyProvider {
     {
       final String preferredLanguage =
           Locale.lookupTag(languageRanges, configuration.getSupportedLanguages());
+
+      if (preferredLanguage == null) {
+        logger.debug("No supported language for ranges: {}", languageRanges);
+      }
 
       meterRegistry.counter(GET_VERIFICATION_SMS_BODY_COUNTER_NAME,
           SMS_LANGUAGE_TAG, StringUtils.defaultIfBlank(preferredLanguage, "unknown"))
