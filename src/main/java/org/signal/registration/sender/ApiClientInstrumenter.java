@@ -22,7 +22,7 @@ public class ApiClientInstrumenter {
   private static final String CALL_TIMER_NAME = MetricsUtil.name(ApiClientInstrumenter.class, "apiCallDuration");
 
   private static final String ENDPOINT_TAG_NAME = "endpoint";
-  private static final String PROVIDER_TAG_NAME = "provider";
+  private static final String SENDER_TAG_NAME = "sender";
   private static final String SUCCESS_TAG_NAME = "success";
   private static final String ERROR_CODE_TAG_NAME = "code";
   private MeterRegistry meterRegistry;
@@ -32,7 +32,7 @@ public class ApiClientInstrumenter {
   }
 
   public void recordApiCallMetrics(
-      final String providerName,
+      final String senderName,
       final String endpointName,
       final boolean success,
       @Nullable final String errorCode,
@@ -40,7 +40,7 @@ public class ApiClientInstrumenter {
 
     final List<Tag> tags = new ArrayList<>(4);
     tags.add(Tag.of(ENDPOINT_TAG_NAME, endpointName));
-    tags.add(Tag.of(PROVIDER_TAG_NAME, providerName));
+    tags.add(Tag.of(SENDER_TAG_NAME, senderName));
     tags.add(Tag.of(SUCCESS_TAG_NAME, String.valueOf(success)));
 
     Optional
@@ -48,7 +48,7 @@ public class ApiClientInstrumenter {
         .ifPresent(s -> tags.add(Tag.of(ERROR_CODE_TAG_NAME, s)));
 
     meterRegistry.counter(CALL_COUNTER_NAME, tags).increment();
-    timerSample.stop(meterRegistry.timer(CALL_TIMER_NAME, ENDPOINT_TAG_NAME, endpointName, PROVIDER_TAG_NAME, providerName));
+    timerSample.stop(meterRegistry.timer(CALL_TIMER_NAME, ENDPOINT_TAG_NAME, endpointName, SENDER_TAG_NAME, senderName));
   }
 
 }
