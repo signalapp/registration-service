@@ -43,7 +43,10 @@ import org.signal.registration.session.RegistrationSession;
 import org.signal.registration.session.SessionCompletedEvent;
 import org.signal.registration.session.SessionNotFoundException;
 import org.signal.registration.session.SessionRepository;
+import org.signal.registration.util.CompletionExceptions;
 import org.signal.registration.util.FirestoreUtil;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * A Firestore session repository stores sessions in a Firestore collection. This repository stores each session in its
@@ -69,6 +72,8 @@ public class FirestoreSessionRepository implements SessionRepository {
 
   private static final String SESSION_FIELD_NAME = "session";
   private static final Duration REMOVAL_TTL_PADDING = Duration.ofMinutes(5);
+
+  private static final Logger logger = LoggerFactory.getLogger(FirestoreSessionRepository.class);
 
   public FirestoreSessionRepository(final Firestore firestore,
       @Named(TaskExecutors.IO) final Executor executor,
@@ -168,7 +173,13 @@ public class FirestoreSessionRepository implements SessionRepository {
             throw new CompletionException(e);
           }
         })
-        .whenComplete((session, throwable) -> sample.stop(getSessionTimer));
+        .whenComplete((session, throwable) -> {
+          if (throwable != null && !(CompletionExceptions.unwrap(throwable) instanceof SessionNotFoundException)) {
+            logger.warn("Unexpected exception when retrieving session", throwable);
+          }
+
+          sample.stop(getSessionTimer);
+        });
   }
 
   @Override

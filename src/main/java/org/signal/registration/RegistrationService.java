@@ -32,6 +32,7 @@ import org.signal.registration.sender.VerificationCodeSender;
 import org.signal.registration.session.RegistrationAttempt;
 import org.signal.registration.session.SessionNotFoundException;
 import org.signal.registration.session.SessionRepository;
+import org.signal.registration.util.CompletionExceptions;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import javax.annotation.Nullable;
@@ -211,8 +212,8 @@ public class RegistrationService {
           }
         })
         .exceptionally(throwable -> {
-          if (!(throwable.getCause() instanceof SessionNotFoundException)) {
-            logger.warn("Unexpected exception when retrieving session {}", sessionId, throwable);
+          if (!(CompletionExceptions.unwrap(throwable) instanceof SessionNotFoundException)) {
+            logger.warn("Failed to check verification code", throwable);
           }
 
           return false;
