@@ -21,6 +21,7 @@ import java.util.concurrent.atomic.AtomicReference;
 import org.apache.commons.lang3.StringUtils;
 import org.signal.registration.sender.ClientType;
 import org.signal.registration.sender.MessageTransport;
+import org.signal.registration.sender.SenderRejectedRequestException;
 import org.signal.registration.sender.VerificationCodeSender;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -82,7 +83,7 @@ public class PrescribedVerificationCodeSender implements VerificationCodeSender 
             .setVerificationCode(verificationCode)
             .build()
             .toByteArray()) :
-        CompletableFuture.failedFuture(new IllegalArgumentException("Unsupported phone number"));
+        CompletableFuture.failedFuture(new SenderRejectedRequestException("Unsupported phone number"));
   }
 
   @Override

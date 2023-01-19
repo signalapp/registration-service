@@ -22,7 +22,7 @@ import org.signal.registration.sender.UnsupportedMessageTransportException;
 import org.signal.registration.sender.VerificationCodeGenerator;
 import org.signal.registration.sender.VerificationCodeSender;
 import org.signal.registration.sender.VerificationSmsBodyProvider;
-import org.signal.registration.sender.twilio.TwilioErrorCodeExtractor;
+import org.signal.registration.sender.twilio.ApiExceptions;
 import org.signal.registration.util.CompletionExceptions;
 
 /**
@@ -95,14 +95,14 @@ public class TwilioMessagingServiceSmsSender extends AbstractTwilioProvidedCodeS
                 this.getName(),
                 "message.create",
                 throwable == null,
-                TwilioErrorCodeExtractor.extract(throwable),
+                ApiExceptions.extractErrorCode(throwable),
                 sample))
         .handle((ignored, throwable) -> {
-          if (throwable == null || CompletionExceptions.unwrap(throwable) instanceof ApiException) {
+          if (throwable == null) {
             return buildSessionData(verificationCode);
           }
 
-          throw CompletionExceptions.wrap(throwable);
+          throw CompletionExceptions.wrap(ApiExceptions.toSenderException(throwable));
         });
   }
 }

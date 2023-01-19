@@ -13,6 +13,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.signal.registration.sender.ClientType;
 import org.signal.registration.sender.MessageTransport;
+import org.signal.registration.sender.SenderRejectedRequestException;
 import java.util.Collections;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
@@ -67,7 +68,7 @@ class PrescribedVerificationCodeSenderTest {
       final CompletionException completionException = assertThrows(CompletionException.class, () ->
           sender.sendVerificationCode(MessageTransport.SMS, NON_PRESCRIBED_CODE_NUMBER, Collections.emptyList(), ClientType.UNKNOWN).join());
 
-      assertTrue(completionException.getCause() instanceof IllegalArgumentException);
+      assertTrue(completionException.getCause() instanceof SenderRejectedRequestException);
     }
   }
 

@@ -26,7 +26,7 @@ import org.signal.registration.sender.ClientType;
 import org.signal.registration.sender.MessageTransport;
 import org.signal.registration.sender.UnsupportedMessageTransportException;
 import org.signal.registration.sender.VerificationCodeSender;
-import org.signal.registration.sender.twilio.TwilioErrorCodeExtractor;
+import org.signal.registration.sender.twilio.ApiExceptions;
 import org.signal.registration.util.CompletionExceptions;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -109,18 +109,18 @@ public class TwilioVerifySender implements VerificationCodeSender {
                 this.getName(),
                 "verification." + messageTransport.name().toLowerCase() + ".create",
                 throwable == null,
-                TwilioErrorCodeExtractor.extract(throwable),
+                ApiExceptions.extractErrorCode(throwable),
                 sample)
         )
         .handle((verification, throwable) -> {
-          if (throwable == null || CompletionExceptions.unwrap(throwable) instanceof ApiException) {
+          if (throwable == null) {
             return TwilioVerifySessionData.newBuilder()
                 .setVerificationSid(verification != null ? verification.getSid() : "n/a")
                 .build()
                 .toByteArray();
           }
 
-          throw CompletionExceptions.wrap(throwable);
+          throw CompletionExceptions.wrap(ApiExceptions.toSenderException(throwable));
         });
   }
 
@@ -136,12 +136,19 @@ public class TwilioVerifySender implements VerificationCodeSender {
           .setCode(verificationCode)
           .createAsync(twilioRestClient)
           .thenApply(VerificationCheck::getValid)
+          .handle((verificationCheck, throwable) -> {
+            if (throwable == null) {
+              return verificationCheck;
+            }
+
+            throw CompletionExceptions.wrap(ApiExceptions.toSenderException(throwable));
+          })
           .whenComplete((verificationCheck, throwable) ->
               apiClientInstrumenter.recordApiCallMetrics(
                   this.getName(),
                   "verification_check.create",
                   throwable == null,
-                  TwilioErrorCodeExtractor.extract(throwable),
+                  ApiExceptions.extractErrorCode(throwable),
                   sample));
     } catch (final InvalidProtocolBufferException e) {
       logger.error("Failed to parse stored session data", e);

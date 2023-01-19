@@ -30,8 +30,8 @@ import org.signal.registration.sender.MessageTransport;
 import org.signal.registration.sender.UnsupportedMessageTransportException;
 import org.signal.registration.sender.VerificationCodeGenerator;
 import org.signal.registration.sender.VerificationCodeSender;
+import org.signal.registration.sender.twilio.ApiExceptions;
 import org.signal.registration.util.CompletionExceptions;
-import org.signal.registration.sender.twilio.TwilioErrorCodeExtractor;
 
 /**
  * A concrete implementation of an {@code AbstractTwilioProvidedCodeSender} that sends its codes via the Twilio
@@ -109,14 +109,14 @@ public class TwilioVoiceSender extends AbstractTwilioProvidedCodeSender implemen
                 this.getName(),
                 "call.create",
                 throwable == null,
-                TwilioErrorCodeExtractor.extract(throwable),
+                ApiExceptions.extractErrorCode(throwable),
                 sample))
         .handle((ignored, throwable) -> {
-          if (throwable == null || CompletionExceptions.unwrap(throwable) instanceof ApiException) {
+          if (throwable == null) {
             return buildSessionData(verificationCode);
           }
 
-          throw CompletionExceptions.wrap(throwable);
+          throw CompletionExceptions.wrap(ApiExceptions.toSenderException(throwable));
         });
   }
 
