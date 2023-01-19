@@ -7,6 +7,7 @@ package org.signal.registration.sender.twilio;
 import com.twilio.exception.ApiException;
 import javax.annotation.Nullable;
 import javax.validation.constraints.NotNull;
+import org.signal.registration.sender.IllegalSenderArgumentException;
 import org.signal.registration.sender.SenderRejectedRequestException;
 import org.signal.registration.util.CompletionExceptions;
 import java.util.Set;
@@ -54,6 +55,8 @@ public class ApiExceptions {
     if (CompletionExceptions.unwrap(throwable) instanceof ApiException apiException) {
       if (REJECTED_REQUEST_ERROR_CODES.contains(apiException.getCode())) {
         return new SenderRejectedRequestException(throwable);
+      } else if (ILLEGAL_ARGUMENT_ERROR_CODES.contains(apiException.getCode())) {
+        return new IllegalSenderArgumentException(throwable);
       }
     }
 

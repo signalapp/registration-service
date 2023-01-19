@@ -6,7 +6,6 @@
 package org.signal.registration.sender.twilio.classic;
 
 import com.google.i18n.phonenumbers.Phonenumber;
-import com.twilio.exception.ApiException;
 import com.twilio.http.TwilioRestClient;
 import com.twilio.rest.api.v2010.account.Message;
 import io.micrometer.core.instrument.Timer;
