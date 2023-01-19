@@ -122,7 +122,7 @@ public class TwilioVoiceSender extends AbstractTwilioProvidedCodeSender implemen
 
   @VisibleForTesting
   Twiml buildCallTwiml(final String verificationCode, final String languageTag) {
-    final URI cdnUriWithLocale = configuration.getCdnUri().resolve("/" + languageTag + "/");
+    final URI cdnUriWithLocale = configuration.getCdnUri().resolve(languageTag + "/");
 
     return new Twiml(twimlMessageSource.getRequiredMessage("twilio.voice.twiml",
         MessageSource.MessageContext.of(Map.of(

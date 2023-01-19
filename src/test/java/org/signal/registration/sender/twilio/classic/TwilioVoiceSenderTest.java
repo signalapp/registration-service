@@ -37,7 +37,7 @@ class TwilioVoiceSenderTest {
   void setUp() {
     final TwilioVoiceConfiguration configuration = new TwilioVoiceConfiguration();
     configuration.setPhoneNumbers(List.of("+12025550123"));
-    configuration.setCdnUri(URI.create("https://example.com/"));
+    configuration.setCdnUri(URI.create("https://example.com/verification/"));
     configuration.setSupportedLanguages(List.of("en", "de"));
 
     sender = new TwilioVoiceSender(
@@ -74,12 +74,12 @@ class TwilioVoiceSenderTest {
   void buildCallTwiml() {
     final String twiml = sender.buildCallTwiml("123456", "es").toString();
 
-    assertTrue(twiml.contains("https://example.com/es/verification.mp3"));
-    assertTrue(twiml.contains("https://example.com/es/1_middle.mp3"));
-    assertTrue(twiml.contains("https://example.com/es/2_middle.mp3"));
-    assertTrue(twiml.contains("https://example.com/es/3_middle.mp3"));
-    assertTrue(twiml.contains("https://example.com/es/4_middle.mp3"));
-    assertTrue(twiml.contains("https://example.com/es/5_middle.mp3"));
-    assertTrue(twiml.contains("https://example.com/es/6_falling.mp3"));
+    assertTrue(twiml.contains("https://example.com/verification/es/verification.mp3"));
+    assertTrue(twiml.contains("https://example.com/verification/es/1_middle.mp3"));
+    assertTrue(twiml.contains("https://example.com/verification/es/2_middle.mp3"));
+    assertTrue(twiml.contains("https://example.com/verification/es/3_middle.mp3"));
+    assertTrue(twiml.contains("https://example.com/verification/es/4_middle.mp3"));
+    assertTrue(twiml.contains("https://example.com/verification/es/5_middle.mp3"));
+    assertTrue(twiml.contains("https://example.com/verification/es/6_falling.mp3"));
   }
 }
