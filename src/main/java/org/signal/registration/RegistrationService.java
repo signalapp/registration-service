@@ -93,6 +93,18 @@ public class RegistrationService {
   }
 
   /**
+   * Retrieves a registration session by its unique identifier.
+   *
+   * @param sessionId the unique identifier for the session to retrieve
+   *
+   * @return a future that yields the identified session when complete; the returned future may fail with a
+   * {@link org.signal.registration.session.SessionNotFoundException}
+   */
+  public CompletableFuture<RegistrationSession> getRegistrationSession(final UUID sessionId) {
+    return sessionRepository.getSession(sessionId);
+  }
+
+  /**
    * Selects a verification code sender for the destination phone number associated with the given session and sends a
    * verification code.
    *

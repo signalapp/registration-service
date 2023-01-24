@@ -98,6 +98,46 @@ public class RegistrationServiceGrpcEndpoint extends RegistrationServiceGrpc.Reg
   }
 
   @Override
+  public void getSessionMetadata(final GetRegistrationSessionMetadataRequest request,
+      final StreamObserver<GetRegistrationSessionMetadataResponse> responseObserver) {
+
+    try {
+      registrationService.getRegistrationSession(UUIDUtil.uuidFromByteString(request.getSessionId()))
+          .whenComplete((session, throwable) -> {
+            if (throwable == null) {
+              responseObserver.onNext(GetRegistrationSessionMetadataResponse.newBuilder()
+                  .setSessionMetadata(buildSessionMetadata(session))
+                  .build());
+
+              responseObserver.onCompleted();
+            } else {
+              buildGetSessionMetadataErrorResponse(CompletionExceptions.unwrap(throwable)).ifPresentOrElse(errorResponse -> {
+                responseObserver.onNext(errorResponse);
+                responseObserver.onCompleted();
+              }, () -> {
+                logger.warn("Failed to get session metadata", throwable);
+                responseObserver.onError(new StatusException(Status.INTERNAL));
+              });
+            }
+          });
+    } catch (final IllegalArgumentException e) {
+      responseObserver.onError(new StatusException(Status.INVALID_ARGUMENT));
+    }
+  }
+
+  private static Optional<GetRegistrationSessionMetadataResponse> buildGetSessionMetadataErrorResponse(final Throwable cause) {
+    if (cause instanceof SessionNotFoundException) {
+      return Optional.of(GetRegistrationSessionMetadataResponse.newBuilder()
+          .setError(GetRegistrationSessionMetadataError.newBuilder()
+              .setErrorType(GetRegistrationSessionMetadataErrorType.GET_REGISTRATION_SESSION_METADATA_ERROR_TYPE_NOT_FOUND)
+              .build())
+          .build());
+    }
+
+    return Optional.empty();
+  }
+
+  @Override
   public void sendVerificationCode(final SendVerificationCodeRequest request,
       final StreamObserver<SendVerificationCodeResponse> responseObserver) {
 

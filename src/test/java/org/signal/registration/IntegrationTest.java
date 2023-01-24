@@ -23,6 +23,7 @@ import io.micronaut.test.extensions.junit5.annotation.MicronautTest;
 import jakarta.inject.Inject;
 import jakarta.inject.Named;
 import java.time.Duration;
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import org.junit.jupiter.api.Test;
 import org.signal.registration.ratelimit.RateLimitExceededException;
@@ -33,6 +34,9 @@ import org.signal.registration.rpc.CheckVerificationCodeResponse;
 import org.signal.registration.rpc.CreateRegistrationSessionErrorType;
 import org.signal.registration.rpc.CreateRegistrationSessionRequest;
 import org.signal.registration.rpc.CreateRegistrationSessionResponse;
+import org.signal.registration.rpc.GetRegistrationSessionMetadataErrorType;
+import org.signal.registration.rpc.GetRegistrationSessionMetadataRequest;
+import org.signal.registration.rpc.GetRegistrationSessionMetadataResponse;
 import org.signal.registration.rpc.MessageTransport;
 import org.signal.registration.rpc.RegistrationServiceGrpc;
 import org.signal.registration.rpc.SendVerificationCodeErrorType;
@@ -41,6 +45,7 @@ import org.signal.registration.rpc.SendVerificationCodeResponse;
 import org.signal.registration.sender.LastDigitsOfPhoneNumberSenderSelectionStrategy;
 import org.signal.registration.sender.LastDigitsOfPhoneNumberVerificationCodeSender;
 import org.signal.registration.sender.SenderSelectionStrategy;
+import org.signal.registration.util.UUIDUtil;
 
 @MicronautTest
 public class IntegrationTest {
@@ -158,6 +163,44 @@ public class IntegrationTest {
         createRegistrationSessionResponse.getError().getErrorType());
 
     assertFalse(createRegistrationSessionResponse.getError().getMayRetry());
+  }
+
+  @Test
+  void getSessionMetadata() {
+    final Phonenumber.PhoneNumber phoneNumber = PhoneNumberUtil.getInstance().getExampleNumber("US");
+
+    final CreateRegistrationSessionResponse createRegistrationSessionResponse =
+        blockingStub.createSession(CreateRegistrationSessionRequest.newBuilder()
+            .setE164(phoneNumberToLong(phoneNumber))
+            .build());
+
+    assertEquals(CreateRegistrationSessionResponse.ResponseCase.SESSION_METADATA,
+        createRegistrationSessionResponse.getResponseCase());
+
+    final GetRegistrationSessionMetadataResponse getSessionMetadataResponse =
+        blockingStub.getSessionMetadata(GetRegistrationSessionMetadataRequest.newBuilder()
+            .setSessionId(createRegistrationSessionResponse.getSessionMetadata().getSessionId())
+            .build());
+
+    assertEquals(GetRegistrationSessionMetadataResponse.ResponseCase.SESSION_METADATA,
+        getSessionMetadataResponse.getResponseCase());
+
+    assertEquals(createRegistrationSessionResponse.getSessionMetadata(),
+        getSessionMetadataResponse.getSessionMetadata());
+  }
+
+  @Test
+  void getSessionMetadataNotFound() {
+    final GetRegistrationSessionMetadataResponse getSessionMetadataResponse =
+        blockingStub.getSessionMetadata(GetRegistrationSessionMetadataRequest.newBuilder()
+            .setSessionId(UUIDUtil.uuidToByteString(UUID.randomUUID()))
+            .build());
+
+    assertEquals(GetRegistrationSessionMetadataResponse.ResponseCase.ERROR,
+        getSessionMetadataResponse.getResponseCase());
+
+    assertEquals(GetRegistrationSessionMetadataErrorType.GET_REGISTRATION_SESSION_METADATA_ERROR_TYPE_NOT_FOUND,
+        getSessionMetadataResponse.getError().getErrorType());
   }
 
   @Test
