@@ -262,6 +262,7 @@ public class RegistrationServiceGrpcEndpoint extends RegistrationServiceGrpc.Reg
   private static RegistrationSessionMetadata buildSessionMetadata(final RegistrationSession session) {
     return RegistrationSessionMetadata.newBuilder()
         .setSessionId(session.getId())
+        .setE164(Long.parseLong(StringUtils.removeStart(session.getPhoneNumber(), "+")))
         .setVerified(StringUtils.isNotBlank(session.getVerifiedCode()))
         .build();
   }

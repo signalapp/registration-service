@@ -13,6 +13,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
+import com.google.i18n.phonenumbers.NumberParseException;
 import com.google.i18n.phonenumbers.PhoneNumberUtil;
 import com.google.i18n.phonenumbers.Phonenumber;
 import com.google.protobuf.ByteString;
@@ -166,7 +167,7 @@ public class IntegrationTest {
   }
 
   @Test
-  void getSessionMetadata() {
+  void getSessionMetadata() throws NumberParseException {
     final Phonenumber.PhoneNumber phoneNumber = PhoneNumberUtil.getInstance().getExampleNumber("US");
 
     final CreateRegistrationSessionResponse createRegistrationSessionResponse =
@@ -187,6 +188,9 @@ public class IntegrationTest {
 
     assertEquals(createRegistrationSessionResponse.getSessionMetadata(),
         getSessionMetadataResponse.getSessionMetadata());
+
+    assertEquals(phoneNumber,
+        PhoneNumberUtil.getInstance().parse("+" + getSessionMetadataResponse.getSessionMetadata().getE164(), null));
   }
 
   @Test

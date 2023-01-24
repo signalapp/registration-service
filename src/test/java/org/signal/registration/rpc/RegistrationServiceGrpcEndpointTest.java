@@ -54,6 +54,7 @@ class RegistrationServiceGrpcEndpointTest {
 
     final RegistrationSession session = RegistrationSession.newBuilder()
         .setId(UUIDUtil.uuidToByteString(sessionId))
+        .setPhoneNumber("+" + e164)
         .build();
 
     when(registrationService.createRegistrationSession(any()))

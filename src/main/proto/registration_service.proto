@@ -61,6 +61,11 @@ message RegistrationSessionMetadata {
    * of this session.
    */
   bool verified = 2;
+
+  /**
+   * The phone number associated with this registration session.
+   */
+  uint64 e164 = 3;
 }
 
 message CreateRegistrationSessionError {
