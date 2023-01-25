@@ -23,7 +23,9 @@ import org.signal.registration.RegistrationService;
 import org.signal.registration.SessionAlreadyVerifiedException;
 import org.signal.registration.ratelimit.RateLimitExceededException;
 import org.signal.registration.sender.ClientType;
+import org.signal.registration.sender.IllegalSenderArgumentException;
 import org.signal.registration.sender.MessageTransport;
+import org.signal.registration.sender.SenderRejectedRequestException;
 import org.signal.registration.session.RegistrationSession;
 import org.signal.registration.session.SessionNotFoundException;
 import org.signal.registration.util.CompletionExceptions;
@@ -197,6 +199,20 @@ public class RegistrationServiceGrpcEndpoint extends RegistrationServiceGrpc.Reg
           responseBuilder.setSessionMetadata(buildSessionMetadata(registrationSession)));
 
       return Optional.of(responseBuilder.build());
+    } else if (cause instanceof SenderRejectedRequestException) {
+      return Optional.of(SendVerificationCodeResponse.newBuilder()
+          .setError(SendVerificationCodeError.newBuilder()
+              .setErrorType(SendVerificationCodeErrorType.SEND_VERIFICATION_CODE_ERROR_TYPE_SENDER_REJECTED)
+              .setMayRetry(false)
+              .build())
+          .build());
+    } else if (cause instanceof IllegalSenderArgumentException) {
+      return Optional.of(SendVerificationCodeResponse.newBuilder()
+          .setError(SendVerificationCodeError.newBuilder()
+              .setErrorType(SendVerificationCodeErrorType.SEND_VERIFICATION_CODE_ERROR_TYPE_SENDER_ILLEGAL_ARGUMENT)
+              .setMayRetry(false)
+              .build())
+          .build());
     }
 
     return Optional.empty();

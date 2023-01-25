@@ -10,6 +10,7 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
@@ -43,9 +44,11 @@ import org.signal.registration.rpc.RegistrationServiceGrpc;
 import org.signal.registration.rpc.SendVerificationCodeErrorType;
 import org.signal.registration.rpc.SendVerificationCodeRequest;
 import org.signal.registration.rpc.SendVerificationCodeResponse;
-import org.signal.registration.sender.LastDigitsOfPhoneNumberSenderSelectionStrategy;
+import org.signal.registration.sender.IllegalSenderArgumentException;
 import org.signal.registration.sender.LastDigitsOfPhoneNumberVerificationCodeSender;
+import org.signal.registration.sender.SenderRejectedRequestException;
 import org.signal.registration.sender.SenderSelectionStrategy;
+import org.signal.registration.sender.VerificationCodeSender;
 import org.signal.registration.util.UUIDUtil;
 
 @MicronautTest
@@ -53,7 +56,11 @@ public class IntegrationTest {
 
   @MockBean
   SenderSelectionStrategy senderSelectionStrategy() {
-    return new LastDigitsOfPhoneNumberSenderSelectionStrategy(new LastDigitsOfPhoneNumberVerificationCodeSender());
+    final SenderSelectionStrategy senderSelectionStrategy = mock(SenderSelectionStrategy.class);
+    when(senderSelectionStrategy.chooseVerificationCodeSender(any(), any(), any(), any(), any()))
+        .thenReturn(new LastDigitsOfPhoneNumberVerificationCodeSender());
+
+    return senderSelectionStrategy;
   }
 
   @MockBean(named = "session-creation")
@@ -70,6 +77,9 @@ public class IntegrationTest {
 
   @Inject
   private RateLimiter<Phonenumber.PhoneNumber> sessionCreationRateLimiter;
+
+  @Inject
+  private SenderSelectionStrategy senderSelectionStrategy;
 
   @Test
   void register() {
@@ -256,6 +266,72 @@ public class IntegrationTest {
 
     assertEquals(SendVerificationCodeErrorType.SEND_VERIFICATION_CODE_ERROR_TYPE_SESSION_ALREADY_VERIFIED,
         sendVerificationCodeAfterVerificationResponse.getError().getErrorType());
+  }
+
+  @Test
+  void testSendVerificationCodeSenderRejected() {
+    final Phonenumber.PhoneNumber phoneNumber = PhoneNumberUtil.getInstance().getExampleNumber("US");
+
+    final VerificationCodeSender rejectRequestsSender = mock(VerificationCodeSender.class);
+    when(rejectRequestsSender.sendVerificationCode(any(), any(), any(), any()))
+        .thenReturn(CompletableFuture.failedFuture(new SenderRejectedRequestException("Test")));
+
+    when(senderSelectionStrategy.chooseVerificationCodeSender(
+        eq(org.signal.registration.sender.MessageTransport.SMS), eq(phoneNumber), any(), any(), any()))
+        .thenReturn(rejectRequestsSender);
+
+    final CreateRegistrationSessionResponse createRegistrationSessionResponse =
+        blockingStub.createSession(CreateRegistrationSessionRequest.newBuilder()
+            .setE164(phoneNumberToLong(phoneNumber))
+            .build());
+
+    assertEquals(CreateRegistrationSessionResponse.ResponseCase.SESSION_METADATA,
+        createRegistrationSessionResponse.getResponseCase());
+
+    final SendVerificationCodeResponse sendVerificationCodeResponse =
+        blockingStub.sendVerificationCode(SendVerificationCodeRequest.newBuilder()
+            .setSessionId(createRegistrationSessionResponse.getSessionMetadata().getSessionId())
+            .setTransport(MessageTransport.MESSAGE_TRANSPORT_SMS)
+            .build());
+
+    assertTrue(sendVerificationCodeResponse.hasError());
+    assertFalse(sendVerificationCodeResponse.getError().getMayRetry());
+
+    assertEquals(SendVerificationCodeErrorType.SEND_VERIFICATION_CODE_ERROR_TYPE_SENDER_REJECTED,
+        sendVerificationCodeResponse.getError().getErrorType());
+  }
+
+  @Test
+  void testSendVerificationCodeIllegalSenderArgument() {
+    final Phonenumber.PhoneNumber phoneNumber = PhoneNumberUtil.getInstance().getExampleNumber("US");
+
+    final VerificationCodeSender illegalArgumentSender = mock(VerificationCodeSender.class);
+    when(illegalArgumentSender.sendVerificationCode(any(), any(), any(), any()))
+        .thenReturn(CompletableFuture.failedFuture(new IllegalSenderArgumentException(new IllegalArgumentException())));
+
+    when(senderSelectionStrategy.chooseVerificationCodeSender(
+        eq(org.signal.registration.sender.MessageTransport.SMS), eq(phoneNumber), any(), any(), any()))
+        .thenReturn(illegalArgumentSender);
+
+    final CreateRegistrationSessionResponse createRegistrationSessionResponse =
+        blockingStub.createSession(CreateRegistrationSessionRequest.newBuilder()
+            .setE164(phoneNumberToLong(phoneNumber))
+            .build());
+
+    assertEquals(CreateRegistrationSessionResponse.ResponseCase.SESSION_METADATA,
+        createRegistrationSessionResponse.getResponseCase());
+
+    final SendVerificationCodeResponse sendVerificationCodeResponse =
+        blockingStub.sendVerificationCode(SendVerificationCodeRequest.newBuilder()
+            .setSessionId(createRegistrationSessionResponse.getSessionMetadata().getSessionId())
+            .setTransport(MessageTransport.MESSAGE_TRANSPORT_SMS)
+            .build());
+
+    assertTrue(sendVerificationCodeResponse.hasError());
+    assertFalse(sendVerificationCodeResponse.getError().getMayRetry());
+
+    assertEquals(SendVerificationCodeErrorType.SEND_VERIFICATION_CODE_ERROR_TYPE_SENDER_ILLEGAL_ARGUMENT,
+        sendVerificationCodeResponse.getError().getErrorType());
   }
 
   @Test
