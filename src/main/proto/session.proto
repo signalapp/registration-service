@@ -33,6 +33,11 @@ message RegistrationSession {
   string verified_code = 4;
 
   repeated RegistrationAttempt registration_attempts = 5;
+
+  /**
+   * A unique identifier for this session.
+   */
+  bytes id = 6;
 }
 
 message RegistrationAttempt {

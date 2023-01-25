@@ -6,7 +6,6 @@
 package org.signal.registration;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
@@ -46,6 +45,7 @@ import org.signal.registration.session.RegistrationSession;
 import org.signal.registration.session.SessionNotFoundException;
 import org.signal.registration.session.SessionRepository;
 import org.signal.registration.util.CompletionExceptions;
+import org.signal.registration.util.UUIDUtil;
 
 class RegistrationServiceTest {
 
@@ -98,10 +98,15 @@ class RegistrationServiceTest {
 
   @Test
   void createSession() {
-    when(sessionRepository.createSession(eq(PHONE_NUMBER), any()))
-        .thenReturn(CompletableFuture.completedFuture(SESSION_ID));
+    final RegistrationSession session = RegistrationSession.newBuilder()
+        .setId(UUIDUtil.uuidToByteString(SESSION_ID))
+        .setPhoneNumber(PhoneNumberUtil.getInstance().format(PHONE_NUMBER, PhoneNumberUtil.PhoneNumberFormat.E164))
+        .build();
 
-    assertEquals(SESSION_ID, registrationService.createRegistrationSession(PHONE_NUMBER).join());
+    when(sessionRepository.createSession(eq(PHONE_NUMBER), any()))
+        .thenReturn(CompletableFuture.completedFuture(session));
+
+    assertEquals(session, registrationService.createRegistrationSession(PHONE_NUMBER).join());
   }
 
   @Test
@@ -129,8 +134,7 @@ class RegistrationServiceTest {
                 .setPhoneNumber(PhoneNumberUtil.getInstance().format(PHONE_NUMBER, PhoneNumberUtil.PhoneNumberFormat.E164))
                 .build()));
 
-    assertEquals(SESSION_ID,
-        registrationService.sendRegistrationCode(MessageTransport.SMS, SESSION_ID, null, LANGUAGE_RANGES, CLIENT_TYPE).join());
+    registrationService.sendRegistrationCode(MessageTransport.SMS, SESSION_ID, null, LANGUAGE_RANGES, CLIENT_TYPE).join();
 
     verify(sender).sendVerificationCode(MessageTransport.SMS, PHONE_NUMBER, LANGUAGE_RANGES, CLIENT_TYPE);
     verify(sessionRepository, never()).createSession(any(), any());
@@ -164,7 +168,9 @@ class RegistrationServiceTest {
         .thenReturn(CompletableFuture.completedFuture(firstVerificationCode.getBytes(StandardCharsets.UTF_8)))
         .thenReturn(CompletableFuture.completedFuture(secondVerificationCode.getBytes(StandardCharsets.UTF_8)));
 
-    final UUID sessionId = registrationService.createRegistrationSession(PHONE_NUMBER).join();
+    final RegistrationSession session = registrationService.createRegistrationSession(PHONE_NUMBER).join();
+    final UUID sessionId = UUIDUtil.uuidFromByteString(session.getId());
+
     registrationService.sendRegistrationCode(MessageTransport.SMS, sessionId, null, LANGUAGE_RANGES, CLIENT_TYPE).join();
 
     {
@@ -184,8 +190,7 @@ class RegistrationServiceTest {
     when(clock.instant()).thenReturn(future);
     when(clock.millis()).thenReturn(future.toEpochMilli());
 
-    assertEquals(sessionId,
-        registrationService.sendRegistrationCode(MessageTransport.VOICE, sessionId, null, LANGUAGE_RANGES, CLIENT_TYPE).join());
+    registrationService.sendRegistrationCode(MessageTransport.VOICE, sessionId, null, LANGUAGE_RANGES, CLIENT_TYPE).join();
 
     {
       final RegistrationSession registrationSession = memorySessionRepository.getSession(sessionId).join();
@@ -203,21 +208,27 @@ class RegistrationServiceTest {
 
   @Test
   void checkRegistrationCode() {
+    final RegistrationSession session = RegistrationSession.newBuilder()
+        .setPhoneNumber(PhoneNumberUtil.getInstance().format(PHONE_NUMBER, PhoneNumberUtil.PhoneNumberFormat.E164))
+        .addRegistrationAttempts(RegistrationAttempt.newBuilder()
+            .setMessageTransport(org.signal.registration.session.MessageTransport.MESSAGE_TRANSPORT_SMS)
+            .setSenderName(SENDER_NAME)
+            .setSessionData(ByteString.copyFrom(VERIFICATION_CODE_BYTES))
+            .build())
+        .build();
+
     when(sessionRepository.getSession(SESSION_ID))
-        .thenReturn(CompletableFuture.completedFuture(
-            RegistrationSession.newBuilder()
-                .setPhoneNumber(PhoneNumberUtil.getInstance().format(PHONE_NUMBER, PhoneNumberUtil.PhoneNumberFormat.E164))
-                .addRegistrationAttempts(RegistrationAttempt.newBuilder()
-                    .setMessageTransport(org.signal.registration.session.MessageTransport.MESSAGE_TRANSPORT_SMS)
-                    .setSenderName(SENDER_NAME)
-                    .setSessionData(ByteString.copyFrom(VERIFICATION_CODE_BYTES))
-                    .build())
-                .build()));
+        .thenReturn(CompletableFuture.completedFuture(session));
 
     when(sender.checkVerificationCode(VERIFICATION_CODE, VERIFICATION_CODE_BYTES))
         .thenReturn(CompletableFuture.completedFuture(true));
 
-    assertTrue(registrationService.checkRegistrationCode(SESSION_ID, VERIFICATION_CODE).join());
+    when(sessionRepository.updateSession(eq(SESSION_ID), any(), any()))
+        .thenReturn(CompletableFuture.completedFuture(RegistrationSession.newBuilder(session)
+            .setVerifiedCode(VERIFICATION_CODE)
+            .build()));
+
+    assertEquals(VERIFICATION_CODE, registrationService.checkRegistrationCode(SESSION_ID, VERIFICATION_CODE).join().getVerifiedCode());
 
     verify(sessionRepository).getSession(SESSION_ID);
     verify(sender).checkVerificationCode(VERIFICATION_CODE, VERIFICATION_CODE_BYTES);
@@ -229,7 +240,10 @@ class RegistrationServiceTest {
     when(sessionRepository.getSession(any()))
         .thenReturn(CompletableFuture.failedFuture(new SessionNotFoundException()));
 
-    assertFalse(registrationService.checkRegistrationCode(SESSION_ID, VERIFICATION_CODE).join());
+    final CompletionException completionException = assertThrows(CompletionException.class,
+        () -> registrationService.checkRegistrationCode(SESSION_ID, VERIFICATION_CODE).join());
+
+    assertTrue(CompletionExceptions.unwrap(completionException) instanceof SessionNotFoundException);
 
     verify(sessionRepository).getSession(SESSION_ID);
     verify(sender, never()).checkVerificationCode(any(), any());
@@ -245,7 +259,7 @@ class RegistrationServiceTest {
                 .setVerifiedCode(VERIFICATION_CODE)
                 .build()));
 
-    assertTrue(registrationService.checkRegistrationCode(SESSION_ID, VERIFICATION_CODE).join());
+    assertEquals(VERIFICATION_CODE, registrationService.checkRegistrationCode(SESSION_ID, VERIFICATION_CODE).join().getVerifiedCode());
 
     verify(sessionRepository).getSession(SESSION_ID);
     verify(sender, never()).checkVerificationCode(any(), any());

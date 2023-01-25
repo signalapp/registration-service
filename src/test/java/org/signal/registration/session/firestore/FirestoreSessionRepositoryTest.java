@@ -12,9 +12,7 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-import com.google.cloud.NoCredentials;
 import com.google.cloud.firestore.Firestore;
-import com.google.cloud.firestore.FirestoreOptions;
 import com.google.i18n.phonenumbers.PhoneNumberUtil;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import io.micronaut.context.event.ApplicationEventPublisher;
@@ -33,6 +31,7 @@ import org.signal.registration.session.SessionCompletedEvent;
 import org.signal.registration.session.SessionNotFoundException;
 import org.signal.registration.session.SessionRepository;
 import org.signal.registration.util.FirestoreTestUtil;
+import org.signal.registration.util.UUIDUtil;
 import org.testcontainers.containers.FirestoreEmulatorContainer;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
@@ -89,7 +88,7 @@ class FirestoreSessionRepositoryTest extends AbstractSessionRepositoryTest {
 
   @Test
   void getSessionExpired() {
-    final UUID sessionId = repository.createSession(PHONE_NUMBER, TTL).join();
+    final UUID sessionId = UUIDUtil.uuidFromByteString(repository.createSession(PHONE_NUMBER, TTL).join().getId());
 
     when(clock.instant()).thenReturn(NOW.plus(TTL).plusMillis(1));
 
@@ -101,7 +100,7 @@ class FirestoreSessionRepositoryTest extends AbstractSessionRepositoryTest {
 
   @Test
   void removeExpiredSessions() {
-    final UUID sessionId = repository.createSession(PHONE_NUMBER, TTL).join();
+    final UUID sessionId = UUIDUtil.uuidFromByteString(repository.createSession(PHONE_NUMBER, TTL).join().getId());
 
     assertDoesNotThrow(() -> repository.getSession(sessionId).join());
 
@@ -116,6 +115,7 @@ class FirestoreSessionRepositoryTest extends AbstractSessionRepositoryTest {
     assertTrue(completionException.getCause() instanceof SessionNotFoundException);
 
     final SessionCompletedEvent expectedEvent = new SessionCompletedEvent(RegistrationSession.newBuilder()
+        .setId(UUIDUtil.uuidToByteString(sessionId))
         .setPhoneNumber(PhoneNumberUtil.getInstance().format(PHONE_NUMBER, PhoneNumberUtil.PhoneNumberFormat.E164))
         .build());
 

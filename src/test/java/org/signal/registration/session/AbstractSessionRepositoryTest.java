@@ -18,6 +18,7 @@ import java.util.UUID;
 import java.util.concurrent.CompletionException;
 import java.util.function.Function;
 import org.junit.jupiter.api.Test;
+import org.signal.registration.util.UUIDUtil;
 
 public abstract class AbstractSessionRepositoryTest {
 
@@ -53,12 +54,13 @@ public abstract class AbstractSessionRepositoryTest {
     }
 
     {
-      final UUID sessionId = repository.createSession(PHONE_NUMBER, TTL).join();
+      final RegistrationSession createdSession = repository.createSession(PHONE_NUMBER, TTL).join();
       final RegistrationSession expectedSession = RegistrationSession.newBuilder()
+          .setId(createdSession.getId())
           .setPhoneNumber(PhoneNumberUtil.getInstance().format(PHONE_NUMBER, PhoneNumberUtil.PhoneNumberFormat.E164))
           .build();
 
-      assertEquals(expectedSession, repository.getSession(sessionId).join());
+      assertEquals(expectedSession, repository.getSession(UUIDUtil.uuidFromByteString(createdSession.getId())).join());
     }
   }
 
@@ -79,10 +81,13 @@ public abstract class AbstractSessionRepositoryTest {
     }
 
     {
-      final UUID sessionId = repository.createSession(PHONE_NUMBER, TTL).join();
+      final RegistrationSession createdSession = repository.createSession(PHONE_NUMBER, TTL).join();
+      final UUID sessionId = UUIDUtil.uuidFromByteString(createdSession.getId());
+
       final RegistrationSession updatedSession = repository.updateSession(sessionId, updateVerifiedCodeFunction, null).join();
 
       final RegistrationSession expectedSession = RegistrationSession.newBuilder()
+          .setId(createdSession.getId())
           .setPhoneNumber(PhoneNumberUtil.getInstance().format(PHONE_NUMBER, PhoneNumberUtil.PhoneNumberFormat.E164))
           .setVerifiedCode(verificationCode)
           .build();

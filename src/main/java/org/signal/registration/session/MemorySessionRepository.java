@@ -12,6 +12,7 @@ import io.micronaut.context.annotation.Requires;
 import io.micronaut.context.event.ApplicationEventPublisher;
 import io.micronaut.scheduling.annotation.Scheduled;
 import jakarta.inject.Singleton;
+import org.signal.registration.util.UUIDUtil;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
@@ -58,18 +59,18 @@ public class MemorySessionRepository implements SessionRepository {
   }
 
   @Override
-  public CompletableFuture<UUID> createSession(final Phonenumber.PhoneNumber phoneNumber,
+  public CompletableFuture<RegistrationSession> createSession(final Phonenumber.PhoneNumber phoneNumber,
       final Duration ttl) {
 
     final UUID sessionId = UUID.randomUUID();
+    final RegistrationSession session = RegistrationSession.newBuilder()
+        .setId(UUIDUtil.uuidToByteString(sessionId))
+        .setPhoneNumber(PhoneNumberUtil.getInstance().format(phoneNumber, PhoneNumberUtil.PhoneNumberFormat.E164))
+        .build();
 
-    sessionsById.put(sessionId, new RegistrationSessionAndExpiration(
-        RegistrationSession.newBuilder()
-            .setPhoneNumber(PhoneNumberUtil.getInstance().format(phoneNumber, PhoneNumberUtil.PhoneNumberFormat.E164))
-            .build(),
-        clock.instant().plus(ttl)));
+    sessionsById.put(sessionId, new RegistrationSessionAndExpiration(session, clock.instant().plus(ttl)));
 
-    return CompletableFuture.completedFuture(sessionId);
+    return CompletableFuture.completedFuture(session);
   }
 
   @Override

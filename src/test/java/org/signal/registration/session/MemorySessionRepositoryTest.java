@@ -23,6 +23,7 @@ import java.util.function.Function;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.stubbing.Answer;
+import org.signal.registration.util.UUIDUtil;
 
 class MemorySessionRepositoryTest extends AbstractSessionRepositoryTest {
 
@@ -50,8 +51,11 @@ class MemorySessionRepositoryTest extends AbstractSessionRepositoryTest {
     final Instant now = Instant.now();
     when(clock.instant()).thenReturn(now);
 
-    final UUID sessionId = repository.createSession(PHONE_NUMBER, TTL).join();
+    final RegistrationSession createdSession = repository.createSession(PHONE_NUMBER, TTL).join();
+    final UUID sessionId = UUIDUtil.uuidFromByteString(createdSession.getId());
+
     final RegistrationSession expectedSession = RegistrationSession.newBuilder()
+        .setId(createdSession.getId())
         .setPhoneNumber(PhoneNumberUtil.getInstance().format(PHONE_NUMBER, PhoneNumberUtil.PhoneNumberFormat.E164))
         .build();
 
@@ -78,10 +82,11 @@ class MemorySessionRepositoryTest extends AbstractSessionRepositoryTest {
     final Function<RegistrationSession, RegistrationSession> setVerifiedCodeFunction =
         session -> session.toBuilder().setVerifiedCode(verificationCode).build();
 
-    final UUID sessionId = repository.createSession(PHONE_NUMBER, TTL).join();
+    final UUID sessionId = UUIDUtil.uuidFromByteString(repository.createSession(PHONE_NUMBER, TTL).join().getId());
     repository.updateSession(sessionId, setVerifiedCodeFunction, null).join();
 
     final RegistrationSession expectedSession = RegistrationSession.newBuilder()
+        .setId(UUIDUtil.uuidToByteString(sessionId))
         .setPhoneNumber(PhoneNumberUtil.getInstance().format(PHONE_NUMBER, PhoneNumberUtil.PhoneNumberFormat.E164))
         .setVerifiedCode(verificationCode)
         .build();
@@ -108,7 +113,7 @@ class MemorySessionRepositoryTest extends AbstractSessionRepositoryTest {
     final Instant now = Instant.now();
     when(clock.instant()).thenReturn(now);
 
-    repository.createSession(PHONE_NUMBER, TTL).join();
+    final RegistrationSession session = repository.createSession(PHONE_NUMBER, TTL).join();
 
     assertEquals(1, repository.size());
 
@@ -124,6 +129,7 @@ class MemorySessionRepositoryTest extends AbstractSessionRepositoryTest {
         "Sessions should be removed after they have expired");
 
     final SessionCompletedEvent expectedEvent = new SessionCompletedEvent(RegistrationSession.newBuilder()
+        .setId(session.getId())
         .setPhoneNumber(PhoneNumberUtil.getInstance().format(PHONE_NUMBER, PhoneNumberUtil.PhoneNumberFormat.E164))
         .build());
 

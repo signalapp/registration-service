@@ -45,6 +45,7 @@ import org.signal.registration.session.SessionNotFoundException;
 import org.signal.registration.session.SessionRepository;
 import org.signal.registration.util.CompletionExceptions;
 import org.signal.registration.util.FirestoreUtil;
+import org.signal.registration.util.UUIDUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -141,23 +142,23 @@ public class FirestoreSessionRepository implements SessionRepository {
   }
 
   @Override
-  public CompletableFuture<UUID> createSession(final Phonenumber.PhoneNumber phoneNumber, final Duration ttl) {
+  public CompletableFuture<RegistrationSession> createSession(final Phonenumber.PhoneNumber phoneNumber, final Duration ttl) {
 
     final Timer.Sample sample = Timer.start();
 
     final UUID sessionId = UUID.randomUUID();
-    final byte[] sessionBytes = RegistrationSession.newBuilder()
+    final RegistrationSession session = RegistrationSession.newBuilder()
+        .setId(UUIDUtil.uuidToByteString(sessionId))
         .setPhoneNumber(PhoneNumberUtil.getInstance().format(phoneNumber, PhoneNumberUtil.PhoneNumberFormat.E164))
-        .build()
-        .toByteArray();
+        .build();
 
     return FirestoreUtil.toCompletableFuture(firestore.collection(configuration.collectionName())
         .document(sessionId.toString())
-        .set(Map.of(SESSION_FIELD_NAME, Blob.fromBytes(sessionBytes),
+        .set(Map.of(SESSION_FIELD_NAME, Blob.fromBytes(session.toByteArray()),
             configuration.expirationFieldName(), FirestoreUtil.timestampFromInstant(clock.instant().plus(ttl)),
             configuration.removalFieldName(), FirestoreUtil.timestampFromInstant(clock.instant().plus(ttl).plus(REMOVAL_TTL_PADDING)))),
             executor)
-        .thenApply(ignored -> sessionId)
+        .thenApply(ignored -> session)
         .whenComplete((id, throwable) -> sample.stop(createSessionTimer));
   }
 

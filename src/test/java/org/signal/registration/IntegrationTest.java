@@ -27,6 +27,7 @@ import java.util.concurrent.CompletableFuture;
 import org.junit.jupiter.api.Test;
 import org.signal.registration.ratelimit.RateLimitExceededException;
 import org.signal.registration.ratelimit.RateLimiter;
+import org.signal.registration.rpc.CheckVerificationCodeErrorType;
 import org.signal.registration.rpc.CheckVerificationCodeRequest;
 import org.signal.registration.rpc.CheckVerificationCodeResponse;
 import org.signal.registration.rpc.CreateRegistrationSessionErrorType;
@@ -34,6 +35,7 @@ import org.signal.registration.rpc.CreateRegistrationSessionRequest;
 import org.signal.registration.rpc.CreateRegistrationSessionResponse;
 import org.signal.registration.rpc.MessageTransport;
 import org.signal.registration.rpc.RegistrationServiceGrpc;
+import org.signal.registration.rpc.SendVerificationCodeErrorType;
 import org.signal.registration.rpc.SendVerificationCodeRequest;
 import org.signal.registration.rpc.SendVerificationCodeResponse;
 import org.signal.registration.sender.LastDigitsOfPhoneNumberSenderSelectionStrategy;
@@ -80,6 +82,8 @@ public class IntegrationTest {
             .setSessionId(createRegistrationSessionResponse.getSessionMetadata().getSessionId())
             .setTransport(MessageTransport.MESSAGE_TRANSPORT_SMS)
             .build());
+
+    assertFalse(sendVerificationCodeResponse.hasError());
 
     final CheckVerificationCodeResponse checkVerificationCodeResponse =
         blockingStub.checkVerificationCode(CheckVerificationCodeRequest.newBuilder()
@@ -133,10 +137,27 @@ public class IntegrationTest {
     assertEquals(CreateRegistrationSessionResponse.ResponseCase.ERROR,
         createRegistrationSessionResponse.getResponseCase());
 
-    assertEquals(CreateRegistrationSessionErrorType.ERROR_TYPE_RATE_LIMITED,
+    assertTrue(createRegistrationSessionResponse.getError().getMayRetry());
+    assertEquals(CreateRegistrationSessionErrorType.CREATE_REGISTRATION_SESSION_ERROR_TYPE_RATE_LIMITED,
         createRegistrationSessionResponse.getError().getErrorType());
 
     assertEquals(retryAfter.getSeconds(), createRegistrationSessionResponse.getError().getRetryAfterSeconds());
+  }
+
+  @Test
+  void createSessionIllegalPhoneNumber() {
+    final CreateRegistrationSessionResponse createRegistrationSessionResponse =
+        blockingStub.createSession(CreateRegistrationSessionRequest.newBuilder()
+            .setE164(0L)
+            .build());
+
+    assertEquals(CreateRegistrationSessionResponse.ResponseCase.ERROR,
+        createRegistrationSessionResponse.getResponseCase());
+
+    assertEquals(CreateRegistrationSessionErrorType.CREATE_REGISTRATION_SESSION_ERROR_TYPE_ILLEGAL_PHONE_NUMBER,
+        createRegistrationSessionResponse.getError().getErrorType());
+
+    assertFalse(createRegistrationSessionResponse.getError().getMayRetry());
   }
 
   @Test
@@ -151,6 +172,46 @@ public class IntegrationTest {
   }
 
   @Test
+  void sendVerificationCodeAlreadyVerified() {
+    final Phonenumber.PhoneNumber phoneNumber = PhoneNumberUtil.getInstance().getExampleNumber("US");
+
+    final CreateRegistrationSessionResponse createRegistrationSessionResponse =
+        blockingStub.createSession(CreateRegistrationSessionRequest.newBuilder()
+            .setE164(phoneNumberToLong(phoneNumber))
+            .build());
+
+    assertEquals(CreateRegistrationSessionResponse.ResponseCase.SESSION_METADATA,
+        createRegistrationSessionResponse.getResponseCase());
+
+    final SendVerificationCodeResponse sendVerificationCodeResponse =
+        blockingStub.sendVerificationCode(SendVerificationCodeRequest.newBuilder()
+            .setSessionId(createRegistrationSessionResponse.getSessionMetadata().getSessionId())
+            .setTransport(MessageTransport.MESSAGE_TRANSPORT_SMS)
+            .build());
+
+    final CheckVerificationCodeResponse checkVerificationCodeResponse =
+        blockingStub.checkVerificationCode(CheckVerificationCodeRequest.newBuilder()
+            .setSessionId(sendVerificationCodeResponse.getSessionId())
+            .setVerificationCode(LastDigitsOfPhoneNumberVerificationCodeSender.getVerificationCode(phoneNumber))
+            .build());
+
+    assertTrue(checkVerificationCodeResponse.getVerified());
+
+    final SendVerificationCodeResponse sendVerificationCodeAfterVerificationResponse =
+        blockingStub.sendVerificationCode(SendVerificationCodeRequest.newBuilder()
+            .setSessionId(createRegistrationSessionResponse.getSessionMetadata().getSessionId())
+            .setTransport(MessageTransport.MESSAGE_TRANSPORT_SMS)
+            .build());
+
+    assertTrue(sendVerificationCodeAfterVerificationResponse.hasError());
+    assertFalse(sendVerificationCodeAfterVerificationResponse.getError().getMayRetry());
+    assertTrue(sendVerificationCodeAfterVerificationResponse.hasSessionMetadata());
+
+    assertEquals(SendVerificationCodeErrorType.SEND_VERIFICATION_CODE_ERROR_TYPE_SESSION_ALREADY_VERIFIED,
+        sendVerificationCodeAfterVerificationResponse.getError().getErrorType());
+  }
+
+  @Test
   void checkVerificationCodeNoSession() {
     final CheckVerificationCodeResponse checkVerificationCodeResponse =
         blockingStub.checkVerificationCode(CheckVerificationCodeRequest.newBuilder()
@@ -159,6 +220,32 @@ public class IntegrationTest {
             .build());
 
     assertFalse(checkVerificationCodeResponse.getVerified());
+  }
+
+  @Test
+  void checkVerificationCodeNoCodeSent() {
+    final Phonenumber.PhoneNumber phoneNumber = PhoneNumberUtil.getInstance().getExampleNumber("US");
+
+    final CreateRegistrationSessionResponse createRegistrationSessionResponse =
+        blockingStub.createSession(CreateRegistrationSessionRequest.newBuilder()
+            .setE164(phoneNumberToLong(phoneNumber))
+            .build());
+
+    assertEquals(CreateRegistrationSessionResponse.ResponseCase.SESSION_METADATA,
+        createRegistrationSessionResponse.getResponseCase());
+
+    final CheckVerificationCodeResponse checkVerificationCodeResponse =
+        blockingStub.checkVerificationCode(CheckVerificationCodeRequest.newBuilder()
+            .setSessionId(createRegistrationSessionResponse.getSessionMetadata().getSessionId())
+            .setVerificationCode(LastDigitsOfPhoneNumberVerificationCodeSender.getVerificationCode(phoneNumber))
+            .build());
+
+    assertTrue(checkVerificationCodeResponse.hasError());
+    assertFalse(checkVerificationCodeResponse.getError().getMayRetry());
+    assertTrue(checkVerificationCodeResponse.hasSessionMetadata());
+
+    assertEquals(CheckVerificationCodeErrorType.CHECK_VERIFICATION_CODE_ERROR_TYPE_NO_CODE_SENT,
+        checkVerificationCodeResponse.getError().getErrorType());
   }
 
   private static long phoneNumberToLong(final Phonenumber.PhoneNumber phoneNumber) {

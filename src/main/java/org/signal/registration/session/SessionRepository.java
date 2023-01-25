@@ -28,10 +28,9 @@ public interface SessionRepository {
    * @param ttl the lifetime of this registration session
    * {@code sender} can use later to check verification codes for this session
    *
-   * @return a future that yields the ID of the newly-created registration session after the session has been created
-   * and stored
+   * @return a future that yields the newly-created registration session after the session has been created and stored
    */
-  CompletableFuture<UUID> createSession(Phonenumber.PhoneNumber phoneNumber, Duration ttl);
+  CompletableFuture<RegistrationSession> createSession(Phonenumber.PhoneNumber phoneNumber, Duration ttl);
 
   /**
    * Returns the registration session associated with the given session identifier.

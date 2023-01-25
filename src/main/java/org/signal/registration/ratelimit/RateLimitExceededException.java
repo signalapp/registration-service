@@ -5,21 +5,31 @@
 
 package org.signal.registration.ratelimit;
 
+import org.signal.registration.NoStackTraceException;
+import org.signal.registration.session.RegistrationSession;
+import javax.annotation.Nullable;
 import java.time.Duration;
+import java.util.Optional;
 
 /**
  * Indicates that some action was not permitted because one or more callers have attempted the action too frequently.
  * Callers that receive this exception may retry the action after the time indicated by
  * {@link #getRetryAfterDuration()}.
  */
-public class RateLimitExceededException extends Exception {
+public class RateLimitExceededException extends NoStackTraceException {
 
   private final Duration retryAfterDuration;
 
-  public RateLimitExceededException(final Duration retryAfterDuration) {
-    super(null, null, true, false);
+  @Nullable
+  private final RegistrationSession registrationSession;
 
+  public RateLimitExceededException(final Duration retryAfterDuration) {
+    this(retryAfterDuration, null);
+  }
+
+  public RateLimitExceededException(final Duration retryAfterDuration, @Nullable final RegistrationSession registrationSession) {
     this.retryAfterDuration = retryAfterDuration;
+    this.registrationSession = registrationSession;
   }
 
   /**
@@ -29,5 +39,15 @@ public class RateLimitExceededException extends Exception {
    */
   public Duration getRetryAfterDuration() {
     return retryAfterDuration;
+  }
+
+  /**
+   * Returns the registration session associated with this exception, if any; associated registration sessions may
+   * contain additional rate-limiting information.
+   *
+   * @return the registration associated with this exception, if any
+   */
+  public Optional<RegistrationSession> getRegistrationSession() {
+    return Optional.ofNullable(registrationSession);
   }
 }

@@ -17,12 +17,12 @@ import java.time.Duration;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
-import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.function.Function;
 import java.util.stream.Collectors;
+import javax.annotation.Nullable;
 import org.apache.commons.lang3.StringUtils;
 import org.signal.registration.ratelimit.RateLimiter;
 import org.signal.registration.sender.ClientType;
@@ -30,12 +30,8 @@ import org.signal.registration.sender.MessageTransport;
 import org.signal.registration.sender.SenderSelectionStrategy;
 import org.signal.registration.sender.VerificationCodeSender;
 import org.signal.registration.session.RegistrationAttempt;
-import org.signal.registration.session.SessionNotFoundException;
+import org.signal.registration.session.RegistrationSession;
 import org.signal.registration.session.SessionRepository;
-import org.signal.registration.util.CompletionExceptions;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-import javax.annotation.Nullable;
 
 /**
  * The registration service is the core orchestrator of registration business logic and manages registration sessions
@@ -53,8 +49,6 @@ public class RegistrationService {
 
   @VisibleForTesting
   static final Duration NEW_SESSION_TTL = Duration.ofMinutes(10);
-
-  private static final Logger logger = LoggerFactory.getLogger(RegistrationService.class);
 
   private record SenderAndSessionData(VerificationCodeSender sender, byte[] sessionData) {}
 
@@ -89,11 +83,11 @@ public class RegistrationService {
    *
    * @param phoneNumber the phone number for which to create a new registration session
    *
-   * @return a future that yields the identifier of the newly-created registration session the session has been created
-   * and stored in this service's session repository; the returned future may fail with a
+   * @return a future that yields the newly-created registration session once the session has been created and stored in
+   * this service's session repository; the returned future may fail with a
    * {@link org.signal.registration.ratelimit.RateLimitExceededException}
    */
-  public CompletableFuture<UUID> createRegistrationSession(final Phonenumber.PhoneNumber phoneNumber) {
+  public CompletableFuture<RegistrationSession> createRegistrationSession(final Phonenumber.PhoneNumber phoneNumber) {
     return sessionCreationRateLimiter.checkRateLimit(phoneNumber)
         .thenCompose(ignored -> sessionRepository.createSession(phoneNumber, NEW_SESSION_TTL));
   }
@@ -108,10 +102,10 @@ public class RegistrationService {
    * @param languageRanges a prioritized list of languages in which to send the verification code
    * @param clientType the type of client receiving the verification code
    *
-   * @return a future that yields the identifier of the newly-created registration session when the verification code
-   * has been sent and the session has been stored
+   * @return a future that yields the updated registration session when the verification code has been sent and updates
+   * to the session have been stored
    */
-  public CompletableFuture<UUID> sendRegistrationCode(final MessageTransport messageTransport,
+  public CompletableFuture<RegistrationSession> sendRegistrationCode(final MessageTransport messageTransport,
       final UUID sessionId,
       @Nullable final String senderName,
       final List<Locale.LanguageRange> languageRanges,
@@ -138,13 +132,12 @@ public class RegistrationService {
               throw new CompletionException(e);
             }
           } else {
-            throw new IllegalStateException("Session already has a verified code");
+            return CompletableFuture.failedFuture(new SessionAlreadyVerifiedException(session));
           }
         })
         .thenCompose(senderAndSessionData -> sessionRepository.updateSession(sessionId, session -> session.toBuilder()
             .addRegistrationAttempts(buildRegistrationAttempt(senderAndSessionData.sender(), messageTransport, senderAndSessionData.sessionData()))
-            .build(), senderAndSessionData.sender().getSessionTtl()))
-        .thenApply(ignored -> sessionId);
+            .build(), senderAndSessionData.sender().getSessionTtl()));
   }
 
   private RegistrationAttempt buildRegistrationAttempt(final VerificationCodeSender sender,
@@ -173,20 +166,20 @@ public class RegistrationService {
    * @param sessionId an identifier for a registration session against which to check a verification code
    * @param verificationCode a client-provided verification code
    *
-   * @return a future that yields {@code true} if the client-provided code matches the code expected in the given
-   * session or {@code false} otherwise
+   * @return a future that yields the updated registration; the session's {@code verifiedCode} field will be set if the
+   * session has been successfully verified
    */
-  public CompletableFuture<Boolean> checkRegistrationCode(final UUID sessionId, final String verificationCode) {
+  public CompletableFuture<RegistrationSession> checkRegistrationCode(final UUID sessionId, final String verificationCode) {
     return sessionRepository.getSession(sessionId)
         .thenCompose(session -> {
           // If a connection was interrupted, a caller may repeat a verification request. Check to see if we already
           // have a known verification code for this session and, if so, check the provided code against that code
           // instead of making a call upstream.
           if (StringUtils.isNotBlank(session.getVerifiedCode())) {
-            return CompletableFuture.completedFuture(session.getVerifiedCode().equals(verificationCode));
+            return CompletableFuture.completedFuture(session);
           } else {
             if (session.getRegistrationAttemptsCount() == 0) {
-              throw new IllegalArgumentException("Session does not have any associated verification attempts");
+              return CompletableFuture.failedFuture(new NoVerificationCodeSentException(session));
             }
 
             final RegistrationAttempt currentRegistrationAttempt =
@@ -203,20 +196,12 @@ public class RegistrationService {
                   if (verified) {
                     // Store the known-verified code for future potentially-repeated calls
                     return sessionRepository.updateSession(sessionId,
-                            s -> s.toBuilder().setVerifiedCode(verificationCode).build(), null)
-                        .thenApply(ignored -> true);
+                            s -> s.toBuilder().setVerifiedCode(verificationCode).build(), null);
                   } else {
-                    return CompletableFuture.completedFuture(false);
+                    return CompletableFuture.completedFuture(session);
                   }
                 });
           }
-        })
-        .exceptionally(throwable -> {
-          if (!(CompletionExceptions.unwrap(throwable) instanceof SessionNotFoundException)) {
-            logger.warn("Failed to check verification code", throwable);
-          }
-
-          return false;
         });
   }
 }

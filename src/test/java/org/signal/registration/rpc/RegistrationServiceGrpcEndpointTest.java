@@ -30,6 +30,8 @@ import org.signal.registration.RegistrationService;
 import org.signal.registration.ratelimit.RateLimitExceededException;
 import org.signal.registration.sender.ClientType;
 import org.signal.registration.sender.MessageTransport;
+import org.signal.registration.session.RegistrationSession;
+import org.signal.registration.util.UUIDUtil;
 
 @MicronautTest
 class RegistrationServiceGrpcEndpointTest {
@@ -47,18 +49,23 @@ class RegistrationServiceGrpcEndpointTest {
 
   @Test
   void createSession() {
+    final long e164 = 18005550123L;
     final UUID sessionId = UUID.randomUUID();
 
+    final RegistrationSession session = RegistrationSession.newBuilder()
+        .setId(UUIDUtil.uuidToByteString(sessionId))
+        .build();
+
     when(registrationService.createRegistrationSession(any()))
-        .thenReturn(CompletableFuture.completedFuture(sessionId));
+        .thenReturn(CompletableFuture.completedFuture(session));
 
     final CreateRegistrationSessionResponse response =
         blockingStub.createSession(CreateRegistrationSessionRequest.newBuilder()
-            .setE164(18005550123L)
+            .setE164(e164)
             .build());
 
     assertEquals(CreateRegistrationSessionResponse.ResponseCase.SESSION_METADATA, response.getResponseCase());
-    assertEquals(RegistrationServiceGrpcEndpoint.uuidToByteString(sessionId), response.getSessionMetadata().getSessionId());
+    assertEquals(UUIDUtil.uuidToByteString(sessionId), response.getSessionMetadata().getSessionId());
   }
 
   @Test
@@ -74,7 +81,7 @@ class RegistrationServiceGrpcEndpointTest {
             .build());
 
     assertEquals(CreateRegistrationSessionResponse.ResponseCase.ERROR, response.getResponseCase());
-    assertEquals(CreateRegistrationSessionErrorType.ERROR_TYPE_RATE_LIMITED, response.getError().getErrorType());
+    assertEquals(CreateRegistrationSessionErrorType.CREATE_REGISTRATION_SESSION_ERROR_TYPE_RATE_LIMITED, response.getError().getErrorType());
     assertEquals(retryAfter.toSeconds(), response.getError().getRetryAfterSeconds());
   }
 
@@ -83,11 +90,13 @@ class RegistrationServiceGrpcEndpointTest {
     final UUID sessionUuid = UUID.randomUUID();
 
     when(registrationService.sendRegistrationCode(any(), any(), isNull(), any(), any()))
-        .thenReturn(CompletableFuture.completedFuture(sessionUuid));
+        .thenReturn(CompletableFuture.completedFuture(RegistrationSession.newBuilder()
+            .setId(UUIDUtil.uuidToByteString(sessionUuid))
+            .build()));
 
     final SendVerificationCodeResponse response =
         blockingStub.sendVerificationCode(SendVerificationCodeRequest.newBuilder()
-            .setSessionId(RegistrationServiceGrpcEndpoint.uuidToByteString(sessionUuid))
+            .setSessionId(UUIDUtil.uuidToByteString(sessionUuid))
             .setTransport(org.signal.registration.rpc.MessageTransport.MESSAGE_TRANSPORT_SMS)
             .setAcceptLanguage("en")
             .build());
@@ -95,7 +104,7 @@ class RegistrationServiceGrpcEndpointTest {
     verify(registrationService)
         .sendRegistrationCode(MessageTransport.SMS, sessionUuid, null, Locale.LanguageRange.parse("en"), ClientType.UNKNOWN);
 
-    assertEquals(sessionUuid, RegistrationServiceGrpcEndpoint.uuidFromByteString(response.getSessionId()));
+    assertEquals(sessionUuid, UUIDUtil.uuidFromByteString(response.getSessionId()));
   }
 
   @Test
@@ -104,24 +113,19 @@ class RegistrationServiceGrpcEndpointTest {
     final String verificationCode = "123456";
 
     when(registrationService.checkRegistrationCode(sessionId, verificationCode))
-        .thenReturn(CompletableFuture.completedFuture(true));
+        .thenReturn(CompletableFuture.completedFuture(RegistrationSession.newBuilder()
+            .setId(UUIDUtil.uuidToByteString(sessionId))
+            .setVerifiedCode(verificationCode)
+            .build()));
 
     final CheckVerificationCodeResponse response =
         blockingStub.checkVerificationCode(CheckVerificationCodeRequest.newBuilder()
-            .setSessionId(RegistrationServiceGrpcEndpoint.uuidToByteString(sessionId))
+            .setSessionId(UUIDUtil.uuidToByteString(sessionId))
             .setVerificationCode(verificationCode)
             .build());
 
     verify(registrationService).checkRegistrationCode(sessionId, verificationCode);
     assertTrue(response.getVerified());
-  }
-
-  @Test
-  void uuidToFromByteString() {
-    final UUID uuid = UUID.randomUUID();
-
-    assertEquals(uuid, RegistrationServiceGrpcEndpoint.uuidFromByteString(
-        RegistrationServiceGrpcEndpoint.uuidToByteString(uuid)));
   }
 
   @Test

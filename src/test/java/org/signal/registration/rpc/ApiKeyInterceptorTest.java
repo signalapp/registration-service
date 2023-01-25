@@ -17,6 +17,8 @@ import jakarta.inject.Inject;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.signal.registration.RegistrationService;
+import org.signal.registration.session.RegistrationSession;
+import org.signal.registration.util.UUIDUtil;
 
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
@@ -49,7 +51,7 @@ class ApiKeyInterceptorTest {
 
   private static final CheckVerificationCodeRequest CHECK_VERIFICATION_CODE_REQUEST =
       CheckVerificationCodeRequest.newBuilder()
-          .setSessionId(RegistrationServiceGrpcEndpoint.uuidToByteString(UUID.randomUUID()))
+          .setSessionId(UUIDUtil.uuidToByteString(UUID.randomUUID()))
           .setVerificationCode("test")
           .build();
 
@@ -80,7 +82,7 @@ class ApiKeyInterceptorTest {
   @BeforeEach
   void setUp() {
     when(registrationService.checkRegistrationCode(any(), any()))
-        .thenReturn(CompletableFuture.completedFuture(false));
+        .thenReturn(CompletableFuture.completedFuture(RegistrationSession.newBuilder().build()));
   }
 
   @Test
