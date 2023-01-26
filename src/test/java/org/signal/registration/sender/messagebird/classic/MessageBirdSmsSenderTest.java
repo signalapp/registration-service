@@ -11,7 +11,9 @@ import com.google.i18n.phonenumbers.PhoneNumberUtil;
 import com.google.i18n.phonenumbers.Phonenumber;
 import com.messagebird.MessageBirdClient;
 import com.messagebird.exceptions.GeneralException;
+import com.messagebird.exceptions.MessageBirdException;
 import com.messagebird.exceptions.UnauthorizedException;
+import com.messagebird.objects.ErrorReport;
 import com.messagebird.objects.Message;
 import com.messagebird.objects.MessageResponse;
 import java.io.IOException;
@@ -21,17 +23,22 @@ import java.util.Locale;
 import java.util.concurrent.CompletionException;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.function.Executable;
 import org.signal.registration.sender.ApiClientInstrumenter;
 import org.signal.registration.sender.ClientType;
+import org.signal.registration.sender.IllegalSenderArgumentException;
 import org.signal.registration.sender.MessageTransport;
+import org.signal.registration.sender.SenderRejectedRequestException;
 import org.signal.registration.sender.VerificationCodeGenerator;
 import org.signal.registration.sender.VerificationSmsBodyProvider;
 import org.signal.registration.sender.messagebird.SenderIdSelector;
 import org.signal.registration.util.CompletionExceptions;
 
 public class MessageBirdSmsSenderTest {
+
   private static final Phonenumber.PhoneNumber NUMBER = PhoneNumberUtil.getInstance().getExampleNumber("US");
-  private static final String E164 = PhoneNumberUtil.getInstance().format(NUMBER, PhoneNumberUtil.PhoneNumberFormat.E164);
+  private static final String E164 = PhoneNumberUtil.getInstance()
+      .format(NUMBER, PhoneNumberUtil.PhoneNumberFormat.E164);
   private static final List<Locale.LanguageRange> EN = Locale.LanguageRange.parse("en");
   private static final String CODE = "12345";
   private static final String BODY = "body";
@@ -67,16 +74,26 @@ public class MessageBirdSmsSenderTest {
     return response;
   }
 
+  public static <T extends Throwable> T assertThrowsUnwrapped(Class<T> expectedType, Executable executable) {
+    return assertThrows(expectedType, () -> {
+      try {
+        executable.execute();
+      } catch (Throwable throwable) {
+        throw CompletionExceptions.unwrap(throwable);
+      }
+    });
+  }
+
+
   @Test
   public void failedSend() throws GeneralException, UnauthorizedException {
     final MessageResponse response = response(1);
     when(client.sendMessage(argThat((Message message) ->
         message.getBody().equals(BODY) && message.getRecipients().equals(E164))))
         .thenReturn(response);
-    final Throwable error = CompletionExceptions.unwrap(assertThrows(CompletionException.class, () -> sender
+    assertThrowsUnwrapped(SenderRejectedRequestException.class, () -> sender
         .sendVerificationCode(MessageTransport.SMS, NUMBER, EN, ClientType.IOS)
-        .join()));
-    assertTrue(error instanceof IOException);
+        .join());
   }
 
   @Test
@@ -84,10 +101,24 @@ public class MessageBirdSmsSenderTest {
     when(client.sendMessage(argThat((Message message) ->
         message.getBody().equals(BODY) && message.getRecipients().equals(E164))))
         .thenThrow(new GeneralException("test"));
-    final Throwable error = CompletionExceptions.unwrap(assertThrows(CompletionException.class, () -> sender
+    assertThrowsUnwrapped(GeneralException.class, () -> sender
         .sendVerificationCode(MessageTransport.SMS, NUMBER, EN, ClientType.IOS)
-        .join()));
-    assertTrue(error instanceof GeneralException);
+        .join());
+  }
+
+  @Test
+  public void illegalArgumentSend() throws GeneralException, UnauthorizedException {
+    final GeneralException ex = mock(GeneralException.class);
+
+    // messagebird bad request
+    when(ex.getErrors()).thenReturn(List.of(new ErrorReport(21, "", "", "")));
+
+    when(client.sendMessage(argThat((Message message) ->
+        message.getBody().equals(BODY) && message.getRecipients().equals(E164))))
+        .thenThrow(ex);
+    assertThrowsUnwrapped(IllegalSenderArgumentException.class, () -> sender
+        .sendVerificationCode(MessageTransport.SMS, NUMBER, EN, ClientType.IOS)
+        .join());
   }
 
   @Test

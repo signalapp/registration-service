@@ -12,24 +12,24 @@ import io.micrometer.core.instrument.Timer;
 import io.micronaut.scheduling.TaskExecutors;
 import jakarta.inject.Named;
 import jakarta.inject.Singleton;
-import java.io.IOException;
 import java.time.Duration;
 import java.util.List;
 import java.util.Locale;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.CompletionException;
 import java.util.concurrent.Executor;
 import org.apache.commons.lang3.StringUtils;
 import org.signal.registration.sender.ApiClientInstrumenter;
 import org.signal.registration.sender.ClientType;
 import org.signal.registration.sender.MessageTransport;
+import org.signal.registration.sender.SenderRejectedRequestException;
 import org.signal.registration.sender.UnsupportedMessageTransportException;
 import org.signal.registration.sender.VerificationCodeGenerator;
 import org.signal.registration.sender.VerificationCodeSender;
 import org.signal.registration.sender.VerificationSmsBodyProvider;
 import org.signal.registration.sender.messagebird.MessageBirdClassicSessionData;
-import org.signal.registration.sender.messagebird.MessageBirdErrorCodeExtractor;
+import org.signal.registration.sender.messagebird.MessageBirdExceptions;
 import org.signal.registration.sender.messagebird.SenderIdSelector;
+import org.signal.registration.util.CompletionExceptions;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -110,12 +110,12 @@ public class MessageBirdSmsSender implements VerificationCodeSender {
             logger.debug("Sent {}, {}, {}", messageResponse, messageResponse.getRecipients(),
                 messageResponse.getRecipients().getTotalDeliveryFailedCount());
             if (messageResponse.getRecipients().getTotalDeliveryFailedCount() != 0) {
-              throw new CompletionException(new IOException("Failed to deliver message"));
+              throw CompletionExceptions.wrap(new SenderRejectedRequestException("Failed to deliver message"));
             }
             return MessageBirdClassicSessionData.newBuilder().setVerificationCode(verificationCode).build().toByteArray();
           } catch (MessageBirdException e) {
             logger.debug("Failed verification with {}, errors={}", e.getMessage(), e.getErrors());
-            throw new CompletionException(e);
+            throw CompletionExceptions.wrap(MessageBirdExceptions.toSenderException(e));
           }
         }, this.executor)
         .whenComplete((ignored, throwable) ->
@@ -123,7 +123,7 @@ public class MessageBirdSmsSender implements VerificationCodeSender {
                 getName(),
                 "sms.create",
                 throwable == null,
-                MessageBirdErrorCodeExtractor.extract(throwable),
+                MessageBirdExceptions.extract(throwable),
                 sample));
   }
 

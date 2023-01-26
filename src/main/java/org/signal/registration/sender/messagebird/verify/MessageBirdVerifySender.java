@@ -21,7 +21,6 @@ import io.micrometer.core.instrument.Timer;
 import io.micronaut.scheduling.TaskExecutors;
 import jakarta.inject.Named;
 import jakarta.inject.Singleton;
-import java.io.IOException;
 import java.time.Duration;
 import java.util.Arrays;
 import java.util.List;
@@ -29,7 +28,6 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.CompletionException;
 import java.util.concurrent.Executor;
 import java.util.function.Function;
 import java.util.stream.Collectors;
@@ -37,12 +35,14 @@ import org.signal.registration.metrics.MetricsUtil;
 import org.signal.registration.sender.ApiClientInstrumenter;
 import org.signal.registration.sender.ClientType;
 import org.signal.registration.sender.MessageTransport;
+import org.signal.registration.sender.SenderRejectedRequestException;
 import org.signal.registration.sender.UnsupportedMessageTransportException;
 import org.signal.registration.sender.VerificationCodeSender;
 import org.signal.registration.sender.VerificationSmsBodyProvider;
-import org.signal.registration.sender.messagebird.MessageBirdErrorCodeExtractor;
+import org.signal.registration.sender.messagebird.MessageBirdExceptions;
 import org.signal.registration.sender.messagebird.SenderIdSelector;
 import org.signal.registration.sender.messagebird.MessageBirdVerifySessionData;
+import org.signal.registration.util.CompletionExceptions;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -140,10 +140,10 @@ public class MessageBirdVerifySender implements VerificationCodeSender {
                   .setVerificationId(verify.getId())
                   .build()
                   .toByteArray();
-              case FAILED -> throw new CompletionException(new IOException("Failed to send"));
+              case FAILED -> throw CompletionExceptions.wrap(new SenderRejectedRequestException("Failed to send"));
             };
           } catch (MessageBirdException e) {
-            throw new CompletionException(e);
+            throw CompletionExceptions.wrap(MessageBirdExceptions.toSenderException(e));
           }
         }, this.executor)
         .whenComplete((ignored, throwable) ->
@@ -151,7 +151,7 @@ public class MessageBirdVerifySender implements VerificationCodeSender {
                 this.getName(),
                 endpointName,
                 throwable == null,
-                MessageBirdErrorCodeExtractor.extract(throwable),
+                MessageBirdExceptions.extract(throwable),
                 sample));
   }
 
@@ -174,24 +174,11 @@ public class MessageBirdVerifySender implements VerificationCodeSender {
             Metrics.counter(VERIFY_COUNTER_NAME, "outcome", verify.getStatus()).increment();
             return VerifyStatus.fromName(verify.getStatus()) == VerifyStatus.VERIFIED;
           } catch (MessageBirdException e) {
-            // Incorrect tokens (i.e. verification codes) get reported as exceptions rather than expected outcomes, and
-            // the MessageBird API doesn't provide a direct way to check if we're simply dealing with an incorrect code.
-            // As a heuristic, though, we can be pretty confident we're looking at an incorrect code if:
-            //
-            // 1. There's only one error reported in this exception AND
-            // 2. That error is code 10 ("invalid params") AND
-            // 3. That error affects the "token" parameter
-            //
-            // This may inadvertently ALSO pick up missing or malformed tokens, but it's okay to treat those as simply
-            // incorrect, too.
-            final boolean incorrectToken = !e.getErrors().isEmpty() && e.getErrors().stream()
-                    .allMatch(errorReport -> errorReport.getCode() == 10 && errorReport.getParameter().equals("token"));
-
-            if (incorrectToken) {
+            if (isIncorrectToken(e)) {
               return false;
             } else {
               logger.debug("Failed verification with {}, errors={}", e.getMessage(), e.getErrors());
-              throw new CompletionException(e);
+              throw CompletionExceptions.wrap(MessageBirdExceptions.toSenderException(e));
             }
           }
         }, this.executor)
@@ -200,8 +187,26 @@ public class MessageBirdVerifySender implements VerificationCodeSender {
                 this.getName(),
                 "verification_check.create",
                 throwable == null,
-                MessageBirdErrorCodeExtractor.extract(throwable),
+                MessageBirdExceptions.extract(throwable),
                 sample));
+  }
+
+  /**
+   * Incorrect tokens (i.e. verification codes) get reported as exceptions rather than expected outcomes, and the
+   * MessageBird API doesn't provide a direct way to check if we're simply dealing with an incorrect code. As a
+   * heuristic, though, we can be pretty confident we're looking at an incorrect code if:
+   *
+   * <li> There's only one error reported in this exception AND
+   * <li> That error is code 10 ("invalid params") AND
+   * <li> That error affects the "token" parameter
+   * <p>
+   * This may inadvertently ALSO pick up missing or malformed tokens, but it's okay to treat those as simply incorrect,
+   * too.
+   */
+  private boolean isIncorrectToken(final MessageBirdException e) {
+    return !e.getErrors().isEmpty() && e.getErrors().stream()
+        .allMatch(errorReport -> errorReport.getCode() == 10 && errorReport.getParameter().equals("token"));
+
   }
 
   @VisibleForTesting
