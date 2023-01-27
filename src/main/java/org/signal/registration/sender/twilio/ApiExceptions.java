@@ -5,12 +5,13 @@
 package org.signal.registration.sender.twilio;
 
 import com.twilio.exception.ApiException;
+import java.util.Set;
 import javax.annotation.Nullable;
 import javax.validation.constraints.NotNull;
 import org.signal.registration.sender.IllegalSenderArgumentException;
+import org.signal.registration.sender.SenderException;
 import org.signal.registration.sender.SenderRejectedRequestException;
 import org.signal.registration.util.CompletionExceptions;
-import java.util.Set;
 
 public class ApiExceptions {
 
@@ -36,7 +37,13 @@ public class ApiExceptions {
   private ApiExceptions() {}
 
   public static @Nullable String extractErrorCode(@NotNull final Throwable throwable) {
-    if (CompletionExceptions.unwrap(throwable) instanceof ApiException apiException) {
+    Throwable unwrapped = CompletionExceptions.unwrap(throwable);
+
+    while (unwrapped instanceof SenderException e && unwrapped.getCause() != null) {
+      unwrapped = e.getCause();
+    }
+
+    if (unwrapped instanceof ApiException apiException) {
       return String.valueOf(apiException.getCode());
     }
 
