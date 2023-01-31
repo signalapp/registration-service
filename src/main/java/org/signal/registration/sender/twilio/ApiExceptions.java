@@ -25,7 +25,8 @@ public class ApiExceptions {
       60202, // Max check attempts reached
       60203, // Max send attempts reached
       60212, // Too many concurrent requests for phone number
-      60605  // Verification delivery attempt blocked
+      60410, // Verification delivery attempt blocked (Fraud Guard)
+      60605  // Verification delivery attempt blocked (geo permissions)
   );
 
   private static final Set<Integer> ILLEGAL_ARGUMENT_ERROR_CODES = Set.of(
