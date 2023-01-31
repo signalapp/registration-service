@@ -32,7 +32,8 @@ public class ApiExceptions {
   private static final Set<Integer> ILLEGAL_ARGUMENT_ERROR_CODES = Set.of(
       21211, // Invalid 'to' phone number
       21614, // 'To' number is not a valid mobile number
-      60200  // Invalid parameter
+      60200, // Invalid parameter
+      60205  // SMS is not supported by landline phone number
   );
 
   private ApiExceptions() {}
