@@ -27,11 +27,13 @@ import org.apache.commons.lang3.StringUtils;
 import org.signal.registration.ratelimit.RateLimiter;
 import org.signal.registration.sender.ClientType;
 import org.signal.registration.sender.MessageTransport;
+import org.signal.registration.sender.SenderException;
 import org.signal.registration.sender.SenderSelectionStrategy;
 import org.signal.registration.sender.VerificationCodeSender;
 import org.signal.registration.session.RegistrationAttempt;
 import org.signal.registration.session.RegistrationSession;
 import org.signal.registration.session.SessionRepository;
+import org.signal.registration.util.CompletionExceptions;
 
 /**
  * The registration service is the core orchestrator of registration business logic and manages registration sessions
@@ -212,6 +214,16 @@ public class RegistrationService {
                   } else {
                     return CompletableFuture.completedFuture(session);
                   }
+                })
+                .exceptionally(throwable -> {
+                  // The sender may view the submitted code as an illegal argument or may reject the attempt to check a
+                  // code altogether. We can treat any case of "the sender got it, but said 'no'" the same way we would
+                  // treat an accepted-but-incorrect code.
+                  if (throwable instanceof SenderException) {
+                    return session;
+                  }
+
+                  throw CompletionExceptions.wrap(throwable);
                 });
           }
         });
