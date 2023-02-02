@@ -25,7 +25,7 @@
     <release.version>17</release.version>
     <exec.mainClass>org.signal.registration.Application</exec.mainClass>
 
-    <firestore.emulator.version>401.0.0-emulators</firestore.emulator.version>
+    <firestore.emulator.version>416.0.0-emulators</firestore.emulator.version>
     <micronaut.picocli.version>4.3.0</micronaut.picocli.version>
     <testcontainers.version>1.17.5</testcontainers.version>
   </properties>
