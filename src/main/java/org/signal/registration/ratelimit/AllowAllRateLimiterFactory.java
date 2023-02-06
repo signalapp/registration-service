@@ -12,10 +12,7 @@ import jakarta.inject.Named;
 import jakarta.inject.Singleton;
 
 @Factory
-// Note: we're temporarily allowing all actions during the transition period where rate limiting is happening on the
-// caller's end; allow-all limiters will be restricted to the `dev` environment and replaced with "real" limiters
-// shortly.
-// @Requires(env = "dev")
+@Requires(env = "dev")
 class AllowAllRateLimiterFactory {
 
   @Singleton

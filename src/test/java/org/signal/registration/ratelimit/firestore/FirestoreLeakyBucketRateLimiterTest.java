@@ -93,7 +93,8 @@ class FirestoreLeakyBucketRateLimiterTest {
     final Instant currentTime = Instant.now().truncatedTo(ChronoUnit.MICROS);
 
     final FirestoreLeakyBucketRateLimiterConfiguration configuration =
-        new FirestoreLeakyBucketRateLimiterConfiguration("rate-limit",
+        new FirestoreLeakyBucketRateLimiterConfiguration("test",
+            "rate-limit",
             "expiration",
             2,
             permitRegenerationPeriod,
@@ -125,7 +126,8 @@ class FirestoreLeakyBucketRateLimiterTest {
     final Duration minDelay = Duration.ofSeconds(47);
 
     final FirestoreLeakyBucketRateLimiterConfiguration configuration =
-        new FirestoreLeakyBucketRateLimiterConfiguration("rate-limit",
+        new FirestoreLeakyBucketRateLimiterConfiguration("test",
+            "rate-limit",
             "expiration",
             10,
             Duration.ofMinutes(1),
@@ -154,7 +156,8 @@ class FirestoreLeakyBucketRateLimiterTest {
     final Instant currentTime = Instant.now().truncatedTo(ChronoUnit.MICROS);
 
     final FirestoreLeakyBucketRateLimiterConfiguration configuration =
-        new FirestoreLeakyBucketRateLimiterConfiguration("rate-limit",
+        new FirestoreLeakyBucketRateLimiterConfiguration("test",
+            "rate-limit",
             "expiration",
             2,
             permitRegenerationPeriod,
@@ -181,7 +184,8 @@ class FirestoreLeakyBucketRateLimiterTest {
     final Instant currentTime = Instant.now().truncatedTo(ChronoUnit.MICROS);
 
     final FirestoreLeakyBucketRateLimiterConfiguration configuration =
-        new FirestoreLeakyBucketRateLimiterConfiguration("rate-limit",
+        new FirestoreLeakyBucketRateLimiterConfiguration("test",
+            "rate-limit",
             "expiration",
             2,
             Duration.ofMinutes(1),
@@ -209,7 +213,8 @@ class FirestoreLeakyBucketRateLimiterTest {
       final double expectedPermitsAvailable) {
 
     final FirestoreLeakyBucketRateLimiterConfiguration configuration =
-        new FirestoreLeakyBucketRateLimiterConfiguration("rate-limit",
+        new FirestoreLeakyBucketRateLimiterConfiguration("test",
+            "rate-limit",
             "expiration",
             maxCapacity,
             permitRegenerationPeriod,
@@ -254,7 +259,8 @@ class FirestoreLeakyBucketRateLimiterTest {
       final Instant expectedTimeUntilPermitAvailable) {
 
     final FirestoreLeakyBucketRateLimiterConfiguration configuration =
-        new FirestoreLeakyBucketRateLimiterConfiguration("rate-limit",
+        new FirestoreLeakyBucketRateLimiterConfiguration("test",
+            "rate-limit",
             "expiration",
             Integer.MAX_VALUE,
             permitRegenerationPeriod,
@@ -297,7 +303,8 @@ class FirestoreLeakyBucketRateLimiterTest {
       final Timestamp expectedExpirationTimestamp) {
 
     final FirestoreLeakyBucketRateLimiterConfiguration configuration =
-        new FirestoreLeakyBucketRateLimiterConfiguration("rate-limit",
+        new FirestoreLeakyBucketRateLimiterConfiguration("test",
+            "rate-limit",
             "expiration",
             maxPermits,
             permitRegenerationPeriod,
