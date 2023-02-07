@@ -31,7 +31,7 @@ public class WeightedSenderSelectionStrategy implements SenderSelectionStrategy 
 
     this.prescribedVerificationCodeSender = prescribedVerificationCodeSender;
     this.fictitiousNumberVerificationCodeSender = fictitiousNumberVerificationCodeSender;
-    this.selectorsByTransport = new EnumMap(MessageTransport.class);
+    this.selectorsByTransport = new EnumMap<>(MessageTransport.class);
     for (WeightedSelector s : selectors) {
       this.selectorsByTransport.put(s.getTransport(), s);
     }
