@@ -55,12 +55,16 @@ class FirestoreLeakyBucketRateLimiterTest {
 
   private static class TestLeakyBucketRateLimiter extends FirestoreLeakyBucketRateLimiter<String> {
 
+
     public TestLeakyBucketRateLimiter(final Firestore firestore,
                                       final Executor executor,
-                                      final FirestoreLeakyBucketRateLimiterConfiguration configuration,
-                                      final Clock clock) {
+                                      final Clock clock,
+                                      final int maxCapacity,
+                                      final Duration permitRegenerationPeriod,
+                                      final Duration minDelay) {
 
-      super(firestore, executor, configuration, clock);
+      super(firestore, executor, clock, "rate-limit", "expiration", maxCapacity,
+          permitRegenerationPeriod, minDelay);
     }
 
     @Override
@@ -92,16 +96,9 @@ class FirestoreLeakyBucketRateLimiterTest {
     final Duration permitRegenerationPeriod = Duration.ofSeconds(47);
     final Instant currentTime = Instant.now().truncatedTo(ChronoUnit.MICROS);
 
-    final FirestoreLeakyBucketRateLimiterConfiguration configuration =
-        new FirestoreLeakyBucketRateLimiterConfiguration("test",
-            "rate-limit",
-            "expiration",
-            2,
-            permitRegenerationPeriod,
-            Duration.ZERO);
-
     final FirestoreLeakyBucketRateLimiter<String> rateLimiter =
-        new TestLeakyBucketRateLimiter(firestore, executor, configuration, Clock.fixed(currentTime, ZoneId.systemDefault()));
+        new TestLeakyBucketRateLimiter(firestore, executor, Clock.fixed(currentTime, ZoneId.systemDefault()),
+            2, permitRegenerationPeriod, Duration.ZERO);
 
     final String key = "key";
 
@@ -125,16 +122,9 @@ class FirestoreLeakyBucketRateLimiterTest {
     final Instant currentTime = Instant.now().truncatedTo(ChronoUnit.MICROS);
     final Duration minDelay = Duration.ofSeconds(47);
 
-    final FirestoreLeakyBucketRateLimiterConfiguration configuration =
-        new FirestoreLeakyBucketRateLimiterConfiguration("test",
-            "rate-limit",
-            "expiration",
-            10,
-            Duration.ofMinutes(1),
-            minDelay);
-
     final FirestoreLeakyBucketRateLimiter<String> rateLimiter =
-        new TestLeakyBucketRateLimiter(firestore, executor, configuration, Clock.fixed(currentTime, ZoneId.systemDefault()));
+        new TestLeakyBucketRateLimiter(firestore, executor, Clock.fixed(currentTime, ZoneId.systemDefault()),
+            10, Duration.ofMinutes(1), minDelay);
 
     final String key = "key";
 
@@ -155,16 +145,9 @@ class FirestoreLeakyBucketRateLimiterTest {
     final Duration permitRegenerationPeriod = Duration.ofSeconds(47);
     final Instant currentTime = Instant.now().truncatedTo(ChronoUnit.MICROS);
 
-    final FirestoreLeakyBucketRateLimiterConfiguration configuration =
-        new FirestoreLeakyBucketRateLimiterConfiguration("test",
-            "rate-limit",
-            "expiration",
-            2,
-            permitRegenerationPeriod,
-            Duration.ZERO);
-
     final FirestoreLeakyBucketRateLimiter<String> rateLimiter =
-        new TestLeakyBucketRateLimiter(firestore, executor, configuration, Clock.fixed(currentTime, ZoneId.systemDefault()));
+        new TestLeakyBucketRateLimiter(firestore, executor, Clock.fixed(currentTime, ZoneId.systemDefault()),
+            2, permitRegenerationPeriod, Duration.ZERO);
 
     final String key = "key";
 
@@ -183,16 +166,9 @@ class FirestoreLeakyBucketRateLimiterTest {
     final Duration minDelay = Duration.ofSeconds(47);
     final Instant currentTime = Instant.now().truncatedTo(ChronoUnit.MICROS);
 
-    final FirestoreLeakyBucketRateLimiterConfiguration configuration =
-        new FirestoreLeakyBucketRateLimiterConfiguration("test",
-            "rate-limit",
-            "expiration",
-            2,
-            Duration.ofMinutes(1),
-            minDelay);
-
     final FirestoreLeakyBucketRateLimiter<String> rateLimiter =
-        new TestLeakyBucketRateLimiter(firestore, executor, configuration, Clock.fixed(currentTime, ZoneId.systemDefault()));
+        new TestLeakyBucketRateLimiter(firestore, executor, Clock.fixed(currentTime, ZoneId.systemDefault()),
+            2, Duration.ofMinutes(1), minDelay);
 
     final String key = "key";
 
@@ -212,19 +188,13 @@ class FirestoreLeakyBucketRateLimiterTest {
       final Duration permitRegenerationPeriod,
       final double expectedPermitsAvailable) {
 
-    final FirestoreLeakyBucketRateLimiterConfiguration configuration =
-        new FirestoreLeakyBucketRateLimiterConfiguration("test",
-            "rate-limit",
-            "expiration",
-            maxCapacity,
-            permitRegenerationPeriod,
-            Duration.ZERO);
-
     final FirestoreLeakyBucketRateLimiter<String> rateLimiter =
         new TestLeakyBucketRateLimiter(mock(Firestore.class),
             mock(Executor.class),
-            configuration,
-            Clock.fixed(currentTime, ZoneId.systemDefault()));
+            Clock.fixed(currentTime, ZoneId.systemDefault()),
+            maxCapacity,
+            permitRegenerationPeriod,
+            Duration.ZERO);
 
     assertEquals(expectedPermitsAvailable, rateLimiter.getCurrentPermitsAvailable(initialPermitsAvailable, lastPermitGranted));
   }
@@ -258,18 +228,12 @@ class FirestoreLeakyBucketRateLimiterTest {
       final Duration permitRegenerationPeriod,
       final Instant expectedTimeUntilPermitAvailable) {
 
-    final FirestoreLeakyBucketRateLimiterConfiguration configuration =
-        new FirestoreLeakyBucketRateLimiterConfiguration("test",
-            "rate-limit",
-            "expiration",
-            Integer.MAX_VALUE,
-            permitRegenerationPeriod,
-            Duration.ZERO);
-
     final FirestoreLeakyBucketRateLimiter<String> rateLimiter = new TestLeakyBucketRateLimiter(mock(Firestore.class),
         mock(Executor.class),
-        configuration,
-        Clock.fixed(currentTime, ZoneId.systemDefault()));
+        Clock.fixed(currentTime, ZoneId.systemDefault()),
+        Integer.MAX_VALUE,
+        permitRegenerationPeriod,
+        Duration.ZERO);
 
     assertEquals(expectedTimeUntilPermitAvailable, rateLimiter.getPermitAvailabilityTime(permitsAvailable, desiredPermits));
   }
@@ -302,18 +266,12 @@ class FirestoreLeakyBucketRateLimiterTest {
       final Duration permitRegenerationPeriod,
       final Timestamp expectedExpirationTimestamp) {
 
-    final FirestoreLeakyBucketRateLimiterConfiguration configuration =
-        new FirestoreLeakyBucketRateLimiterConfiguration("test",
-            "rate-limit",
-            "expiration",
-            maxPermits,
-            permitRegenerationPeriod,
-            minDelay);
-
     final FirestoreLeakyBucketRateLimiter<String> rateLimiter = new TestLeakyBucketRateLimiter(mock(Firestore.class),
         mock(Executor.class),
-        configuration,
-        Clock.fixed(currentTime, ZoneId.systemDefault()));
+        Clock.fixed(currentTime, ZoneId.systemDefault()),
+        maxPermits,
+        permitRegenerationPeriod,
+        minDelay);
 
     assertEquals(expectedExpirationTimestamp, rateLimiter.getBucketExpirationTimestamp(permitsAvailable, lastPermitGranted));
   }

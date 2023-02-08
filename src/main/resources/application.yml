@@ -17,6 +17,13 @@ micronaut:
       # Note that an `instance` tag is added at runtime in `Application.java`
       service: registration
 
+rate-limits:
+  firestore:
+    session-creation:
+      max-capacity: 5
+      permit-regeneration-period: 288m
+      min-delay: 1m
+
 verification:
   sms:
     supported-languages:

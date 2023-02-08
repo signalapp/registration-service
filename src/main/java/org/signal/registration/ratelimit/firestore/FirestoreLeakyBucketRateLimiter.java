@@ -35,21 +35,35 @@ public abstract class FirestoreLeakyBucketRateLimiter<K> implements RateLimiter<
 
   private final Firestore firestore;
   private final Executor executor;
-  private final FirestoreLeakyBucketRateLimiterConfiguration configuration;
   private final Clock clock;
+
+  private final String collectionName;
+  private final String expirationFieldName;
+  private final int maxCapacity;
+  private final Duration permitRegenerationPeriod;
+  private final Duration minDelay;
 
   private static final String AVAILABLE_PERMITS_FIELD_NAME = "available-permits";
   private static final String LAST_PERMIT_GRANTED_FIELD_NAME = "last-permit-granted";
 
   public FirestoreLeakyBucketRateLimiter(final Firestore firestore,
                                          @Named(TaskExecutors.IO) final Executor executor,
-                                         final FirestoreLeakyBucketRateLimiterConfiguration configuration,
-                                         final Clock clock) {
+                                         final Clock clock,
+                                         final String collectionName,
+                                         final String expirationFieldName,
+                                         final int maxCapacity,
+                                         final Duration permitRegenerationPeriod,
+                                         final Duration minDelay) {
 
     this.firestore = firestore;
     this.executor = executor;
-    this.configuration = configuration;
     this.clock = clock;
+
+    this.collectionName = collectionName;
+    this.expirationFieldName = expirationFieldName;
+    this.maxCapacity = maxCapacity;
+    this.permitRegenerationPeriod = permitRegenerationPeriod;
+    this.minDelay = minDelay;
   }
 
   /**
@@ -73,7 +87,7 @@ public abstract class FirestoreLeakyBucketRateLimiter<K> implements RateLimiter<
   CompletableFuture<Optional<Instant>> takePermit(final K key) {
     return FirestoreUtil.toCompletableFuture(firestore.runAsyncTransaction(transaction -> {
       final DocumentReference documentReference =
-          firestore.collection(configuration.collectionName()).document(getDocumentId(key));
+          firestore.collection(collectionName).document(getDocumentId(key));
 
       return ApiFutures.transform(transaction.get(documentReference), documentSnapshot -> {
         final Instant currentTime = clock.instant();
@@ -94,10 +108,10 @@ public abstract class FirestoreLeakyBucketRateLimiter<K> implements RateLimiter<
 
             currentAvailablePermits = permitsAvailableFromDocument != null ?
                 getCurrentPermitsAvailable(permitsAvailableFromDocument, lastPermitGranted) :
-                configuration.maxCapacity();
+                maxCapacity;
           }
 
-          final Instant nextTimeToTakePermit = lastPermitGranted.plus(configuration.minDelay());
+          final Instant nextTimeToTakePermit = lastPermitGranted.plus(minDelay);
           final Instant permitAvailableTime = getPermitAvailabilityTime(currentAvailablePermits, 1);
 
           // We could be waiting on one, both, or neither of permit availability or the between-action cooldown.
@@ -109,17 +123,17 @@ public abstract class FirestoreLeakyBucketRateLimiter<K> implements RateLimiter<
             transaction.update(documentReference, Map.of(
                 AVAILABLE_PERMITS_FIELD_NAME, currentAvailablePermits - 1,
                 LAST_PERMIT_GRANTED_FIELD_NAME, FirestoreUtil.timestampFromInstant(currentTime),
-                configuration.expirationFieldName(),
+                expirationFieldName,
                 getBucketExpirationTimestamp(currentAvailablePermits - 1, lastPermitGranted)));
 
             maybeNextPermitAvailableTime = Optional.empty();
           }
         } else {
           transaction.create(documentReference, Map.of(
-              AVAILABLE_PERMITS_FIELD_NAME, configuration.maxCapacity() - 1,
+              AVAILABLE_PERMITS_FIELD_NAME, maxCapacity - 1,
               LAST_PERMIT_GRANTED_FIELD_NAME, FirestoreUtil.timestampFromInstant(currentTime),
-              configuration.expirationFieldName(),
-              getBucketExpirationTimestamp(configuration.maxCapacity() - 1, currentTime)));
+              expirationFieldName,
+              getBucketExpirationTimestamp(maxCapacity - 1, currentTime)));
 
           maybeNextPermitAvailableTime = Optional.empty();
         }
@@ -140,9 +154,9 @@ public abstract class FirestoreLeakyBucketRateLimiter<K> implements RateLimiter<
   @VisibleForTesting
   double getCurrentPermitsAvailable(final double initialPermitsAvailable, final Instant lastPermitGranted) {
     final double elapsedNanos = Duration.between(lastPermitGranted, clock.instant()).toNanos();
-    final double permitsRegenerated = elapsedNanos / configuration.permitRegenerationPeriod().toNanos();
+    final double permitsRegenerated = elapsedNanos / permitRegenerationPeriod.toNanos();
 
-    return Math.min(initialPermitsAvailable + permitsRegenerated, configuration.maxCapacity());
+    return Math.min(initialPermitsAvailable + permitsRegenerated, maxCapacity);
   }
 
   /**
@@ -158,7 +172,7 @@ public abstract class FirestoreLeakyBucketRateLimiter<K> implements RateLimiter<
   @VisibleForTesting
   Instant getPermitAvailabilityTime(final double currentPermitsAvailable, final int desiredPermits) {
     final double permitsNeeded = desiredPermits - currentPermitsAvailable;
-    final double nanosPerPermit = configuration.permitRegenerationPeriod().toNanos();
+    final double nanosPerPermit = permitRegenerationPeriod.toNanos();
 
     return clock.instant().plusNanos((long) (permitsNeeded * nanosPerPermit));
   }
@@ -177,8 +191,8 @@ public abstract class FirestoreLeakyBucketRateLimiter<K> implements RateLimiter<
   @VisibleForTesting
   Timestamp getBucketExpirationTimestamp(final double currentPermitsAvailable, final Instant lastPermitGranted) {
     return FirestoreUtil.timestampFromInstant(latestOf(
-        getPermitAvailabilityTime(currentPermitsAvailable, configuration.maxCapacity()),
-        lastPermitGranted.plus(configuration.minDelay())));
+        getPermitAvailabilityTime(currentPermitsAvailable, maxCapacity),
+        lastPermitGranted.plus(minDelay)));
   }
 
   @VisibleForTesting
