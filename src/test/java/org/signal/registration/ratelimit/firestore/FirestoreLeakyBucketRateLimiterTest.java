@@ -5,8 +5,27 @@
 
 package org.signal.registration.ratelimit.firestore;
 
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.Mockito.mock;
+
 import com.google.cloud.Timestamp;
 import com.google.cloud.firestore.Firestore;
+import java.io.IOException;
+import java.time.Clock;
+import java.time.Duration;
+import java.time.Instant;
+import java.time.ZoneId;
+import java.time.temporal.ChronoUnit;
+import java.util.Optional;
+import java.util.concurrent.CompletionException;
+import java.util.concurrent.Executor;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
+import java.util.stream.Stream;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -21,23 +40,6 @@ import org.testcontainers.containers.FirestoreEmulatorContainer;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 import org.testcontainers.utility.DockerImageName;
-
-import java.io.IOException;
-import java.time.Clock;
-import java.time.Duration;
-import java.time.Instant;
-import java.time.ZoneId;
-import java.time.temporal.ChronoUnit;
-import java.util.Optional;
-import java.util.concurrent.CompletionException;
-import java.util.concurrent.Executor;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.concurrent.TimeUnit;
-import java.util.stream.Stream;
-
-import static org.junit.jupiter.api.Assertions.*;
-import static org.mockito.Mockito.mock;
 
 @Testcontainers
 class FirestoreLeakyBucketRateLimiterTest {
@@ -113,7 +115,7 @@ class FirestoreLeakyBucketRateLimiterTest {
         "Rate limiter should return exceptionally when bucket exists and has no permits");
 
     assertTrue(CompletionExceptions.unwrap(completionException) instanceof RateLimitExceededException);
-    assertEquals(permitRegenerationPeriod,
+    assertEquals(Optional.of(permitRegenerationPeriod),
         ((RateLimitExceededException) CompletionExceptions.unwrap(completionException)).getRetryAfterDuration());
   }
 
@@ -136,7 +138,7 @@ class FirestoreLeakyBucketRateLimiterTest {
         "Rate limiter should return exceptionally when bucket exists and has permits, but cooldown period is in effect");
 
     assertTrue(CompletionExceptions.unwrap(completionException) instanceof RateLimitExceededException);
-    assertEquals(minDelay,
+    assertEquals(Optional.of(minDelay),
         ((RateLimitExceededException) CompletionExceptions.unwrap(completionException)).getRetryAfterDuration());
   }
 
@@ -151,13 +153,13 @@ class FirestoreLeakyBucketRateLimiterTest {
 
     final String key = "key";
 
-    assertEquals(Optional.empty(), rateLimiter.takePermit(key).join(),
+    assertEquals(Duration.ZERO, rateLimiter.takePermit(key).join(),
         "Rate limiter should not return a time to next permit when bucket doesn't exist");
 
-    assertEquals(Optional.empty(), rateLimiter.takePermit(key).join(),
+    assertEquals(Duration.ZERO, rateLimiter.takePermit(key).join(),
         "Rate limiter should not return a time to next permit when bucket exists, but has permits");
 
-    assertEquals(Optional.of(currentTime.plus(permitRegenerationPeriod)), rateLimiter.takePermit(key).join(),
+    assertEquals(permitRegenerationPeriod, rateLimiter.takePermit(key).join(),
         "Rate limiter should return the correct time to next permit when bucket is empty");
   }
 
@@ -172,10 +174,10 @@ class FirestoreLeakyBucketRateLimiterTest {
 
     final String key = "key";
 
-    assertEquals(Optional.empty(), rateLimiter.takePermit(key).join(),
+    assertEquals(Duration.ZERO, rateLimiter.takePermit(key).join(),
         "Rate limiter should not return a time to next permit when bucket doesn't exist");
 
-    assertEquals(Optional.of(currentTime.plus(minDelay)), rateLimiter.takePermit(key).join(),
+    assertEquals(minDelay, rateLimiter.takePermit(key).join(),
         "Rate limiter should return the correct time to next permit when bucket has permits, but cooldown is in effect");
   }
 

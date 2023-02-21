@@ -18,6 +18,7 @@ import java.util.Optional;
  */
 public class RateLimitExceededException extends NoStackTraceException {
 
+  @Nullable
   private final Duration retryAfterDuration;
 
   @Nullable
@@ -27,7 +28,9 @@ public class RateLimitExceededException extends NoStackTraceException {
     this(retryAfterDuration, null);
   }
 
-  public RateLimitExceededException(final Duration retryAfterDuration, @Nullable final RegistrationSession registrationSession) {
+  public RateLimitExceededException(@Nullable final Duration retryAfterDuration,
+      @Nullable final RegistrationSession registrationSession) {
+
     this.retryAfterDuration = retryAfterDuration;
     this.registrationSession = registrationSession;
   }
@@ -35,10 +38,11 @@ public class RateLimitExceededException extends NoStackTraceException {
   /**
    * Returns the next time at which the action blocked by this exception might succeed.
    *
-   * @return the next time at which the action blocked by this exception might succeed
+   * @return the next time at which the action blocked by this exception might succeed; if empty, no amount of simply
+   * waiting will allow the action to succeed and callers may need to take some other action to proceed
    */
-  public Duration getRetryAfterDuration() {
-    return retryAfterDuration;
+  public Optional<Duration> getRetryAfterDuration() {
+    return Optional.ofNullable(retryAfterDuration);
   }
 
   /**

@@ -5,6 +5,8 @@
 
 package org.signal.registration.ratelimit;
 
+import java.time.Duration;
+import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 
 /**
@@ -14,6 +16,11 @@ import java.util.concurrent.CompletableFuture;
  * @param <K> the type of key that identifies a rate-limited action
  */
 class AllowAllRateLimiter<K> implements RateLimiter<K> {
+
+  @Override
+  public CompletableFuture<Optional<Duration>> getDurationUntilActionAllowed(final K key) {
+    return CompletableFuture.completedFuture(Optional.of(Duration.ZERO));
+  }
 
   @Override
   public CompletableFuture<Void> checkRateLimit(final K key) {

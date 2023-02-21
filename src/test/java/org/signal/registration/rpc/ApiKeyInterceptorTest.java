@@ -81,8 +81,11 @@ class ApiKeyInterceptorTest {
 
   @BeforeEach
   void setUp() {
-    when(registrationService.checkRegistrationCode(any(), any()))
+    when(registrationService.checkVerificationCode(any(), any()))
         .thenReturn(CompletableFuture.completedFuture(RegistrationSession.newBuilder().build()));
+
+    when(registrationService.buildSessionMetadata(any()))
+        .thenReturn(RegistrationSessionMetadata.newBuilder().build());
   }
 
   @Test
@@ -113,6 +116,6 @@ class ApiKeyInterceptorTest {
     assertDoesNotThrow(() -> blockingStub.withCallCredentials(new ApiKeyCallCredentials(apiKey))
         .checkVerificationCode(CHECK_VERIFICATION_CODE_REQUEST));
 
-    verify(registrationService).checkRegistrationCode(any(), any());
+    verify(registrationService).checkVerificationCode(any(), any());
   }
 }

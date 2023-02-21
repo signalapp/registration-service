@@ -8,6 +8,7 @@ package org.signal.registration.ratelimit.firestore;
 import com.google.api.core.ApiFutures;
 import com.google.cloud.Timestamp;
 import com.google.cloud.firestore.DocumentReference;
+import com.google.cloud.firestore.DocumentSnapshot;
 import com.google.cloud.firestore.Firestore;
 import com.google.common.annotations.VisibleForTesting;
 import io.micronaut.scheduling.TaskExecutors;
@@ -76,71 +77,106 @@ public abstract class FirestoreLeakyBucketRateLimiter<K> implements RateLimiter<
   protected abstract String getDocumentId(final K key);
 
   @Override
+  public CompletableFuture<Optional<Duration>> getDurationUntilActionAllowed(final K key) {
+    final DocumentReference documentReference =
+        firestore.collection(collectionName).document(getDocumentId(key));
+
+    return FirestoreUtil.toCompletableFuture(
+        ApiFutures.transform(documentReference.get(),
+            documentSnapshot -> Optional.of(getDurationUntilActionAllowed(documentSnapshot)),
+            executor),
+        executor);
+  }
+
+  private Duration getDurationUntilActionAllowed(final DocumentSnapshot documentSnapshot) {
+    final Instant currentTime = clock.instant();
+    final Duration durationUntilActionAllowed;
+
+    if (documentSnapshot.exists()) {
+      final Instant lastPermitGranted = getLastPermitGranted(documentSnapshot, currentTime);
+      final double currentAvailablePermits = getCurrentPermitsAvailable(documentSnapshot, lastPermitGranted);
+      final Instant nextTimeToTakePermit = lastPermitGranted.plus(minDelay);
+      final Instant permitAvailableTime = getPermitAvailabilityTime(currentAvailablePermits, 1);
+
+      // We could be waiting on one, both, or neither of permit availability or the between-action cooldown.
+      final Instant nextActionAllowed = latestOf(nextTimeToTakePermit, permitAvailableTime);
+
+      if (nextActionAllowed.isAfter(currentTime)) {
+        durationUntilActionAllowed = Duration.between(currentTime, nextActionAllowed);
+      } else {
+        durationUntilActionAllowed = Duration.ZERO;
+      }
+    } else {
+      // No document exists, so we can assume that the action is permitted immediately
+      durationUntilActionAllowed = Duration.ZERO;
+    }
+
+    return durationUntilActionAllowed;
+  }
+
+  @Override
   public CompletableFuture<Void> checkRateLimit(final K key) {
     return takePermit(key)
-        .thenAccept(maybeNextPermitAvailableTime -> maybeNextPermitAvailableTime.ifPresent(nextPermitAvailableTime -> {
-          throw new CompletionException(new RateLimitExceededException(Duration.between(clock.instant(), nextPermitAvailableTime)));
-        }));
+        .thenAccept(durationUntilNextActionAllowed -> {
+          if (!(durationUntilNextActionAllowed.isZero() || durationUntilNextActionAllowed.isNegative())) {
+            throw new CompletionException(new RateLimitExceededException(durationUntilNextActionAllowed));
+          }
+        });
   }
 
   @VisibleForTesting
-  CompletableFuture<Optional<Instant>> takePermit(final K key) {
+  CompletableFuture<Duration> takePermit(final K key) {
     return FirestoreUtil.toCompletableFuture(firestore.runAsyncTransaction(transaction -> {
       final DocumentReference documentReference =
           firestore.collection(collectionName).document(getDocumentId(key));
 
       return ApiFutures.transform(transaction.get(documentReference), documentSnapshot -> {
         final Instant currentTime = clock.instant();
-        final Optional<Instant> maybeNextPermitAvailableTime;
+        final Duration durationUntilNextActionAllowed;
 
         if (documentSnapshot.exists()) {
-          final Instant lastPermitGranted;
-          {
-            final Timestamp lastPermitGrantedTimestamp = documentSnapshot.getTimestamp(LAST_PERMIT_GRANTED_FIELD_NAME);
+          durationUntilNextActionAllowed = getDurationUntilActionAllowed(documentSnapshot);
 
-            lastPermitGranted = lastPermitGrantedTimestamp != null ?
-                FirestoreUtil.instantFromTimestamp(lastPermitGrantedTimestamp) : currentTime;
-          }
+          if (durationUntilNextActionAllowed.isZero() || durationUntilNextActionAllowed.isNegative()) {
+            // The caller may take the action now, so update the document to reflect that we used a permit
+            final Instant lastPermitGranted = getLastPermitGranted(documentSnapshot, currentTime);
+            final double currentAvailablePermits = getCurrentPermitsAvailable(documentSnapshot, lastPermitGranted);
 
-          final double currentAvailablePermits;
-          {
-            final Double permitsAvailableFromDocument = documentSnapshot.getDouble(AVAILABLE_PERMITS_FIELD_NAME);
-
-            currentAvailablePermits = permitsAvailableFromDocument != null ?
-                getCurrentPermitsAvailable(permitsAvailableFromDocument, lastPermitGranted) :
-                maxCapacity;
-          }
-
-          final Instant nextTimeToTakePermit = lastPermitGranted.plus(minDelay);
-          final Instant permitAvailableTime = getPermitAvailabilityTime(currentAvailablePermits, 1);
-
-          // We could be waiting on one, both, or neither of permit availability or the between-action cooldown.
-          final Instant nextActionAllowed = latestOf(nextTimeToTakePermit, permitAvailableTime);
-
-          if (nextActionAllowed.isAfter(currentTime)) {
-            maybeNextPermitAvailableTime = Optional.of(nextActionAllowed);
-          } else {
             transaction.update(documentReference, Map.of(
                 AVAILABLE_PERMITS_FIELD_NAME, currentAvailablePermits - 1,
                 LAST_PERMIT_GRANTED_FIELD_NAME, FirestoreUtil.timestampFromInstant(currentTime),
                 expirationFieldName,
                 getBucketExpirationTimestamp(currentAvailablePermits - 1, lastPermitGranted)));
-
-            maybeNextPermitAvailableTime = Optional.empty();
           }
         } else {
+          // No document exists, which we interpret to be a "blank slate" and assume the action is allowed immediately
+          durationUntilNextActionAllowed = Duration.ZERO;
+
           transaction.create(documentReference, Map.of(
               AVAILABLE_PERMITS_FIELD_NAME, maxCapacity - 1,
               LAST_PERMIT_GRANTED_FIELD_NAME, FirestoreUtil.timestampFromInstant(currentTime),
               expirationFieldName,
               getBucketExpirationTimestamp(maxCapacity - 1, currentTime)));
-
-          maybeNextPermitAvailableTime = Optional.empty();
         }
 
-        return maybeNextPermitAvailableTime;
+        return durationUntilNextActionAllowed;
       }, executor);
     }), executor);
+  }
+
+  private Instant getLastPermitGranted(final DocumentSnapshot documentSnapshot, final Instant currentTime) {
+    final Timestamp lastPermitGrantedTimestamp = documentSnapshot.getTimestamp(LAST_PERMIT_GRANTED_FIELD_NAME);
+
+    return lastPermitGrantedTimestamp != null ?
+        FirestoreUtil.instantFromTimestamp(lastPermitGrantedTimestamp) : currentTime;
+  }
+
+  private double getCurrentPermitsAvailable(final DocumentSnapshot documentSnapshot, final Instant lastPermitGranted) {
+    final Double permitsAvailableFromDocument = documentSnapshot.getDouble(AVAILABLE_PERMITS_FIELD_NAME);
+
+    return permitsAvailableFromDocument != null ?
+        getCurrentPermitsAvailable(permitsAvailableFromDocument, lastPermitGranted) :
+        maxCapacity;
   }
 
   /**

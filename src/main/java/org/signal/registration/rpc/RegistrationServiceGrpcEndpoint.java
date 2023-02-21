@@ -24,11 +24,10 @@ import org.signal.registration.SessionAlreadyVerifiedException;
 import org.signal.registration.ratelimit.RateLimitExceededException;
 import org.signal.registration.sender.ClientType;
 import org.signal.registration.sender.IllegalSenderArgumentException;
-import org.signal.registration.sender.MessageTransport;
 import org.signal.registration.sender.SenderRejectedRequestException;
-import org.signal.registration.session.RegistrationSession;
 import org.signal.registration.session.SessionNotFoundException;
 import org.signal.registration.util.CompletionExceptions;
+import org.signal.registration.util.MessageTransports;
 import org.signal.registration.util.UUIDUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -59,7 +58,7 @@ public class RegistrationServiceGrpcEndpoint extends RegistrationServiceGrpc.Reg
           .whenComplete((session, throwable) -> {
             if (throwable == null) {
               responseObserver.onNext(CreateRegistrationSessionResponse.newBuilder()
-                  .setSessionMetadata(buildSessionMetadata(session))
+                  .setSessionMetadata(registrationService.buildSessionMetadata(session))
                   .build());
 
               responseObserver.onCompleted();
@@ -85,14 +84,17 @@ public class RegistrationServiceGrpcEndpoint extends RegistrationServiceGrpc.Reg
     }
   }
 
-  private static Optional<CreateRegistrationSessionResponse> buildCreateSessionErrorResponse(final Throwable cause) {
+  private Optional<CreateRegistrationSessionResponse> buildCreateSessionErrorResponse(final Throwable cause) {
     if (cause instanceof RateLimitExceededException rateLimitExceededException) {
+      final CreateRegistrationSessionError.Builder errorBuilder = CreateRegistrationSessionError.newBuilder()
+          .setErrorType(CreateRegistrationSessionErrorType.CREATE_REGISTRATION_SESSION_ERROR_TYPE_RATE_LIMITED)
+          .setMayRetry(rateLimitExceededException.getRetryAfterDuration().isPresent());
+
+      rateLimitExceededException.getRetryAfterDuration()
+          .ifPresent(retryAfterDuration -> errorBuilder.setRetryAfterSeconds(retryAfterDuration.getSeconds()));
+
       return Optional.of(CreateRegistrationSessionResponse.newBuilder()
-          .setError(CreateRegistrationSessionError.newBuilder()
-              .setErrorType(CreateRegistrationSessionErrorType.CREATE_REGISTRATION_SESSION_ERROR_TYPE_RATE_LIMITED)
-              .setMayRetry(true)
-              .setRetryAfterSeconds(rateLimitExceededException.getRetryAfterDuration().getSeconds())
-              .build())
+          .setError(errorBuilder.build())
           .build());
     }
 
@@ -108,7 +110,7 @@ public class RegistrationServiceGrpcEndpoint extends RegistrationServiceGrpc.Reg
           .whenComplete((session, throwable) -> {
             if (throwable == null) {
               responseObserver.onNext(GetRegistrationSessionMetadataResponse.newBuilder()
-                  .setSessionMetadata(buildSessionMetadata(session))
+                  .setSessionMetadata(registrationService.buildSessionMetadata(session))
                   .build());
 
               responseObserver.onCompleted();
@@ -127,7 +129,7 @@ public class RegistrationServiceGrpcEndpoint extends RegistrationServiceGrpc.Reg
     }
   }
 
-  private static Optional<GetRegistrationSessionMetadataResponse> buildGetSessionMetadataErrorResponse(final Throwable cause) {
+  private Optional<GetRegistrationSessionMetadataResponse> buildGetSessionMetadataErrorResponse(final Throwable cause) {
     if (cause instanceof SessionNotFoundException) {
       return Optional.of(GetRegistrationSessionMetadataResponse.newBuilder()
           .setError(GetRegistrationSessionMetadataError.newBuilder()
@@ -144,7 +146,7 @@ public class RegistrationServiceGrpcEndpoint extends RegistrationServiceGrpc.Reg
       final StreamObserver<SendVerificationCodeResponse> responseObserver) {
 
     try {
-      registrationService.sendRegistrationCode(getServiceMessageTransport(request.getTransport()),
+      registrationService.sendVerificationCode(MessageTransports.getSenderMessageTransportFromRpcTransport(request.getTransport()),
               UUIDUtil.uuidFromByteString(request.getSessionId()),
               request.getSenderName().isBlank() ? null : request.getSenderName(),
               getLanguageRanges(request.getAcceptLanguage()),
@@ -153,6 +155,7 @@ public class RegistrationServiceGrpcEndpoint extends RegistrationServiceGrpc.Reg
             if (throwable == null) {
               responseObserver.onNext(SendVerificationCodeResponse.newBuilder()
                   .setSessionId(session.getId())
+                  .setSessionMetadata(registrationService.buildSessionMetadata(session))
                   .build());
 
               responseObserver.onCompleted();
@@ -171,10 +174,10 @@ public class RegistrationServiceGrpcEndpoint extends RegistrationServiceGrpc.Reg
     }
   }
 
-  private static Optional<SendVerificationCodeResponse> buildSendVerificationCodeErrorResponse(final Throwable cause) {
+  private Optional<SendVerificationCodeResponse> buildSendVerificationCodeErrorResponse(final Throwable cause) {
     if (cause instanceof SessionAlreadyVerifiedException sessionAlreadyVerifiedException) {
       return Optional.of(SendVerificationCodeResponse.newBuilder()
-          .setSessionMetadata(buildSessionMetadata(sessionAlreadyVerifiedException.getRegistrationSession()))
+          .setSessionMetadata(registrationService.buildSessionMetadata(sessionAlreadyVerifiedException.getRegistrationSession()))
           .setError(SendVerificationCodeError.newBuilder()
               .setErrorType(SendVerificationCodeErrorType.SEND_VERIFICATION_CODE_ERROR_TYPE_SESSION_ALREADY_VERIFIED)
               .setMayRetry(false)
@@ -188,15 +191,18 @@ public class RegistrationServiceGrpcEndpoint extends RegistrationServiceGrpc.Reg
               .build())
           .build());
     } else if (cause instanceof RateLimitExceededException rateLimitExceededException) {
-      final SendVerificationCodeResponse.Builder responseBuilder = SendVerificationCodeResponse.newBuilder()
-          .setError(SendVerificationCodeError.newBuilder()
-              .setErrorType(SendVerificationCodeErrorType.SEND_VERIFICATION_CODE_ERROR_TYPE_RATE_LIMITED)
-              .setMayRetry(true)
-              .setRetryAfterSeconds(rateLimitExceededException.getRetryAfterDuration().getSeconds())
-              .build());
+      final SendVerificationCodeError.Builder errorBuilder = SendVerificationCodeError.newBuilder()
+          .setErrorType(SendVerificationCodeErrorType.SEND_VERIFICATION_CODE_ERROR_TYPE_RATE_LIMITED)
+          .setMayRetry(rateLimitExceededException.getRetryAfterDuration().isPresent());
 
-      rateLimitExceededException.getRegistrationSession().ifPresent(registrationSession ->
-          responseBuilder.setSessionMetadata(buildSessionMetadata(registrationSession)));
+      rateLimitExceededException.getRetryAfterDuration()
+          .ifPresent(retryAfterDuration -> errorBuilder.setRetryAfterSeconds(retryAfterDuration.getSeconds()));
+
+      final SendVerificationCodeResponse.Builder responseBuilder = SendVerificationCodeResponse.newBuilder()
+          .setError(errorBuilder.build())
+          .setSessionMetadata(registrationService.buildSessionMetadata(
+              rateLimitExceededException.getRegistrationSession().orElseThrow(() ->
+                  new IllegalStateException("Rate limit exception did not include a session reference"))));
 
       return Optional.of(responseBuilder.build());
     } else if (cause instanceof SenderRejectedRequestException) {
@@ -222,11 +228,12 @@ public class RegistrationServiceGrpcEndpoint extends RegistrationServiceGrpc.Reg
   public void checkVerificationCode(final CheckVerificationCodeRequest request,
       final StreamObserver<CheckVerificationCodeResponse> responseObserver) {
 
-    registrationService.checkRegistrationCode(UUIDUtil.uuidFromByteString(request.getSessionId()), request.getVerificationCode())
+    registrationService.checkVerificationCode(UUIDUtil.uuidFromByteString(request.getSessionId()), request.getVerificationCode())
         .whenComplete((session, throwable) -> {
           if (throwable == null) {
             responseObserver.onNext(CheckVerificationCodeResponse.newBuilder()
                 .setVerified(StringUtils.isNotBlank(session.getVerifiedCode()))
+                .setSessionMetadata(registrationService.buildSessionMetadata(session))
                 .build());
 
             responseObserver.onCompleted();
@@ -242,10 +249,10 @@ public class RegistrationServiceGrpcEndpoint extends RegistrationServiceGrpc.Reg
         });
   }
 
-  private static Optional<CheckVerificationCodeResponse> buildCheckVerificationCodeErrorResponse(final Throwable cause) {
+  private Optional<CheckVerificationCodeResponse> buildCheckVerificationCodeErrorResponse(final Throwable cause) {
     if (cause instanceof NoVerificationCodeSentException noVerificationCodeSentException) {
       return Optional.of(CheckVerificationCodeResponse.newBuilder()
-          .setSessionMetadata(buildSessionMetadata(noVerificationCodeSentException.getRegistrationSession()))
+          .setSessionMetadata(registrationService.buildSessionMetadata(noVerificationCodeSentException.getRegistrationSession()))
           .setError(CheckVerificationCodeError.newBuilder()
               .setErrorType(CheckVerificationCodeErrorType.CHECK_VERIFICATION_CODE_ERROR_TYPE_NO_CODE_SENT)
               .setMayRetry(false)
@@ -259,28 +266,23 @@ public class RegistrationServiceGrpcEndpoint extends RegistrationServiceGrpc.Reg
               .build())
           .build());
     } else if (cause instanceof RateLimitExceededException rateLimitExceededException) {
-      final CheckVerificationCodeResponse.Builder responseBuilder = CheckVerificationCodeResponse.newBuilder()
-          .setError(CheckVerificationCodeError.newBuilder()
-              .setErrorType(CheckVerificationCodeErrorType.CHECK_VERIFICATION_CODE_ERROR_TYPE_RATE_LIMITED)
-              .setMayRetry(true)
-              .setRetryAfterSeconds(rateLimitExceededException.getRetryAfterDuration().getSeconds())
-              .build());
+      final CheckVerificationCodeError.Builder errorBuilder = CheckVerificationCodeError.newBuilder()
+          .setErrorType(CheckVerificationCodeErrorType.CHECK_VERIFICATION_CODE_ERROR_TYPE_RATE_LIMITED)
+          .setMayRetry(rateLimitExceededException.getRetryAfterDuration().isPresent());
 
-      rateLimitExceededException.getRegistrationSession().ifPresent(registrationSession ->
-          responseBuilder.setSessionMetadata(buildSessionMetadata(registrationSession)));
+      rateLimitExceededException.getRetryAfterDuration()
+          .ifPresent(retryAfterDuration -> errorBuilder.setRetryAfterSeconds(retryAfterDuration.getSeconds()));
+
+      final CheckVerificationCodeResponse.Builder responseBuilder = CheckVerificationCodeResponse.newBuilder()
+          .setError(errorBuilder.build())
+          .setSessionMetadata(registrationService.buildSessionMetadata(
+              rateLimitExceededException.getRegistrationSession().orElseThrow(() ->
+                  new IllegalStateException("Rate limit exception did not include a session reference"))));
 
       return Optional.of(responseBuilder.build());
     }
 
     return Optional.empty();
-  }
-
-  private static RegistrationSessionMetadata buildSessionMetadata(final RegistrationSession session) {
-    return RegistrationSessionMetadata.newBuilder()
-        .setSessionId(session.getId())
-        .setE164(Long.parseLong(StringUtils.removeStart(session.getPhoneNumber(), "+")))
-        .setVerified(StringUtils.isNotBlank(session.getVerifiedCode()))
-        .build();
   }
 
   @VisibleForTesting
@@ -295,15 +297,6 @@ public class RegistrationServiceGrpcEndpoint extends RegistrationServiceGrpc.Reg
       logger.debug("Could not get acceptable languages from language list; \"{}\"", acceptLanguageList, e);
       return Collections.emptyList();
     }
-  }
-
-  @VisibleForTesting
-  static MessageTransport getServiceMessageTransport(final org.signal.registration.rpc.MessageTransport rpcTransport) {
-    return switch (rpcTransport) {
-      case MESSAGE_TRANSPORT_SMS -> MessageTransport.SMS;
-      case MESSAGE_TRANSPORT_VOICE -> MessageTransport.VOICE;
-      default -> throw new IllegalArgumentException("Unrecognized RPC transport: " + rpcTransport);
-    };
   }
 
   @VisibleForTesting

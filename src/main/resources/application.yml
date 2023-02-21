@@ -24,6 +24,26 @@ rate-limits:
       permit-regeneration-period: 288m
       min-delay: 1m
 
+  check-verification-code:
+    delays:
+      - 0s
+      - 0s
+      - 1m
+      - 2m
+
+  send-sms-verification-code:
+    delays:
+      - 1m
+      - 2m
+      - 5m
+      - 10m
+
+  send-voice-verification-code:
+    delay-after-first-sms: PT1M
+    delays:
+      - 1m
+      - 5m
+
 verification:
   sms:
     supported-languages:
