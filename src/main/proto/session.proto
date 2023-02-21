@@ -49,7 +49,12 @@ message RegistrationSession {
    * The UNIX timestamp (in milliseconds) at which a caller last attempted to
    * check a verification code for this session.
    */
-  uint64 last_check_code_attempt = 8;
+  uint64 last_check_code_attempt_epoch_millis = 8;
+
+  /**
+   * The UNIX timestamp (in milliseconds) after which this session will expire.
+   */
+  uint64 expiration_epoch_millis = 9;
 }
 
 message RegistrationAttempt {

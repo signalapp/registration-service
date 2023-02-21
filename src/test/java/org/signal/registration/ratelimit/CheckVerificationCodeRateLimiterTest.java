@@ -40,13 +40,13 @@ class CheckVerificationCodeRateLimiterTest {
     assertEquals(Optional.of(Instant.ofEpochMilli(currentTimeMillis)),
         rateLimiter.getLastAttemptTime(RegistrationSession.newBuilder()
             .setCheckCodeAttempts(1)
-            .setLastCheckCodeAttempt(currentTimeMillis)
+            .setLastCheckCodeAttemptEpochMillis(currentTimeMillis)
             .build()));
 
     assertEquals(Optional.empty(),
         rateLimiter.getLastAttemptTime(RegistrationSession.newBuilder()
             .setCheckCodeAttempts(0)
-            .setLastCheckCodeAttempt(currentTimeMillis)
+            .setLastCheckCodeAttemptEpochMillis(currentTimeMillis)
             .build()));
   }
 }

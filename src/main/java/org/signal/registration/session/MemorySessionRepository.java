@@ -12,17 +12,15 @@ import io.micronaut.context.annotation.Requires;
 import io.micronaut.context.event.ApplicationEventPublisher;
 import io.micronaut.scheduling.annotation.Scheduled;
 import jakarta.inject.Singleton;
-import org.signal.registration.util.UUIDUtil;
 import java.time.Clock;
-import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Function;
+import org.signal.registration.util.UUIDUtil;
 
 @Singleton
 @Requires(env = {"dev", "test"})
@@ -32,10 +30,7 @@ public class MemorySessionRepository implements SessionRepository {
   private final ApplicationEventPublisher<SessionCompletedEvent> sessionCompletedEventPublisher;
   private final Clock clock;
 
-  private final Map<UUID, RegistrationSessionAndExpiration> sessionsById = new ConcurrentHashMap<>();
-
-  private record RegistrationSessionAndExpiration(RegistrationSession session, Instant expiration) {
-  }
+  private final Map<UUID, RegistrationSession> sessionsById = new ConcurrentHashMap<>();
 
   public MemorySessionRepository(final ApplicationEventPublisher<SessionCompletedEvent> sessionCompletedEventPublisher,
       final Clock clock) {
@@ -50,75 +45,62 @@ public class MemorySessionRepository implements SessionRepository {
     final Instant now = clock.instant();
 
     final List<UUID> expiredSessionIds = sessionsById.entrySet().stream()
-        .filter(entry -> now.isAfter(entry.getValue().expiration()))
+        .filter(entry -> now.isAfter(Instant.ofEpochMilli(entry.getValue().getExpirationEpochMillis())))
         .map(Map.Entry::getKey)
         .toList();
 
     expiredSessionIds.forEach(sessionId -> sessionCompletedEventPublisher.publishEventAsync(
-        new SessionCompletedEvent(sessionsById.remove(sessionId).session())));
+        new SessionCompletedEvent(sessionsById.remove(sessionId))));
   }
 
   @Override
   public CompletableFuture<RegistrationSession> createSession(final Phonenumber.PhoneNumber phoneNumber,
-      final Duration ttl) {
+      final Instant expiration) {
 
     final UUID sessionId = UUID.randomUUID();
     final RegistrationSession session = RegistrationSession.newBuilder()
         .setId(UUIDUtil.uuidToByteString(sessionId))
         .setPhoneNumber(PhoneNumberUtil.getInstance().format(phoneNumber, PhoneNumberUtil.PhoneNumberFormat.E164))
+        .setExpirationEpochMillis(expiration.toEpochMilli())
         .build();
 
-    sessionsById.put(sessionId, new RegistrationSessionAndExpiration(session, clock.instant().plus(ttl)));
+    sessionsById.put(sessionId, session);
 
     return CompletableFuture.completedFuture(session);
   }
 
   @Override
   public CompletableFuture<RegistrationSession> getSession(final UUID sessionId) {
-    final RegistrationSessionAndExpiration sessionAndExpiration =
-        sessionsById.computeIfPresent(sessionId, (id, existingSessionAndExpiration) -> {
-          if (clock.instant().isAfter(existingSessionAndExpiration.expiration)) {
-            sessionCompletedEventPublisher.publishEventAsync(
-                new SessionCompletedEvent(existingSessionAndExpiration.session()));
-
+    final RegistrationSession session = sessionsById.computeIfPresent(sessionId, (id, existingSession) -> {
+          if (clock.instant().isAfter(Instant.ofEpochMilli(existingSession.getExpirationEpochMillis()))) {
+            sessionCompletedEventPublisher.publishEventAsync(new SessionCompletedEvent(existingSession));
             return null;
           } else {
-            return existingSessionAndExpiration;
+            return existingSession;
           }
         });
 
-    return sessionAndExpiration != null ?
-        CompletableFuture.completedFuture(sessionAndExpiration.session) :
+    return session != null ?
+        CompletableFuture.completedFuture(session) :
         CompletableFuture.failedFuture(new SessionNotFoundException());
   }
 
   @Override
   public CompletableFuture<RegistrationSession> updateSession(final UUID sessionId,
-      final Function<RegistrationSession, RegistrationSession> sessionUpdater,
-      final Function<RegistrationSession, Optional<Duration>> ttlFunction) {
+      final Function<RegistrationSession, RegistrationSession> sessionUpdater) {
 
-    final RegistrationSessionAndExpiration updatedSessionAndExpiration =
-        sessionsById.computeIfPresent(sessionId, (id, existingSessionAndExpiration) -> {
-          if (clock.instant().isAfter(existingSessionAndExpiration.expiration())) {
-            sessionCompletedEventPublisher.publishEventAsync(
-                new SessionCompletedEvent(existingSessionAndExpiration.session()));
-
+    final RegistrationSession updatedSession =
+        sessionsById.computeIfPresent(sessionId, (id, existingSession) -> {
+          if (clock.instant().isAfter(Instant.ofEpochMilli(existingSession.getExpirationEpochMillis()))) {
+            sessionCompletedEventPublisher.publishEventAsync(new SessionCompletedEvent(existingSession));
             return null;
           } else {
-            final RegistrationSession updatedSession = sessionUpdater.apply(existingSessionAndExpiration.session());
-
-            final Instant updatedExpiration = ttlFunction.apply(updatedSession)
-                .map(ttl -> clock.instant().plus(ttl))
-                .orElse(existingSessionAndExpiration.expiration());
-
-            return new RegistrationSessionAndExpiration(
-                updatedSession,
-                updatedExpiration);
+            return sessionUpdater.apply(existingSession);
           }
         });
 
-    return updatedSessionAndExpiration != null ?
-        CompletableFuture.completedFuture(updatedSessionAndExpiration.session()) :
+    return updatedSession != null ?
+        CompletableFuture.completedFuture(updatedSession) :
         CompletableFuture.failedFuture(new SessionNotFoundException());
   }
 

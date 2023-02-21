@@ -93,7 +93,7 @@ class RegistrationServiceTest {
     when(sender.getAttemptTtl()).thenReturn(SESSION_TTL);
 
     sessionRepository = mock(SessionRepository.class);
-    when(sessionRepository.updateSession(any(), any(), any())).thenReturn(CompletableFuture.completedFuture(null));
+    when(sessionRepository.updateSession(any(), any())).thenReturn(CompletableFuture.completedFuture(null));
 
     final SenderSelectionStrategy senderSelectionStrategy = mock(SenderSelectionStrategy.class);
     when(senderSelectionStrategy.chooseVerificationCodeSender(any(), any(), any(), any(), any())).thenReturn(sender);
@@ -174,7 +174,7 @@ class RegistrationServiceTest {
     verify(sendSmsVerificationCodeRateLimiter).checkRateLimit(any());
     verify(sendVoiceVerificationCodeRateLimiter, never()).checkRateLimit(any());
     verify(sessionRepository, never()).createSession(any(), any());
-    verify(sessionRepository).updateSession(eq(SESSION_ID), any(), any());
+    verify(sessionRepository).updateSession(eq(SESSION_ID), any());
   }
 
   @Test
@@ -197,7 +197,7 @@ class RegistrationServiceTest {
     verify(sendSmsVerificationCodeRateLimiter).checkRateLimit(any());
     verify(sendVoiceVerificationCodeRateLimiter, never()).checkRateLimit(any());
     verify(sessionRepository, never()).createSession(any(), any());
-    verify(sessionRepository, never()).updateSession(any(), any(), any());
+    verify(sessionRepository, never()).updateSession(any(), any());
   }
 
   @Test
@@ -220,7 +220,7 @@ class RegistrationServiceTest {
     verify(sendSmsVerificationCodeRateLimiter, never()).checkRateLimit(any());
     verify(sendVoiceVerificationCodeRateLimiter).checkRateLimit(any());
     verify(sessionRepository, never()).createSession(any(), any());
-    verify(sessionRepository, never()).updateSession(any(), any(), any());
+    verify(sessionRepository, never()).updateSession(any(), any());
   }
 
   @Test
@@ -309,7 +309,7 @@ class RegistrationServiceTest {
     when(sender.checkVerificationCode(VERIFICATION_CODE, VERIFICATION_CODE_BYTES))
         .thenReturn(CompletableFuture.completedFuture(true));
 
-    when(sessionRepository.updateSession(eq(SESSION_ID), any(), any()))
+    when(sessionRepository.updateSession(eq(SESSION_ID), any()))
         .thenReturn(CompletableFuture.completedFuture(RegistrationSession.newBuilder(session)
             .setVerifiedCode(VERIFICATION_CODE)
             .build()));
@@ -318,7 +318,7 @@ class RegistrationServiceTest {
 
     verify(sessionRepository).getSession(SESSION_ID);
     verify(sender).checkVerificationCode(VERIFICATION_CODE, VERIFICATION_CODE_BYTES);
-    verify(sessionRepository).updateSession(eq(SESSION_ID), any(), any());
+    verify(sessionRepository).updateSession(eq(SESSION_ID), any());
   }
 
   @Test
@@ -333,7 +333,7 @@ class RegistrationServiceTest {
 
     verify(sessionRepository).getSession(SESSION_ID);
     verify(sender, never()).checkVerificationCode(any(), any());
-    verify(sessionRepository, never()).updateSession(any(), any(), any());
+    verify(sessionRepository, never()).updateSession(any(), any());
   }
 
   @Test
@@ -349,7 +349,7 @@ class RegistrationServiceTest {
 
     verify(sessionRepository).getSession(SESSION_ID);
     verify(sender, never()).checkVerificationCode(any(), any());
-    verify(sessionRepository, never()).updateSession(any(), any(), any());
+    verify(sessionRepository, never()).updateSession(any(), any());
   }
 
   @Test
@@ -384,7 +384,7 @@ class RegistrationServiceTest {
 
     verify(sessionRepository).getSession(SESSION_ID);
     verify(sender, never()).checkVerificationCode(any(), any());
-    verify(sessionRepository, never()).updateSession(any(), any(), any());
+    verify(sessionRepository, never()).updateSession(any(), any());
   }
 
   @Test
@@ -410,7 +410,7 @@ class RegistrationServiceTest {
 
     verify(sessionRepository).getSession(SESSION_ID);
     verify(sender, never()).checkVerificationCode(any(), any());
-    verify(sessionRepository, never()).updateSession(any(), any(), any());
+    verify(sessionRepository, never()).updateSession(any(), any());
   }
 
   @Test
@@ -740,7 +740,7 @@ class RegistrationServiceTest {
     when(sender.checkVerificationCode(VERIFICATION_CODE, VERIFICATION_CODE_BYTES))
         .thenReturn(CompletableFuture.failedFuture(new SenderRejectedRequestException(new RuntimeException("OH NO"))));
 
-    when(sessionRepository.updateSession(eq(SESSION_ID), any(), any()))
+    when(sessionRepository.updateSession(eq(SESSION_ID), any()))
         .thenReturn(CompletableFuture.completedFuture(session));
 
     assertTrue(StringUtils.isBlank(
@@ -748,22 +748,24 @@ class RegistrationServiceTest {
 
     verify(sessionRepository).getSession(SESSION_ID);
     verify(sender).checkVerificationCode(VERIFICATION_CODE, VERIFICATION_CODE_BYTES);
-    verify(sessionRepository).updateSession(eq(SESSION_ID), any(), any());
+    verify(sessionRepository).updateSession(eq(SESSION_ID), any());
   }
 
   @ParameterizedTest
   @MethodSource
   @SuppressWarnings("OptionalUsedAsFieldOrParameterType")
-  void getSessionTtl(final boolean verified,
+  void getSessionExpiration(final boolean verified,
+      final Instant lastCodeCheck,
       final Optional<Duration> nextSms,
       final List<Instant> attemptExpirations,
-      final Optional<Duration> expectedTtl) {
+      final Instant expectedExpiration) {
 
     when(sendSmsVerificationCodeRateLimiter.getDurationUntilActionAllowed(any()))
         .thenReturn(CompletableFuture.completedFuture(nextSms));
 
 
-    final RegistrationSession.Builder sessionBuilder = RegistrationSession.newBuilder();
+    final RegistrationSession.Builder sessionBuilder = RegistrationSession.newBuilder()
+        .setLastCheckCodeAttemptEpochMillis(lastCodeCheck.toEpochMilli());
 
     if (verified) {
       sessionBuilder.setVerifiedCode("verified");
@@ -775,37 +777,36 @@ class RegistrationServiceTest {
             .build())
         .forEach(sessionBuilder::addRegistrationAttempts);
 
-    assertEquals(expectedTtl, registrationService.getSessionTtl(sessionBuilder.build()));
+    assertEquals(expectedExpiration, registrationService.getSessionExpiration(sessionBuilder.build()));
   }
 
-  private static Stream<Arguments> getSessionTtl() {
+  private static Stream<Arguments> getSessionExpiration() {
     return Stream.of(
         Arguments.of(true,
+            CURRENT_TIME,
             Optional.empty(),
             List.of(),
-            Optional.of(RegistrationService.SESSION_TTL_AFTER_LAST_ACTION)),
+            CURRENT_TIME.plus(RegistrationService.SESSION_TTL_AFTER_LAST_ACTION)),
 
         Arguments.of(false,
-            Optional.empty(),
-            List.of(),
-            Optional.empty()),
-
-        Arguments.of(false,
+            Instant.ofEpochMilli(0),
             Optional.of(Duration.ofMinutes(2)),
             List.of(),
-            Optional.of(RegistrationService.SESSION_TTL_AFTER_LAST_ACTION.plus(Duration.ofMinutes(2)))),
+            CURRENT_TIME.plus(RegistrationService.SESSION_TTL_AFTER_LAST_ACTION).plus(Duration.ofMinutes(2))),
 
         Arguments.of(false,
+            Instant.ofEpochMilli(0),
             Optional.empty(),
             List.of(CURRENT_TIME.plus(RegistrationService.SESSION_TTL_AFTER_LAST_ACTION).plus(Duration.ofMinutes(3))),
-            Optional.of(RegistrationService.SESSION_TTL_AFTER_LAST_ACTION.plus(Duration.ofMinutes(3)))),
+            CURRENT_TIME.plus(RegistrationService.SESSION_TTL_AFTER_LAST_ACTION).plus(Duration.ofMinutes(3))),
 
         Arguments.of(false,
+            Instant.ofEpochMilli(0),
             Optional.of(Duration.ofMinutes(2)),
             List.of(
                 CURRENT_TIME.plus(RegistrationService.SESSION_TTL_AFTER_LAST_ACTION).plus(Duration.ofMinutes(3)),
                 CURRENT_TIME.plus(RegistrationService.SESSION_TTL_AFTER_LAST_ACTION).plus(Duration.ofMinutes(5))),
-            Optional.of(RegistrationService.SESSION_TTL_AFTER_LAST_ACTION.plus(Duration.ofMinutes(5))))
+            CURRENT_TIME.plus(RegistrationService.SESSION_TTL_AFTER_LAST_ACTION).plus(Duration.ofMinutes(5)))
     );
   }
 }

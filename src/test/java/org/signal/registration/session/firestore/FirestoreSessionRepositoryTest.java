@@ -16,8 +16,6 @@ import com.google.cloud.firestore.Firestore;
 import com.google.i18n.phonenumbers.PhoneNumberUtil;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import io.micronaut.context.event.ApplicationEventPublisher;
-import java.io.IOException;
-import java.time.Clock;
 import java.time.Instant;
 import java.util.UUID;
 import java.util.concurrent.CompletionException;
@@ -44,7 +42,6 @@ class FirestoreSessionRepositoryTest extends AbstractSessionRepositoryTest {
   private FirestoreSessionRepository repository;
 
   private ApplicationEventPublisher<SessionCompletedEvent> sessionCompletedEventPublisher;
-  private Clock clock;
 
   private static final String PROJECT_ID = "firestore-session-repository-test";
   private static final Instant NOW = Instant.now();
@@ -57,7 +54,9 @@ class FirestoreSessionRepositoryTest extends AbstractSessionRepositoryTest {
       DockerImageName.parse(FIRESTORE_EMULATOR_IMAGE_NAME));
 
   @BeforeEach
-  void setUp() throws IOException {
+  protected void setUp() throws Exception {
+    super.setUp();
+
     FirestoreTestUtil.clearFirestoreDatabase(CONTAINER, PROJECT_ID);
 
     final FirestoreSessionRepositoryConfiguration configuration =
@@ -68,12 +67,11 @@ class FirestoreSessionRepositoryTest extends AbstractSessionRepositoryTest {
     //noinspection unchecked
     sessionCompletedEventPublisher = mock(ApplicationEventPublisher.class);
 
-    clock = mock(Clock.class);
-    when(clock.instant()).thenReturn(NOW);
+    when(getClock().instant()).thenReturn(NOW);
 
     repository =
         new FirestoreSessionRepository(firestore, Executors.newFixedThreadPool(2), new SimpleMeterRegistry(),
-            sessionCompletedEventPublisher, configuration, clock);
+            sessionCompletedEventPublisher, configuration, getClock());
   }
 
   @AfterEach
@@ -88,9 +86,9 @@ class FirestoreSessionRepositoryTest extends AbstractSessionRepositoryTest {
 
   @Test
   void getSessionExpired() {
-    final UUID sessionId = UUIDUtil.uuidFromByteString(repository.createSession(PHONE_NUMBER, TTL).join().getId());
+    final UUID sessionId = UUIDUtil.uuidFromByteString(repository.createSession(PHONE_NUMBER, getClock().instant().plus(TTL)).join().getId());
 
-    when(clock.instant()).thenReturn(NOW.plus(TTL).plusMillis(1));
+    when(getClock().instant()).thenReturn(NOW.plus(TTL).plusMillis(1));
 
     final CompletionException completionException =
         assertThrows(CompletionException.class, () -> repository.getSession(sessionId).join());
@@ -100,13 +98,15 @@ class FirestoreSessionRepositoryTest extends AbstractSessionRepositoryTest {
 
   @Test
   void removeExpiredSessions() {
-    final UUID sessionId = UUIDUtil.uuidFromByteString(repository.createSession(PHONE_NUMBER, TTL).join().getId());
+    final Instant expiration = getClock().instant().plus(TTL);
+    final UUID sessionId =
+        UUIDUtil.uuidFromByteString(repository.createSession(PHONE_NUMBER, expiration).join().getId());
 
     assertDoesNotThrow(() -> repository.getSession(sessionId).join());
 
     repository.deleteExpiredSessions().join();
 
-    when(clock.instant()).thenReturn(NOW.plus(TTL).plusMillis(1));
+    when(getClock().instant()).thenReturn(NOW.plus(TTL).plusMillis(1));
     repository.deleteExpiredSessions().join();
 
     final CompletionException completionException =
@@ -117,6 +117,7 @@ class FirestoreSessionRepositoryTest extends AbstractSessionRepositoryTest {
     final SessionCompletedEvent expectedEvent = new SessionCompletedEvent(RegistrationSession.newBuilder()
         .setId(UUIDUtil.uuidToByteString(sessionId))
         .setPhoneNumber(PhoneNumberUtil.getInstance().format(PHONE_NUMBER, PhoneNumberUtil.PhoneNumberFormat.E164))
+        .setExpirationEpochMillis(expiration.toEpochMilli())
         .build());
 
     verify(sessionCompletedEventPublisher).publishEventAsync(expectedEvent);

@@ -34,7 +34,7 @@ public class CheckVerificationCodeRateLimiter extends FixedDelayRegistrationSess
   @Override
   protected Optional<Instant> getLastAttemptTime(final RegistrationSession session) {
     return getPriorAttemptCount(session) > 0
-        ? Optional.of(Instant.ofEpochMilli(session.getLastCheckCodeAttempt()))
+        ? Optional.of(Instant.ofEpochMilli(session.getLastCheckCodeAttemptEpochMillis()))
         : Optional.empty();
   }
 }

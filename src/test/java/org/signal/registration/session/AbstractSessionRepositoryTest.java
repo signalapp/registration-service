@@ -9,19 +9,25 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
 import com.google.i18n.phonenumbers.NumberParseException;
 import com.google.i18n.phonenumbers.PhoneNumberUtil;
 import com.google.i18n.phonenumbers.Phonenumber;
+import java.time.Clock;
 import java.time.Duration;
-import java.util.Optional;
+import java.time.Instant;
 import java.util.UUID;
 import java.util.concurrent.CompletionException;
 import java.util.function.Function;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.signal.registration.util.UUIDUtil;
 
 public abstract class AbstractSessionRepositoryTest {
+
+  private Clock clock;
 
   protected static final Phonenumber.PhoneNumber PHONE_NUMBER;
 
@@ -36,11 +42,21 @@ public abstract class AbstractSessionRepositoryTest {
 
   protected static final Duration TTL = Duration.ofMinutes(1);
 
+  protected Clock getClock() {
+    return clock;
+  }
+
   protected abstract SessionRepository getRepository();
+
+  @BeforeEach
+  protected void setUp() throws Exception {
+    clock = mock(Clock.class);
+    when(clock.instant()).thenReturn(Instant.now());
+  }
 
   @Test
   void createSession() {
-    assertNotNull(getRepository().createSession(PHONE_NUMBER, TTL).join());
+    assertNotNull(getRepository().createSession(PHONE_NUMBER, clock.instant().plus(TTL)).join());
   }
 
   @Test
@@ -55,10 +71,11 @@ public abstract class AbstractSessionRepositoryTest {
     }
 
     {
-      final RegistrationSession createdSession = repository.createSession(PHONE_NUMBER, TTL).join();
+      final RegistrationSession createdSession = repository.createSession(PHONE_NUMBER, clock.instant().plus(TTL)).join();
       final RegistrationSession expectedSession = RegistrationSession.newBuilder()
           .setId(createdSession.getId())
           .setPhoneNumber(PhoneNumberUtil.getInstance().format(PHONE_NUMBER, PhoneNumberUtil.PhoneNumberFormat.E164))
+          .setExpirationEpochMillis(clock.instant().plus(TTL).toEpochMilli())
           .build();
 
       assertEquals(expectedSession, repository.getSession(UUIDUtil.uuidFromByteString(createdSession.getId())).join());
@@ -69,29 +86,35 @@ public abstract class AbstractSessionRepositoryTest {
   void updateSession() {
     final SessionRepository repository = getRepository();
     final String verificationCode = "123456";
+    final Instant expiration = clock.instant().plus(TTL);
+    final Instant expirationAfterUpdate = expiration.plusSeconds(17);
 
     final Function<RegistrationSession, RegistrationSession> updateVerifiedCodeFunction =
-        session -> session.toBuilder().setVerifiedCode(verificationCode).build();
+        session -> session.toBuilder()
+            .setVerifiedCode(verificationCode)
+            .setExpirationEpochMillis(expirationAfterUpdate.toEpochMilli())
+            .build();
 
     {
       final CompletionException completionException =
           assertThrows(CompletionException.class,
-              () -> repository.updateSession(UUID.randomUUID(), updateVerifiedCodeFunction, null).join());
+              () -> repository.updateSession(UUID.randomUUID(), updateVerifiedCodeFunction).join());
 
       assertTrue(completionException.getCause() instanceof SessionNotFoundException);
     }
 
     {
-      final RegistrationSession createdSession = repository.createSession(PHONE_NUMBER, TTL).join();
+      final RegistrationSession createdSession = repository.createSession(PHONE_NUMBER, expiration).join();
       final UUID sessionId = UUIDUtil.uuidFromByteString(createdSession.getId());
 
       final RegistrationSession updatedSession =
-          repository.updateSession(sessionId, updateVerifiedCodeFunction, (ignored) -> Optional.empty()).join();
+          repository.updateSession(sessionId, updateVerifiedCodeFunction).join();
 
       final RegistrationSession expectedSession = RegistrationSession.newBuilder()
           .setId(createdSession.getId())
           .setPhoneNumber(PhoneNumberUtil.getInstance().format(PHONE_NUMBER, PhoneNumberUtil.PhoneNumberFormat.E164))
           .setVerifiedCode(verificationCode)
+          .setExpirationEpochMillis(expirationAfterUpdate.toEpochMilli())
           .build();
 
       assertEquals(expectedSession, updatedSession);

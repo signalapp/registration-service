@@ -30,6 +30,7 @@ import jakarta.inject.Singleton;
 import java.io.UncheckedIOException;
 import java.time.Clock;
 import java.time.Duration;
+import java.time.Instant;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
@@ -141,7 +142,7 @@ public class FirestoreSessionRepository implements SessionRepository {
   }
 
   @Override
-  public CompletableFuture<RegistrationSession> createSession(final Phonenumber.PhoneNumber phoneNumber, final Duration ttl) {
+  public CompletableFuture<RegistrationSession> createSession(final Phonenumber.PhoneNumber phoneNumber, final Instant expiration) {
 
     final Timer.Sample sample = Timer.start();
 
@@ -149,13 +150,14 @@ public class FirestoreSessionRepository implements SessionRepository {
     final RegistrationSession session = RegistrationSession.newBuilder()
         .setId(UUIDUtil.uuidToByteString(sessionId))
         .setPhoneNumber(PhoneNumberUtil.getInstance().format(phoneNumber, PhoneNumberUtil.PhoneNumberFormat.E164))
+        .setExpirationEpochMillis(expiration.toEpochMilli())
         .build();
 
     return FirestoreUtil.toCompletableFuture(firestore.collection(configuration.collectionName())
         .document(sessionId.toString())
         .set(Map.of(SESSION_FIELD_NAME, Blob.fromBytes(session.toByteArray()),
-            configuration.expirationFieldName(), FirestoreUtil.timestampFromInstant(clock.instant().plus(ttl)),
-            configuration.removalFieldName(), FirestoreUtil.timestampFromInstant(clock.instant().plus(ttl).plus(REMOVAL_TTL_PADDING)))),
+            configuration.expirationFieldName(), FirestoreUtil.timestampFromInstant(expiration),
+            configuration.removalFieldName(), FirestoreUtil.timestampFromInstant(expiration.plus(REMOVAL_TTL_PADDING)))),
             executor)
         .thenApply(ignored -> session)
         .whenComplete((id, throwable) -> sample.stop(createSessionTimer));
@@ -184,8 +186,7 @@ public class FirestoreSessionRepository implements SessionRepository {
 
   @Override
   public CompletableFuture<RegistrationSession> updateSession(final UUID sessionId,
-      final Function<RegistrationSession, RegistrationSession> sessionUpdater,
-      final Function<RegistrationSession, Optional<Duration>> ttlFunction) {
+      final Function<RegistrationSession, RegistrationSession> sessionUpdater) {
 
     final Timer.Sample sample = Timer.start();
 
@@ -202,12 +203,13 @@ public class FirestoreSessionRepository implements SessionRepository {
               throw new CompletionException(e);
             }
 
-            transaction.update(documentReference, SESSION_FIELD_NAME, Blob.fromBytes(updatedSession.toByteArray()));
+            final Instant expiration = Instant.ofEpochMilli(updatedSession.getExpirationEpochMillis());
 
-            ttlFunction.apply(updatedSession).ifPresent(ttl -> transaction.update(documentReference, Map.of(
-                configuration.expirationFieldName(), FirestoreUtil.timestampFromInstant(clock.instant().plus(ttl)),
-                configuration.removalFieldName(), FirestoreUtil.timestampFromInstant(clock.instant().plus(ttl).plus(REMOVAL_TTL_PADDING))
-            )));
+            transaction.update(documentReference, Map.of(
+                SESSION_FIELD_NAME, Blob.fromBytes(updatedSession.toByteArray()),
+                configuration.expirationFieldName(), FirestoreUtil.timestampFromInstant(expiration),
+                configuration.removalFieldName(), FirestoreUtil.timestampFromInstant(expiration.plus(REMOVAL_TTL_PADDING))
+            ));
 
             return updatedSession;
           }, executor);

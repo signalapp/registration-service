@@ -121,6 +121,11 @@ message RegistrationSessionMetadata {
    * this field has no meaning.
    */
   uint64 next_code_check_seconds = 9;
+
+  /**
+   * The duration, in seconds, after which this session will expire.
+   */
+  uint64 expiration_seconds = 10;
 }
 
 message CreateRegistrationSessionError {
