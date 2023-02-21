@@ -54,7 +54,10 @@ message RegistrationSession {
 
 message RegistrationAttempt {
 
-  uint64 timestamp = 1;
+  /**
+   * The UNIX timestamp (in milliseconds) when this attempt was created.
+   */
+  uint64 timestamp_epoch_millis = 1;
 
   /**
    * The name of the `VerificationCodeSender` used in this attempt.
@@ -71,6 +74,12 @@ message RegistrationAttempt {
    * upstream session ID) after an attempt has been created.
    */
   bytes session_data = 4;
+
+  /**
+   * The UNIX timestamp (in milliseconds) at which this attempt will no longer
+   * be valid.
+   */
+  uint64 expiration_epoch_millis = 5;
 }
 
 enum MessageTransport {

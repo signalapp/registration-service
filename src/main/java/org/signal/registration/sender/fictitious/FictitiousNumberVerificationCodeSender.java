@@ -61,7 +61,7 @@ public class FictitiousNumberVerificationCodeSender implements VerificationCodeS
   }
 
   @Override
-  public Duration getSessionTtl() {
+  public Duration getAttemptTtl() {
     return Duration.ofMinutes(10);
   }
 
@@ -85,7 +85,7 @@ public class FictitiousNumberVerificationCodeSender implements VerificationCodeS
 
     final String verificationCode = verificationCodeGenerator.generateVerificationCode();
 
-    return repository.storeVerificationCode(phoneNumber, verificationCode, getSessionTtl())
+    return repository.storeVerificationCode(phoneNumber, verificationCode, getAttemptTtl())
         .thenApply(ignored -> FictitiousNumberVerificationCodeSessionData.newBuilder()
             .setVerificationCode(verificationCode)
             .build()

@@ -7,6 +7,7 @@ package org.signal.registration.session;
 
 import com.google.i18n.phonenumbers.Phonenumber;
 import java.time.Duration;
+import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Function;
@@ -49,12 +50,13 @@ public interface SessionRepository {
    *
    * @param sessionId the identifier of the session to update
    * @param sessionUpdater a function that accepts an existing session and returns a new session with changes applied
-   * @param ttl the updated TTL for this session; may be {@code null} in which case the existing TTL is unchanged
+   * @param ttlFunction a function that returns the updated TTL for this session; if the return is empty, the TTL is not
+   * changed
    *
    * @return a future that yields the updated session when the update has been applied and stored; may fail with a
    * {@link SessionNotFoundException} if no session is found for the given identifier
    */
   CompletableFuture<RegistrationSession> updateSession(UUID sessionId,
       Function<RegistrationSession, RegistrationSession> sessionUpdater,
-      @Nullable Duration ttl);
+      Function<RegistrationSession, Optional<Duration>> ttlFunction);
 }

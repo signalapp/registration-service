@@ -37,7 +37,6 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.Executor;
 import java.util.function.Function;
-import javax.annotation.Nullable;
 import org.signal.registration.metrics.MetricsUtil;
 import org.signal.registration.session.RegistrationSession;
 import org.signal.registration.session.SessionCompletedEvent;
@@ -186,7 +185,7 @@ public class FirestoreSessionRepository implements SessionRepository {
   @Override
   public CompletableFuture<RegistrationSession> updateSession(final UUID sessionId,
       final Function<RegistrationSession, RegistrationSession> sessionUpdater,
-      @Nullable final Duration ttl) {
+      final Function<RegistrationSession, Optional<Duration>> ttlFunction) {
 
     final Timer.Sample sample = Timer.start();
 
@@ -205,12 +204,10 @@ public class FirestoreSessionRepository implements SessionRepository {
 
             transaction.update(documentReference, SESSION_FIELD_NAME, Blob.fromBytes(updatedSession.toByteArray()));
 
-            if (ttl != null) {
-              transaction.update(documentReference, Map.of(
-                  configuration.expirationFieldName(), FirestoreUtil.timestampFromInstant(clock.instant().plus(ttl)),
-                  configuration.removalFieldName(), FirestoreUtil.timestampFromInstant(clock.instant().plus(ttl).plus(REMOVAL_TTL_PADDING))
-              ));
-            }
+            ttlFunction.apply(updatedSession).ifPresent(ttl -> transaction.update(documentReference, Map.of(
+                configuration.expirationFieldName(), FirestoreUtil.timestampFromInstant(clock.instant().plus(ttl)),
+                configuration.removalFieldName(), FirestoreUtil.timestampFromInstant(clock.instant().plus(ttl).plus(REMOVAL_TTL_PADDING))
+            )));
 
             return updatedSession;
           }, executor);

@@ -76,7 +76,7 @@ public class MessageBirdSmsSender implements VerificationCodeSender {
   }
 
   @Override
-  public Duration getSessionTtl() {
+  public Duration getAttemptTtl() {
     return this.configuration.sessionTtl();
   }
 
@@ -100,7 +100,7 @@ public class MessageBirdSmsSender implements VerificationCodeSender {
         verificationCode, languageRanges);
     final Message message = new Message(senderIdSelector.getSenderId(phoneNumber), body, e164);
     message.setDatacoding(DataCodingType.auto);
-    message.setValidity((int) getSessionTtl().toSeconds());
+    message.setValidity((int) getAttemptTtl().toSeconds());
 
     final Timer.Sample sample = Timer.start();
 

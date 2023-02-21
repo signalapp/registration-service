@@ -40,7 +40,7 @@ class SendVoiceVerificationCodeRateLimiterTest {
         rateLimiter.getDurationUntilActionAllowed(RegistrationSession.newBuilder()
                 .addRegistrationAttempts(RegistrationAttempt.newBuilder()
                     .setMessageTransport(MessageTransport.MESSAGE_TRANSPORT_SMS)
-                    .setTimestamp(currentTime.toEpochMilli())
+                    .setTimestampEpochMillis(currentTime.toEpochMilli())
                     .build())
             .build())
             .join());
@@ -50,7 +50,7 @@ class SendVoiceVerificationCodeRateLimiterTest {
         rateLimiter.getDurationUntilActionAllowed(RegistrationSession.newBuilder()
             .addRegistrationAttempts(RegistrationAttempt.newBuilder()
                 .setMessageTransport(MessageTransport.MESSAGE_TRANSPORT_SMS)
-                .setTimestamp(currentTime.minus(delayAfterFirstSms).toEpochMilli())
+                .setTimestampEpochMillis(currentTime.minus(delayAfterFirstSms).toEpochMilli())
                 .build())
             .build())
             .join());
@@ -60,11 +60,11 @@ class SendVoiceVerificationCodeRateLimiterTest {
         rateLimiter.getDurationUntilActionAllowed(RegistrationSession.newBuilder()
                 .addRegistrationAttempts(RegistrationAttempt.newBuilder()
                     .setMessageTransport(MessageTransport.MESSAGE_TRANSPORT_SMS)
-                    .setTimestamp(currentTime.minus(delayAfterFirstSms).toEpochMilli())
+                    .setTimestampEpochMillis(currentTime.minus(delayAfterFirstSms).toEpochMilli())
                     .build())
                 .addRegistrationAttempts(RegistrationAttempt.newBuilder()
                     .setMessageTransport(MessageTransport.MESSAGE_TRANSPORT_VOICE)
-                    .setTimestamp(currentTime.toEpochMilli())
+                    .setTimestampEpochMillis(currentTime.toEpochMilli())
                     .build())
                 .build())
             .join());
@@ -74,19 +74,19 @@ class SendVoiceVerificationCodeRateLimiterTest {
         rateLimiter.getDurationUntilActionAllowed(RegistrationSession.newBuilder()
                 .addRegistrationAttempts(RegistrationAttempt.newBuilder()
                     .setMessageTransport(MessageTransport.MESSAGE_TRANSPORT_SMS)
-                    .setTimestamp(currentTime.minus(delayAfterFirstSms).minus(delayAfterFirstSms).toEpochMilli())
+                    .setTimestampEpochMillis(currentTime.minus(delayAfterFirstSms).minus(delayAfterFirstSms).toEpochMilli())
                     .build())
                 .addRegistrationAttempts(RegistrationAttempt.newBuilder()
                     .setMessageTransport(MessageTransport.MESSAGE_TRANSPORT_VOICE)
-                    .setTimestamp(currentTime.minus(delays.get(0)).minus(delays.get(1)).toEpochMilli())
+                    .setTimestampEpochMillis(currentTime.minus(delays.get(0)).minus(delays.get(1)).toEpochMilli())
                     .build())
                 .addRegistrationAttempts(RegistrationAttempt.newBuilder()
                     .setMessageTransport(MessageTransport.MESSAGE_TRANSPORT_VOICE)
-                    .setTimestamp(currentTime.minus(delays.get(1)).toEpochMilli())
+                    .setTimestampEpochMillis(currentTime.minus(delays.get(1)).toEpochMilli())
                     .build())
                 .addRegistrationAttempts(RegistrationAttempt.newBuilder()
                     .setMessageTransport(MessageTransport.MESSAGE_TRANSPORT_VOICE)
-                    .setTimestamp(currentTime.toEpochMilli())
+                    .setTimestampEpochMillis(currentTime.toEpochMilli())
                     .build())
                 .build())
             .join());
@@ -102,36 +102,36 @@ class SendVoiceVerificationCodeRateLimiterTest {
     assertEquals(0, rateLimiter.getPriorAttemptCount(RegistrationSession.newBuilder()
         .addRegistrationAttempts(RegistrationAttempt.newBuilder()
             .setMessageTransport(MessageTransport.MESSAGE_TRANSPORT_SMS)
-            .setTimestamp(System.currentTimeMillis())
+            .setTimestampEpochMillis(System.currentTimeMillis())
             .build())
         .build()));
 
     assertEquals(1, rateLimiter.getPriorAttemptCount(RegistrationSession.newBuilder()
         .addRegistrationAttempts(RegistrationAttempt.newBuilder()
             .setMessageTransport(MessageTransport.MESSAGE_TRANSPORT_VOICE)
-            .setTimestamp(System.currentTimeMillis())
+            .setTimestampEpochMillis(System.currentTimeMillis())
             .build())
         .build()));
 
     assertEquals(1, rateLimiter.getPriorAttemptCount(RegistrationSession.newBuilder()
         .addRegistrationAttempts(RegistrationAttempt.newBuilder()
             .setMessageTransport(MessageTransport.MESSAGE_TRANSPORT_VOICE)
-            .setTimestamp(System.currentTimeMillis())
+            .setTimestampEpochMillis(System.currentTimeMillis())
             .build())
         .addRegistrationAttempts(RegistrationAttempt.newBuilder()
             .setMessageTransport(MessageTransport.MESSAGE_TRANSPORT_SMS)
-            .setTimestamp(System.currentTimeMillis())
+            .setTimestampEpochMillis(System.currentTimeMillis())
             .build())
         .build()));
 
     assertEquals(2, rateLimiter.getPriorAttemptCount(RegistrationSession.newBuilder()
         .addRegistrationAttempts(RegistrationAttempt.newBuilder()
             .setMessageTransport(MessageTransport.MESSAGE_TRANSPORT_VOICE)
-            .setTimestamp(System.currentTimeMillis())
+            .setTimestampEpochMillis(System.currentTimeMillis())
             .build())
         .addRegistrationAttempts(RegistrationAttempt.newBuilder()
             .setMessageTransport(MessageTransport.MESSAGE_TRANSPORT_VOICE)
-            .setTimestamp(System.currentTimeMillis())
+            .setTimestampEpochMillis(System.currentTimeMillis())
             .build())
         .build()));
   }
@@ -146,7 +146,7 @@ class SendVoiceVerificationCodeRateLimiterTest {
     assertEquals(Optional.empty(), rateLimiter.getLastAttemptTime(RegistrationSession.newBuilder()
         .addRegistrationAttempts(RegistrationAttempt.newBuilder()
             .setMessageTransport(MessageTransport.MESSAGE_TRANSPORT_SMS)
-            .setTimestamp(System.currentTimeMillis())
+            .setTimestampEpochMillis(System.currentTimeMillis())
             .build())
         .build()));
 
@@ -157,7 +157,7 @@ class SendVoiceVerificationCodeRateLimiterTest {
         rateLimiter.getLastAttemptTime(RegistrationSession.newBuilder()
             .addRegistrationAttempts(RegistrationAttempt.newBuilder()
                 .setMessageTransport(MessageTransport.MESSAGE_TRANSPORT_VOICE)
-                .setTimestamp(firstTimestamp)
+                .setTimestampEpochMillis(firstTimestamp)
                 .build())
             .build()));
 
@@ -165,11 +165,11 @@ class SendVoiceVerificationCodeRateLimiterTest {
         rateLimiter.getLastAttemptTime(RegistrationSession.newBuilder()
             .addRegistrationAttempts(RegistrationAttempt.newBuilder()
                 .setMessageTransport(MessageTransport.MESSAGE_TRANSPORT_VOICE)
-                .setTimestamp(firstTimestamp)
+                .setTimestampEpochMillis(firstTimestamp)
                 .build())
             .addRegistrationAttempts(RegistrationAttempt.newBuilder()
                 .setMessageTransport(MessageTransport.MESSAGE_TRANSPORT_SMS)
-                .setTimestamp(secondTimestamp)
+                .setTimestampEpochMillis(secondTimestamp)
                 .build())
             .build()));
 
@@ -177,11 +177,11 @@ class SendVoiceVerificationCodeRateLimiterTest {
         rateLimiter.getLastAttemptTime(RegistrationSession.newBuilder()
             .addRegistrationAttempts(RegistrationAttempt.newBuilder()
                 .setMessageTransport(MessageTransport.MESSAGE_TRANSPORT_VOICE)
-                .setTimestamp(firstTimestamp)
+                .setTimestampEpochMillis(firstTimestamp)
                 .build())
             .addRegistrationAttempts(RegistrationAttempt.newBuilder()
                 .setMessageTransport(MessageTransport.MESSAGE_TRANSPORT_VOICE)
-                .setTimestamp(secondTimestamp)
+                .setTimestampEpochMillis(secondTimestamp)
                 .build())
             .build()));
   }

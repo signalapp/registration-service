@@ -30,7 +30,7 @@ public class LastDigitsOfPhoneNumberVerificationCodeSender implements Verificati
   }
 
   @Override
-  public Duration getSessionTtl() {
+  public Duration getAttemptTtl() {
     return Duration.ofMinutes(10);
   }
 

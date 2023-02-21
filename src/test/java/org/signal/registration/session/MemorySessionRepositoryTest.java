@@ -17,6 +17,7 @@ import io.micronaut.context.event.ApplicationEventPublisher;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
+import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.CompletionException;
 import java.util.function.Function;
@@ -83,7 +84,7 @@ class MemorySessionRepositoryTest extends AbstractSessionRepositoryTest {
         session -> session.toBuilder().setVerifiedCode(verificationCode).build();
 
     final UUID sessionId = UUIDUtil.uuidFromByteString(repository.createSession(PHONE_NUMBER, TTL).join().getId());
-    repository.updateSession(sessionId, setVerifiedCodeFunction, null).join();
+    repository.updateSession(sessionId, setVerifiedCodeFunction, (ignored) -> Optional.empty()).join();
 
     final RegistrationSession expectedSession = RegistrationSession.newBuilder()
         .setId(UUIDUtil.uuidToByteString(sessionId))

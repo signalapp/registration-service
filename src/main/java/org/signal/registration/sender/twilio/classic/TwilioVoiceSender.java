@@ -66,7 +66,7 @@ public class TwilioVoiceSender extends AbstractTwilioProvidedCodeSender implemen
   }
 
   @Override
-  public Duration getSessionTtl() {
+  public Duration getAttemptTtl() {
     return configuration.getSessionTtl();
   }
 

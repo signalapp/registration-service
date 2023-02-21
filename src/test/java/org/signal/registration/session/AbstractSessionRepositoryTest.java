@@ -14,6 +14,7 @@ import com.google.i18n.phonenumbers.NumberParseException;
 import com.google.i18n.phonenumbers.PhoneNumberUtil;
 import com.google.i18n.phonenumbers.Phonenumber;
 import java.time.Duration;
+import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.CompletionException;
 import java.util.function.Function;
@@ -84,7 +85,8 @@ public abstract class AbstractSessionRepositoryTest {
       final RegistrationSession createdSession = repository.createSession(PHONE_NUMBER, TTL).join();
       final UUID sessionId = UUIDUtil.uuidFromByteString(createdSession.getId());
 
-      final RegistrationSession updatedSession = repository.updateSession(sessionId, updateVerifiedCodeFunction, null).join();
+      final RegistrationSession updatedSession =
+          repository.updateSession(sessionId, updateVerifiedCodeFunction, (ignored) -> Optional.empty()).join();
 
       final RegistrationSession expectedSession = RegistrationSession.newBuilder()
           .setId(createdSession.getId())

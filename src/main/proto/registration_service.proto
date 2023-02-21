@@ -389,4 +389,11 @@ enum CheckVerificationCodeErrorType {
    * session expiration).
    */
   CHECK_VERIFICATION_CODE_ERROR_TYPE_SESSION_NOT_FOUND = 3;
+
+  /**
+   * The session identified in this request is still active, but the most
+   * recently-sent code has expired. Callers should request a new code, then
+   * try again.
+   */
+  CHECK_VERIFICATION_CODE_ERROR_TYPE_ATTEMPT_EXPIRED = 4;
 }

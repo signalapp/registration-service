@@ -18,6 +18,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
 import org.apache.commons.lang3.StringUtils;
+import org.signal.registration.AttemptExpiredException;
 import org.signal.registration.NoVerificationCodeSentException;
 import org.signal.registration.RegistrationService;
 import org.signal.registration.SessionAlreadyVerifiedException;
@@ -280,6 +281,13 @@ public class RegistrationServiceGrpcEndpoint extends RegistrationServiceGrpc.Reg
                   new IllegalStateException("Rate limit exception did not include a session reference"))));
 
       return Optional.of(responseBuilder.build());
+    } else if (cause instanceof AttemptExpiredException) {
+      return Optional.of(CheckVerificationCodeResponse.newBuilder()
+          .setError(CheckVerificationCodeError.newBuilder()
+              .setErrorType(CheckVerificationCodeErrorType.CHECK_VERIFICATION_CODE_ERROR_TYPE_ATTEMPT_EXPIRED)
+              .setMayRetry(false)
+              .build())
+          .build());
     }
 
     return Optional.empty();

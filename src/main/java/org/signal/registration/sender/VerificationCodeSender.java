@@ -35,11 +35,11 @@ public interface VerificationCodeSender {
   String getName();
 
   /**
-   * Returns the lifetime of registration sessions associated with this sender.
+   * Returns the lifetime of registration attempts associated with this sender.
    *
-   * @return the lifetime of registration sessions associated with this sender
+   * @return the lifetime of registration attempts associated with this sender
    */
-  Duration getSessionTtl();
+  Duration getAttemptTtl();
 
   /**
    * Indicates whether this sender can deliver messages to the given phone number via the given transport using any of

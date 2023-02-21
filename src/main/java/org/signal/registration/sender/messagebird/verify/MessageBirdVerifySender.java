@@ -88,7 +88,7 @@ public class MessageBirdVerifySender implements VerificationCodeSender {
   }
 
   @Override
-  public Duration getSessionTtl() {
+  public Duration getAttemptTtl() {
     return this.configuration.sessionTtl();
   }
 

@@ -14,9 +14,13 @@ import jakarta.inject.Named;
 import jakarta.inject.Singleton;
 import java.time.Clock;
 import java.time.Duration;
+import java.time.Instant;
+import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
@@ -55,9 +59,14 @@ public class RegistrationService {
   private final Map<String, VerificationCodeSender> sendersByName;
 
   @VisibleForTesting
-  static final Duration NEW_SESSION_TTL = Duration.ofMinutes(10);
+  static final Duration SESSION_TTL_AFTER_LAST_ACTION = Duration.ofMinutes(10);
 
   private record SenderAndSessionData(VerificationCodeSender sender, byte[] sessionData) {}
+
+  @VisibleForTesting
+  record NextActionDurations(Optional<Duration> nextSms,
+      Optional<Duration> nextVoiceCall,
+      Optional<Duration> nextCodeCheck) {}
 
   /**
    * Constructs a new registration service that chooses verification code senders with the given strategy and stores
@@ -107,7 +116,7 @@ public class RegistrationService {
    */
   public CompletableFuture<RegistrationSession> createRegistrationSession(final Phonenumber.PhoneNumber phoneNumber) {
     return sessionCreationRateLimiter.checkRateLimit(phoneNumber)
-        .thenCompose(ignored -> sessionRepository.createSession(phoneNumber, NEW_SESSION_TTL));
+        .thenCompose(ignored -> sessionRepository.createSession(phoneNumber, SESSION_TTL_AFTER_LAST_ACTION));
   }
 
   /**
@@ -174,21 +183,28 @@ public class RegistrationService {
               });
         })
         .thenCompose(senderAndSessionData -> sessionRepository.updateSession(sessionId, session -> session.toBuilder()
-            .addRegistrationAttempts(buildRegistrationAttempt(senderAndSessionData.sender(), messageTransport, senderAndSessionData.sessionData()))
-            .build(), senderAndSessionData.sender().getSessionTtl()));
+            .addRegistrationAttempts(buildRegistrationAttempt(senderAndSessionData.sender(),
+                messageTransport,
+                senderAndSessionData.sessionData(),
+                senderAndSessionData.sender().getAttemptTtl()))
+            .build(), this::getSessionTtl));
   }
 
   private RegistrationAttempt buildRegistrationAttempt(final VerificationCodeSender sender,
       final MessageTransport messageTransport,
-      final byte[] sessionData) {
+      final byte[] sessionData,
+      final Duration ttl) {
 
     final org.signal.registration.session.MessageTransport sessionMessageTransport = switch (messageTransport) {
       case SMS -> org.signal.registration.session.MessageTransport.MESSAGE_TRANSPORT_SMS;
       case VOICE -> org.signal.registration.session.MessageTransport.MESSAGE_TRANSPORT_VOICE;
     };
 
+    final Instant currentTime = clock.instant();
+
     return RegistrationAttempt.newBuilder()
-        .setTimestamp(clock.millis())
+        .setTimestampEpochMillis(currentTime.toEpochMilli())
+        .setExpirationEpochMillis(currentTime.plus(ttl).toEpochMilli())
         .setSenderName(sender.getName())
         .setMessageTransport(sessionMessageTransport)
         .setSessionData(ByteString.copyFrom(sessionData))
@@ -221,6 +237,10 @@ public class RegistrationService {
             return checkVerificationCodeRateLimiter.checkRateLimit(session).thenCompose(ignored -> {
               final RegistrationAttempt currentRegistrationAttempt =
                   session.getRegistrationAttempts(session.getRegistrationAttemptsCount() - 1);
+
+              if (Instant.ofEpochMilli(currentRegistrationAttempt.getExpirationEpochMillis()).isBefore(clock.instant())) {
+                return CompletableFuture.failedFuture(new AttemptExpiredException());
+              }
 
               final VerificationCodeSender sender = sendersByName.get(currentRegistrationAttempt.getSenderName());
 
@@ -258,7 +278,7 @@ public class RegistrationService {
       }
 
       return builder.build();
-    }, null);
+    }, this::getSessionTtl);
   }
 
   /**
@@ -267,7 +287,7 @@ public class RegistrationService {
    *
    * @param session the session to interpret
    *
-   * @return a future that yields session metadata suitable for presentation to remote callers
+   * @return session metadata suitable for presentation to remote callers
    */
   public RegistrationSessionMetadata buildSessionMetadata(final RegistrationSession session) {
     final boolean verified = StringUtils.isNotBlank(session.getVerifiedCode());
@@ -277,38 +297,88 @@ public class RegistrationService {
         .setE164(Long.parseLong(StringUtils.removeStart(session.getPhoneNumber(), "+")))
         .setVerified(verified);
 
+    final NextActionDurations nextActionDurations = getNextActionDurations(session);
+
+    nextActionDurations.nextSms().ifPresent(duration -> {
+      sessionMetadataBuilder.setMayRequestSms(true);
+      sessionMetadataBuilder.setNextSmsSeconds(duration.getSeconds());
+    });
+
+    nextActionDurations.nextVoiceCall().ifPresent(duration -> {
+      sessionMetadataBuilder.setMayRequestVoiceCall(true);
+      sessionMetadataBuilder.setNextVoiceCallSeconds(duration.getSeconds());
+    });
+
+    nextActionDurations.nextCodeCheck().ifPresent(duration -> {
+      sessionMetadataBuilder.setMayCheckCode(true);
+      sessionMetadataBuilder.setNextCodeCheckSeconds(duration.getSeconds());
+    });
+
+    return sessionMetadataBuilder.build();
+  }
+
+  @VisibleForTesting
+  Optional<Duration> getSessionTtl(final RegistrationSession session) {
+    final Optional<Duration> ttl;
+
+    if (StringUtils.isBlank(session.getVerifiedCode())) {
+      final Instant currentTime = clock.instant();
+
+      final List<Duration> candidateDurations = new ArrayList<>(session.getRegistrationAttemptsList().stream()
+          .map(attempt -> Instant.ofEpochMilli(attempt.getExpirationEpochMillis()))
+          .filter(expiration -> expiration.isAfter(currentTime))
+          .map(expiration -> Duration.between(currentTime, expiration))
+          .toList());
+
+      final NextActionDurations nextActionDurations = getNextActionDurations(session);
+
+      nextActionDurations.nextSms().ifPresent(duration ->
+          candidateDurations.add(duration.plus(SESSION_TTL_AFTER_LAST_ACTION)));
+
+      nextActionDurations.nextVoiceCall().ifPresent(duration ->
+          candidateDurations.add(duration.plus(SESSION_TTL_AFTER_LAST_ACTION)));
+
+      nextActionDurations.nextCodeCheck().ifPresent(duration ->
+          candidateDurations.add(duration.plus(SESSION_TTL_AFTER_LAST_ACTION)));
+
+      ttl = candidateDurations.stream().max(Comparator.naturalOrder());
+    } else {
+      ttl = Optional.of(SESSION_TTL_AFTER_LAST_ACTION);
+    }
+
+    return ttl;
+  }
+
+  @VisibleForTesting
+  NextActionDurations getNextActionDurations(final RegistrationSession session) {
+    final boolean verified = StringUtils.isNotBlank(session.getVerifiedCode());
+
+    Optional<Duration> nextSms = Optional.empty();
+    Optional<Duration> nextVoiceCall = Optional.empty();
+    Optional<Duration> nextCodeCheck = Optional.empty();
+
     // If the session is already verified, callers can't request or check more verification codes
     if (!verified) {
       // Callers can only check codes if they've already sent at least one code
       if (session.getRegistrationAttemptsCount() > 0) {
-        checkVerificationCodeRateLimiter.getDurationUntilActionAllowed(session).join().ifPresent(duration -> {
-          sessionMetadataBuilder.setMayCheckCode(true);
-          sessionMetadataBuilder.setNextCodeCheckSeconds(duration.getSeconds());
-        });
+        nextCodeCheck = checkVerificationCodeRateLimiter.getDurationUntilActionAllowed(session).join();
       }
 
       // Callers can't request more verification codes if they've exhausted their check attempts (since they can't check
       // any new codes they might receive)
-      if (sessionMetadataBuilder.getMayCheckCode() || session.getRegistrationAttemptsCount() == 0) {
-        sendSmsVerificationCodeRateLimiter.getDurationUntilActionAllowed(session).join().ifPresent(duration -> {
-          sessionMetadataBuilder.setMayRequestSms(true);
-          sessionMetadataBuilder.setNextSmsSeconds(duration.getSeconds());
-        });
+      if (nextCodeCheck.isPresent() || session.getRegistrationAttemptsCount() == 0) {
+        nextSms = sendSmsVerificationCodeRateLimiter.getDurationUntilActionAllowed(session).join();
 
         // Callers may not request codes via phone call until they've attempted an SMS
-        final boolean hasSentSms = session.getRegistrationAttemptsList().stream()
-            .anyMatch(attempt -> attempt.getMessageTransport()
-                == org.signal.registration.session.MessageTransport.MESSAGE_TRANSPORT_SMS);
+        final boolean hasSentSms = session.getRegistrationAttemptsList().stream().anyMatch(attempt ->
+            attempt.getMessageTransport() == org.signal.registration.session.MessageTransport.MESSAGE_TRANSPORT_SMS);
 
         if (hasSentSms) {
-          sendVoiceVerificationCodeRateLimiter.getDurationUntilActionAllowed(session).join().ifPresent(duration -> {
-            sessionMetadataBuilder.setMayRequestVoiceCall(true);
-            sessionMetadataBuilder.setNextVoiceCallSeconds(duration.getSeconds());
-          });
+          nextVoiceCall = sendVoiceVerificationCodeRateLimiter.getDurationUntilActionAllowed(session).join();
         }
       }
     }
 
-    return sessionMetadataBuilder.build();
+    return new NextActionDurations(nextSms, nextVoiceCall, nextCodeCheck);
   }
 }

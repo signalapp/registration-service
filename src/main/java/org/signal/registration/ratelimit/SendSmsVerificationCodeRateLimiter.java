@@ -39,7 +39,7 @@ public class SendSmsVerificationCodeRateLimiter extends FixedDelayRegistrationSe
   protected Optional<Instant> getLastAttemptTime(final RegistrationSession session) {
     return session.getRegistrationAttemptsList().stream()
         .filter(attempt -> attempt.getMessageTransport() == MessageTransport.MESSAGE_TRANSPORT_SMS)
-        .map(attempt -> Instant.ofEpochMilli(attempt.getTimestamp()))
+        .map(attempt -> Instant.ofEpochMilli(attempt.getTimestampEpochMillis()))
         .max(Comparator.naturalOrder());
   }
 }

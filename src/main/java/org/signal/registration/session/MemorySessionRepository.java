@@ -18,11 +18,11 @@ import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Function;
-import javax.annotation.Nullable;
 
 @Singleton
 @Requires(env = {"dev", "test"})
@@ -95,7 +95,7 @@ public class MemorySessionRepository implements SessionRepository {
   @Override
   public CompletableFuture<RegistrationSession> updateSession(final UUID sessionId,
       final Function<RegistrationSession, RegistrationSession> sessionUpdater,
-      @Nullable final Duration ttl) {
+      final Function<RegistrationSession, Optional<Duration>> ttlFunction) {
 
     final RegistrationSessionAndExpiration updatedSessionAndExpiration =
         sessionsById.computeIfPresent(sessionId, (id, existingSessionAndExpiration) -> {
@@ -105,12 +105,14 @@ public class MemorySessionRepository implements SessionRepository {
 
             return null;
           } else {
-            final Instant updatedExpiration = ttl != null ?
-                clock.instant().plus(ttl) :
-                existingSessionAndExpiration.expiration();
+            final RegistrationSession updatedSession = sessionUpdater.apply(existingSessionAndExpiration.session());
+
+            final Instant updatedExpiration = ttlFunction.apply(updatedSession)
+                .map(ttl -> clock.instant().plus(ttl))
+                .orElse(existingSessionAndExpiration.expiration());
 
             return new RegistrationSessionAndExpiration(
-                sessionUpdater.apply(existingSessionAndExpiration.session()),
+                updatedSession,
                 updatedExpiration);
           }
         });

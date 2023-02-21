@@ -40,7 +40,7 @@ public class SendVoiceVerificationCodeRateLimiter extends FixedDelayRegistration
         session.getRegistrationAttemptsList().stream()
             .filter(attempt -> attempt.getMessageTransport() == MessageTransport.MESSAGE_TRANSPORT_SMS)
             .findFirst()
-            .map(firstSmsAttempt -> Instant.ofEpochMilli(firstSmsAttempt.getTimestamp()).plus(delayAfterFirstSms));
+            .map(firstSmsAttempt -> Instant.ofEpochMilli(firstSmsAttempt.getTimestampEpochMillis()).plus(delayAfterFirstSms));
 
     return CompletableFuture.completedFuture(maybeFirstAllowableVoiceCall.flatMap(firstAllowableVoiceCall -> {
       final Instant currentTime = getClock().instant();
@@ -66,7 +66,7 @@ public class SendVoiceVerificationCodeRateLimiter extends FixedDelayRegistration
   protected Optional<Instant> getLastAttemptTime(final RegistrationSession session) {
     return session.getRegistrationAttemptsList().stream()
         .filter(attempt -> attempt.getMessageTransport() == MessageTransport.MESSAGE_TRANSPORT_VOICE)
-        .map(attempt -> Instant.ofEpochMilli(attempt.getTimestamp()))
+        .map(attempt -> Instant.ofEpochMilli(attempt.getTimestampEpochMillis()))
         .max(Comparator.naturalOrder());
   }
 }

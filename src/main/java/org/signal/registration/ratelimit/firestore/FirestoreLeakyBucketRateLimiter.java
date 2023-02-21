@@ -23,6 +23,7 @@ import java.util.concurrent.CompletionException;
 import java.util.concurrent.Executor;
 import org.signal.registration.ratelimit.RateLimitExceededException;
 import org.signal.registration.ratelimit.RateLimiter;
+import org.signal.registration.util.Durations;
 import org.signal.registration.util.FirestoreUtil;
 
 /**
@@ -118,7 +119,7 @@ public abstract class FirestoreLeakyBucketRateLimiter<K> implements RateLimiter<
   public CompletableFuture<Void> checkRateLimit(final K key) {
     return takePermit(key)
         .thenAccept(durationUntilNextActionAllowed -> {
-          if (!(durationUntilNextActionAllowed.isZero() || durationUntilNextActionAllowed.isNegative())) {
+          if (Durations.isPositive(durationUntilNextActionAllowed)) {
             throw new CompletionException(new RateLimitExceededException(durationUntilNextActionAllowed));
           }
         });
@@ -137,7 +138,7 @@ public abstract class FirestoreLeakyBucketRateLimiter<K> implements RateLimiter<
         if (documentSnapshot.exists()) {
           durationUntilNextActionAllowed = getDurationUntilActionAllowed(documentSnapshot);
 
-          if (durationUntilNextActionAllowed.isZero() || durationUntilNextActionAllowed.isNegative()) {
+          if (!Durations.isPositive(durationUntilNextActionAllowed)) {
             // The caller may take the action now, so update the document to reflect that we used a permit
             final Instant lastPermitGranted = getLastPermitGranted(documentSnapshot, currentTime);
             final double currentAvailablePermits = getCurrentPermitsAvailable(documentSnapshot, lastPermitGranted);

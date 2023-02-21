@@ -13,6 +13,7 @@ import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import org.signal.registration.session.RegistrationSession;
+import org.signal.registration.util.Durations;
 
 /**
  * A fixed-delay registration session rate limiter controls the pace and absolute number of times an actor may take an
@@ -93,7 +94,7 @@ public abstract class FixedDelayRegistrationSessionRateLimiter implements RateLi
           if (maybeDurationUntilActionAllowed.isPresent()) {
             final Duration durationUntilActionAllowed = maybeDurationUntilActionAllowed.get();
 
-            if (!(durationUntilActionAllowed.isZero() || durationUntilActionAllowed.isNegative())) {
+            if (Durations.isPositive(durationUntilActionAllowed)) {
               throw new CompletionException(new RateLimitExceededException(durationUntilActionAllowed, session));
             }
           } else {

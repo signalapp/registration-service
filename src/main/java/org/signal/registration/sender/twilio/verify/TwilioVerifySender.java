@@ -72,7 +72,7 @@ public class TwilioVerifySender implements VerificationCodeSender {
   }
 
   @Override
-  public Duration getSessionTtl() {
+  public Duration getAttemptTtl() {
     // Upstream sessions time out after ten minutes; see
     // https://support.twilio.com/hc/en-us/articles/360033354913-What-is-the-Default-Verify-V2-Expiration-Time-
     return Duration.ofMinutes(10);

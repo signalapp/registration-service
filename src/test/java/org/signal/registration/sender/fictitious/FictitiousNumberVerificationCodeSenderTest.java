@@ -68,7 +68,7 @@ class FictitiousNumberVerificationCodeSenderTest {
     final byte[] sessionDataBytes =
         sender.sendVerificationCode(MessageTransport.SMS, phoneNumber, Collections.emptyList(), ClientType.UNKNOWN).join();
 
-    verify(repository).storeVerificationCode(phoneNumber, verificationCode, sender.getSessionTtl());
+    verify(repository).storeVerificationCode(phoneNumber, verificationCode, sender.getAttemptTtl());
 
     final FictitiousNumberVerificationCodeSessionData sessionData =
         FictitiousNumberVerificationCodeSessionData.parseFrom(sessionDataBytes);

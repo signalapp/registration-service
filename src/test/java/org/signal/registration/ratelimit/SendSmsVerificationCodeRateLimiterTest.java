@@ -30,36 +30,36 @@ class SendSmsVerificationCodeRateLimiterTest {
     assertEquals(0, rateLimiter.getPriorAttemptCount(RegistrationSession.newBuilder()
         .addRegistrationAttempts(RegistrationAttempt.newBuilder()
             .setMessageTransport(MessageTransport.MESSAGE_TRANSPORT_VOICE)
-            .setTimestamp(System.currentTimeMillis())
+            .setTimestampEpochMillis(System.currentTimeMillis())
             .build())
         .build()));
 
     assertEquals(1, rateLimiter.getPriorAttemptCount(RegistrationSession.newBuilder()
         .addRegistrationAttempts(RegistrationAttempt.newBuilder()
             .setMessageTransport(MessageTransport.MESSAGE_TRANSPORT_SMS)
-            .setTimestamp(System.currentTimeMillis())
+            .setTimestampEpochMillis(System.currentTimeMillis())
             .build())
         .build()));
 
     assertEquals(1, rateLimiter.getPriorAttemptCount(RegistrationSession.newBuilder()
         .addRegistrationAttempts(RegistrationAttempt.newBuilder()
             .setMessageTransport(MessageTransport.MESSAGE_TRANSPORT_SMS)
-            .setTimestamp(System.currentTimeMillis())
+            .setTimestampEpochMillis(System.currentTimeMillis())
             .build())
         .addRegistrationAttempts(RegistrationAttempt.newBuilder()
             .setMessageTransport(MessageTransport.MESSAGE_TRANSPORT_VOICE)
-            .setTimestamp(System.currentTimeMillis())
+            .setTimestampEpochMillis(System.currentTimeMillis())
             .build())
         .build()));
 
     assertEquals(2, rateLimiter.getPriorAttemptCount(RegistrationSession.newBuilder()
         .addRegistrationAttempts(RegistrationAttempt.newBuilder()
             .setMessageTransport(MessageTransport.MESSAGE_TRANSPORT_SMS)
-            .setTimestamp(System.currentTimeMillis())
+            .setTimestampEpochMillis(System.currentTimeMillis())
             .build())
         .addRegistrationAttempts(RegistrationAttempt.newBuilder()
             .setMessageTransport(MessageTransport.MESSAGE_TRANSPORT_SMS)
-            .setTimestamp(System.currentTimeMillis())
+            .setTimestampEpochMillis(System.currentTimeMillis())
             .build())
         .build()));
   }
@@ -74,7 +74,7 @@ class SendSmsVerificationCodeRateLimiterTest {
     assertEquals(Optional.empty(), rateLimiter.getLastAttemptTime(RegistrationSession.newBuilder()
         .addRegistrationAttempts(RegistrationAttempt.newBuilder()
             .setMessageTransport(MessageTransport.MESSAGE_TRANSPORT_VOICE)
-            .setTimestamp(System.currentTimeMillis())
+            .setTimestampEpochMillis(System.currentTimeMillis())
             .build())
         .build()));
 
@@ -85,7 +85,7 @@ class SendSmsVerificationCodeRateLimiterTest {
         rateLimiter.getLastAttemptTime(RegistrationSession.newBuilder()
             .addRegistrationAttempts(RegistrationAttempt.newBuilder()
                 .setMessageTransport(MessageTransport.MESSAGE_TRANSPORT_SMS)
-                .setTimestamp(firstTimestamp)
+                .setTimestampEpochMillis(firstTimestamp)
                 .build())
             .build()));
 
@@ -93,11 +93,11 @@ class SendSmsVerificationCodeRateLimiterTest {
         rateLimiter.getLastAttemptTime(RegistrationSession.newBuilder()
             .addRegistrationAttempts(RegistrationAttempt.newBuilder()
                 .setMessageTransport(MessageTransport.MESSAGE_TRANSPORT_SMS)
-                .setTimestamp(firstTimestamp)
+                .setTimestampEpochMillis(firstTimestamp)
                 .build())
             .addRegistrationAttempts(RegistrationAttempt.newBuilder()
                 .setMessageTransport(MessageTransport.MESSAGE_TRANSPORT_VOICE)
-                .setTimestamp(secondTimestamp)
+                .setTimestampEpochMillis(secondTimestamp)
                 .build())
             .build()));
 
@@ -105,11 +105,11 @@ class SendSmsVerificationCodeRateLimiterTest {
         rateLimiter.getLastAttemptTime(RegistrationSession.newBuilder()
             .addRegistrationAttempts(RegistrationAttempt.newBuilder()
                 .setMessageTransport(MessageTransport.MESSAGE_TRANSPORT_SMS)
-                .setTimestamp(firstTimestamp)
+                .setTimestampEpochMillis(firstTimestamp)
                 .build())
             .addRegistrationAttempts(RegistrationAttempt.newBuilder()
                 .setMessageTransport(MessageTransport.MESSAGE_TRANSPORT_SMS)
-                .setTimestamp(secondTimestamp)
+                .setTimestampEpochMillis(secondTimestamp)
                 .build())
             .build()));
   }

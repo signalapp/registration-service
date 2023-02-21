@@ -27,6 +27,7 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 import org.mockito.stubbing.Answer;
+import org.signal.registration.AttemptExpiredException;
 import org.signal.registration.NoVerificationCodeSentException;
 import org.signal.registration.RegistrationService;
 import org.signal.registration.SessionAlreadyVerifiedException;
@@ -379,6 +380,25 @@ class RegistrationServiceGrpcEndpointTest {
     assertFalse(response.hasSessionMetadata());
     assertTrue(response.hasError());
     assertEquals(CheckVerificationCodeErrorType.CHECK_VERIFICATION_CODE_ERROR_TYPE_SESSION_NOT_FOUND,
+        response.getError().getErrorType());
+
+    assertFalse(response.getError().getMayRetry());
+  }
+
+  @Test
+  void checkVerificationCodeAttemptExpired() {
+    when(registrationService.checkVerificationCode(any(), any()))
+        .thenReturn(CompletableFuture.failedFuture(new AttemptExpiredException()));
+
+    final CheckVerificationCodeResponse response =
+        blockingStub.checkVerificationCode(CheckVerificationCodeRequest.newBuilder()
+            .setSessionId(UUIDUtil.uuidToByteString(UUID.randomUUID()))
+            .setVerificationCode("123456")
+            .build());
+
+    assertFalse(response.hasSessionMetadata());
+    assertTrue(response.hasError());
+    assertEquals(CheckVerificationCodeErrorType.CHECK_VERIFICATION_CODE_ERROR_TYPE_ATTEMPT_EXPIRED,
         response.getError().getErrorType());
 
     assertFalse(response.getError().getMayRetry());
