@@ -185,6 +185,8 @@ public class RegistrationService {
         })
         .thenCompose(senderAndSessionData -> sessionRepository.updateSession(sessionId, session -> {
           final RegistrationSession.Builder builder = session.toBuilder()
+              .setCheckCodeAttempts(0)
+              .setLastCheckCodeAttemptEpochMillis(0)
               .addRegistrationAttempts(buildRegistrationAttempt(senderAndSessionData.sender(),
                   messageTransport,
                   senderAndSessionData.sessionData(),
@@ -371,23 +373,28 @@ public class RegistrationService {
 
     // If the session is already verified, callers can't request or check more verification codes
     if (!verified) {
-      // Callers can only check codes if they've already sent at least one code
+
+      // Callers can only check codes if there's an active attempt
       if (session.getRegistrationAttemptsCount() > 0) {
-        nextCodeCheck = checkVerificationCodeRateLimiter.getDurationUntilActionAllowed(session).join();
+        final Instant currentAttemptExpiration = Instant.ofEpochMilli(
+            session.getRegistrationAttemptsList().get(session.getRegistrationAttemptsCount() - 1)
+                .getExpirationEpochMillis());
+
+        if (!clock.instant().isAfter(currentAttemptExpiration)) {
+          nextCodeCheck = checkVerificationCodeRateLimiter.getDurationUntilActionAllowed(session).join();
+        }
       }
 
       // Callers can't request more verification codes if they've exhausted their check attempts (since they can't check
       // any new codes they might receive)
-      if (nextCodeCheck.isPresent() || session.getRegistrationAttemptsCount() == 0) {
-        nextSms = sendSmsVerificationCodeRateLimiter.getDurationUntilActionAllowed(session).join();
+      nextSms = sendSmsVerificationCodeRateLimiter.getDurationUntilActionAllowed(session).join();
 
-        // Callers may not request codes via phone call until they've attempted an SMS
-        final boolean hasSentSms = session.getRegistrationAttemptsList().stream().anyMatch(attempt ->
-            attempt.getMessageTransport() == org.signal.registration.session.MessageTransport.MESSAGE_TRANSPORT_SMS);
+      // Callers may not request codes via phone call until they've attempted an SMS
+      final boolean hasSentSms = session.getRegistrationAttemptsList().stream().anyMatch(attempt ->
+          attempt.getMessageTransport() == org.signal.registration.session.MessageTransport.MESSAGE_TRANSPORT_SMS);
 
-        if (hasSentSms) {
-          nextVoiceCall = sendVoiceVerificationCodeRateLimiter.getDurationUntilActionAllowed(session).join();
-        }
+      if (hasSentSms) {
+        nextVoiceCall = sendVoiceVerificationCodeRateLimiter.getDurationUntilActionAllowed(session).join();
       }
     }
 

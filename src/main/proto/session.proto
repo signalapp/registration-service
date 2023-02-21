@@ -41,13 +41,13 @@ message RegistrationSession {
 
   /**
    * The number of times a caller has attempted to check a verification code for
-   * this session.
+   * the active registration attempt.
    */
   uint32 check_code_attempts = 7;
 
   /**
    * The UNIX timestamp (in milliseconds) at which a caller last attempted to
-   * check a verification code for this session.
+   * check a verification code for the active registration attempt.
    */
   uint64 last_check_code_attempt_epoch_millis = 8;
 
