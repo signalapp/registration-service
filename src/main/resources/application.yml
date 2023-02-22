@@ -11,7 +11,7 @@ micronaut:
     export:
       datadog:
         enabled: false
-        step: PT20S
+        step: 20s
 
     tags:
       # Note that an `instance` tag is added at runtime in `Application.java`
@@ -39,7 +39,7 @@ rate-limits:
       - 10m
 
   send-voice-verification-code:
-    delay-after-first-sms: PT1M
+    delay-after-first-sms: 1m
     delays:
       - 1m
       - 5m
