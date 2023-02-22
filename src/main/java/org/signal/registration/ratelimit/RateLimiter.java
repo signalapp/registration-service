@@ -5,7 +5,7 @@
 
 package org.signal.registration.ratelimit;
 
-import java.time.Duration;
+import java.time.Instant;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 
@@ -18,17 +18,16 @@ import java.util.concurrent.CompletableFuture;
 public interface RateLimiter<K> {
 
   /**
-   * Returns the amount of time a caller must wait before this rate limiter will permit the rate-limited action to be
-   * taken. If the returned duration is zero or negative, the caller may take the action immediately. Calling this
-   * method must not change the rate limiter's state (i.e. callers must not be penalized for calling this method).
+   * Returns the next time at which this rate limiter will permit the rate-limited action to be taken. If the returned
+   * time is before or equal to the current time, the caller may take the action immediately. Calling this method must
+   * not change the rate limiter's state (i.e. callers must not be penalized for calling this method).
    *
    * @param key a key that identifies the action to be taken
-   *
-   * @return the amount of time a caller must wait before taking the action governed by this rate limiter; if
-   * non-positive, the action may be taken immediately, and if empty, no amount of simply waiting will allow the action
-   * to succeed and callers may need to take some other action to proceed
+   * @return the next time at which this rate limiter will permit the rate-limited action to be taken; if equal to or
+   * before the current time, the action may be taken immediately, and if empty, no amount of simply waiting will allow
+   * the action to succeed and callers may need to take some other action to proceed
    */
-  CompletableFuture<Optional<Duration>> getDurationUntilActionAllowed(K key);
+  CompletableFuture<Optional<Instant>> getTimeOfNextAction(K key);
 
   /**
    * Checks whether the action identified by the given key may be taken.

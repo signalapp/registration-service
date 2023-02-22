@@ -5,7 +5,8 @@
 
 package org.signal.registration.ratelimit;
 
-import java.time.Duration;
+import java.time.Clock;
+import java.time.Instant;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 
@@ -17,9 +18,15 @@ import java.util.concurrent.CompletableFuture;
  */
 class AllowAllRateLimiter<K> implements RateLimiter<K> {
 
+  private final Clock clock;
+
+  AllowAllRateLimiter(final Clock clock) {
+    this.clock = clock;
+  }
+
   @Override
-  public CompletableFuture<Optional<Duration>> getDurationUntilActionAllowed(final K key) {
-    return CompletableFuture.completedFuture(Optional.of(Duration.ZERO));
+  public CompletableFuture<Optional<Instant>> getTimeOfNextAction(final K key) {
+    return CompletableFuture.completedFuture(Optional.of(clock.instant()));
   }
 
   @Override

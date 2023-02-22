@@ -99,20 +99,20 @@ class RegistrationServiceTest {
     //noinspection unchecked
     sendSmsVerificationCodeRateLimiter = mock(RateLimiter.class);
     when(sendSmsVerificationCodeRateLimiter.checkRateLimit(any())).thenReturn(CompletableFuture.completedFuture(null));
-    when(sendSmsVerificationCodeRateLimiter.getDurationUntilActionAllowed(any()))
-        .thenReturn(CompletableFuture.completedFuture(Optional.of(Duration.ZERO)));
+    when(sendSmsVerificationCodeRateLimiter.getTimeOfNextAction(any()))
+        .thenReturn(CompletableFuture.completedFuture(Optional.of(CURRENT_TIME)));
 
     //noinspection unchecked
     sendVoiceVerificationCodeRateLimiter = mock(RateLimiter.class);
     when(sendVoiceVerificationCodeRateLimiter.checkRateLimit(any())).thenReturn(CompletableFuture.completedFuture(null));
-    when(sendVoiceVerificationCodeRateLimiter.getDurationUntilActionAllowed(any()))
-        .thenReturn(CompletableFuture.completedFuture(Optional.of(Duration.ZERO)));
+    when(sendVoiceVerificationCodeRateLimiter.getTimeOfNextAction(any()))
+        .thenReturn(CompletableFuture.completedFuture(Optional.of(CURRENT_TIME)));
 
     //noinspection unchecked
     checkVerificationCodeRateLimiter = mock(RateLimiter.class);
     when(checkVerificationCodeRateLimiter.checkRateLimit(any())).thenReturn(CompletableFuture.completedFuture(null));
-    when(checkVerificationCodeRateLimiter.getDurationUntilActionAllowed(any()))
-        .thenReturn(CompletableFuture.completedFuture(Optional.of(Duration.ZERO)));
+    when(checkVerificationCodeRateLimiter.getTimeOfNextAction(any()))
+        .thenReturn(CompletableFuture.completedFuture(Optional.of(CURRENT_TIME)));
 
     registrationService = new RegistrationService(senderSelectionStrategy,
         sessionRepository,
@@ -427,7 +427,7 @@ class RegistrationServiceTest {
 
   @ParameterizedTest
   @MethodSource
-  void getNextActionDurations(final RegistrationSession session,
+  void getNextActionTimes(final RegistrationSession session,
       final boolean allowSms,
       final boolean allowVoiceCall,
       final boolean allowCodeCheck,
@@ -439,36 +439,36 @@ class RegistrationServiceTest {
     final long nextVoiceCallSeconds = 19;
     final long nextCodeCheckSeconds = 23;
 
-    when(sendSmsVerificationCodeRateLimiter.getDurationUntilActionAllowed(any()))
+    when(sendSmsVerificationCodeRateLimiter.getTimeOfNextAction(any()))
         .thenReturn(CompletableFuture.completedFuture(allowSms
-            ? Optional.of(Duration.ofSeconds(nextSmsSeconds))
+            ? Optional.of(CURRENT_TIME.plusSeconds(nextSmsSeconds))
             : Optional.empty()));
 
-    when(sendVoiceVerificationCodeRateLimiter.getDurationUntilActionAllowed(any()))
+    when(sendVoiceVerificationCodeRateLimiter.getTimeOfNextAction(any()))
         .thenReturn(CompletableFuture.completedFuture(allowVoiceCall
-            ? Optional.of(Duration.ofSeconds(nextVoiceCallSeconds))
+            ? Optional.of(CURRENT_TIME.plusSeconds(nextVoiceCallSeconds))
             : Optional.empty()));
 
-    when(checkVerificationCodeRateLimiter.getDurationUntilActionAllowed(any()))
+    when(checkVerificationCodeRateLimiter.getTimeOfNextAction(any()))
         .thenReturn(CompletableFuture.completedFuture(allowCodeCheck
-            ? Optional.of(Duration.ofSeconds(nextCodeCheckSeconds))
+            ? Optional.of(CURRENT_TIME.plusSeconds(nextCodeCheckSeconds))
             : Optional.empty()));
 
-    final RegistrationService.NextActionDurations nextActionDurations =
-        registrationService.getNextActionDurations(session);
+    final RegistrationService.NextActionTimes nextActionTimes =
+        registrationService.getNextActionTimes(session);
 
-    assertEquals(expectNextSms ? Optional.of(Duration.ofSeconds(nextSmsSeconds)) : Optional.empty(),
-        nextActionDurations.nextSms());
+    assertEquals(expectNextSms ? Optional.of(CURRENT_TIME.plusSeconds(nextSmsSeconds)) : Optional.empty(),
+        nextActionTimes.nextSms());
 
-    assertEquals(expectNextVoiceCall ? Optional.of(Duration.ofSeconds(nextVoiceCallSeconds)) : Optional.empty(),
-        nextActionDurations.nextVoiceCall());
+    assertEquals(expectNextVoiceCall ? Optional.of(CURRENT_TIME.plusSeconds(nextVoiceCallSeconds)) : Optional.empty(),
+        nextActionTimes.nextVoiceCall());
 
-    assertEquals(expectNextCodeCheck ? Optional.of(Duration.ofSeconds(nextCodeCheckSeconds)) : Optional.empty(),
-        nextActionDurations.nextCodeCheck());
+    assertEquals(expectNextCodeCheck ? Optional.of(CURRENT_TIME.plusSeconds(nextCodeCheckSeconds)) : Optional.empty(),
+        nextActionTimes.nextCodeCheck());
   }
 
   @ParameterizedTest
-  @MethodSource("getNextActionDurations")
+  @MethodSource("getNextActionTimes")
   void buildSessionMetadata(final RegistrationSession session,
       final boolean allowSms,
       final boolean allowVoiceCall,
@@ -481,19 +481,19 @@ class RegistrationServiceTest {
     final long nextVoiceCallSeconds = 19;
     final long nextCodeCheckSeconds = 23;
 
-    when(sendSmsVerificationCodeRateLimiter.getDurationUntilActionAllowed(any()))
+    when(sendSmsVerificationCodeRateLimiter.getTimeOfNextAction(any()))
         .thenReturn(CompletableFuture.completedFuture(allowSms
-            ? Optional.of(Duration.ofSeconds(nextSmsSeconds))
+            ? Optional.of(CURRENT_TIME.plusSeconds(nextSmsSeconds))
             : Optional.empty()));
 
-    when(sendVoiceVerificationCodeRateLimiter.getDurationUntilActionAllowed(any()))
+    when(sendVoiceVerificationCodeRateLimiter.getTimeOfNextAction(any()))
         .thenReturn(CompletableFuture.completedFuture(allowVoiceCall
-            ? Optional.of(Duration.ofSeconds(nextVoiceCallSeconds))
+            ? Optional.of(CURRENT_TIME.plusSeconds(nextVoiceCallSeconds))
             : Optional.empty()));
 
-    when(checkVerificationCodeRateLimiter.getDurationUntilActionAllowed(any()))
+    when(checkVerificationCodeRateLimiter.getTimeOfNextAction(any()))
         .thenReturn(CompletableFuture.completedFuture(allowCodeCheck
-            ? Optional.of(Duration.ofSeconds(nextCodeCheckSeconds))
+            ? Optional.of(CURRENT_TIME.plusSeconds(nextCodeCheckSeconds))
             : Optional.empty()));
 
     final RegistrationSessionMetadata sessionMetadata =
@@ -513,7 +513,7 @@ class RegistrationServiceTest {
     assertEquals(expectNextCodeCheck ? nextCodeCheckSeconds : 0, sessionMetadata.getNextCodeCheckSeconds());
   }
 
-  private static Stream<Arguments> getNextActionDurations() {
+  private static Stream<Arguments> getNextActionTimes() {
     return Stream.of(
         // Fresh session; unverified and no codes sent
         Arguments.of(getBaseSessionBuilder().build(),
@@ -616,11 +616,11 @@ class RegistrationServiceTest {
   @SuppressWarnings("OptionalUsedAsFieldOrParameterType")
   void getSessionExpiration(final boolean verified,
       final Instant lastCodeCheck,
-      final Optional<Duration> nextSms,
+      final Optional<Instant> nextSms,
       final List<Instant> attemptExpirations,
       final Instant expectedExpiration) {
 
-    when(sendSmsVerificationCodeRateLimiter.getDurationUntilActionAllowed(any()))
+    when(sendSmsVerificationCodeRateLimiter.getTimeOfNextAction(any()))
         .thenReturn(CompletableFuture.completedFuture(nextSms));
 
     final RegistrationSession.Builder sessionBuilder = RegistrationSession.newBuilder()
@@ -649,7 +649,7 @@ class RegistrationServiceTest {
 
         Arguments.of(false,
             Instant.ofEpochMilli(0),
-            Optional.of(Duration.ofMinutes(2)),
+            Optional.of(CURRENT_TIME.plusSeconds(120)),
             List.of(),
             CURRENT_TIME.plus(RegistrationService.SESSION_TTL_AFTER_LAST_ACTION).plus(Duration.ofMinutes(2))),
 
@@ -661,7 +661,7 @@ class RegistrationServiceTest {
 
         Arguments.of(false,
             Instant.ofEpochMilli(0),
-            Optional.of(Duration.ofMinutes(2)),
+            Optional.of(CURRENT_TIME.plusSeconds(120)),
             List.of(
                 CURRENT_TIME.plus(RegistrationService.SESSION_TTL_AFTER_LAST_ACTION).plus(Duration.ofMinutes(3)),
                 CURRENT_TIME.plus(RegistrationService.SESSION_TTL_AFTER_LAST_ACTION).plus(Duration.ofMinutes(5))),

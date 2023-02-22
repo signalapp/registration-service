@@ -10,14 +10,21 @@ import io.micronaut.context.annotation.Factory;
 import io.micronaut.context.annotation.Requires;
 import jakarta.inject.Named;
 import jakarta.inject.Singleton;
+import java.time.Clock;
 
 @Factory
 @Requires(env = "dev")
 class AllowAllRateLimiterFactory {
 
+  private final Clock clock;
+
+  AllowAllRateLimiterFactory(final Clock clock) {
+    this.clock = clock;
+  }
+
   @Singleton
   @Named("session-creation")
   RateLimiter<Phonenumber.PhoneNumber> sessionCreationRateLimiter() {
-    return new AllowAllRateLimiter<>();
+    return new AllowAllRateLimiter<>(clock);
   }
 }

@@ -35,7 +35,7 @@ public class SendVoiceVerificationCodeRateLimiter extends FixedDelayRegistration
   }
 
   @Override
-  public CompletableFuture<Optional<Duration>> getDurationUntilActionAllowed(final RegistrationSession session) {
+  public CompletableFuture<Optional<Instant>> getTimeOfNextAction(final RegistrationSession session) {
     final Optional<Instant> maybeFirstAllowableVoiceCall =
         session.getRegistrationAttemptsList().stream()
             .filter(attempt -> attempt.getMessageTransport() == MessageTransport.MESSAGE_TRANSPORT_SMS)
@@ -47,11 +47,11 @@ public class SendVoiceVerificationCodeRateLimiter extends FixedDelayRegistration
 
       if (firstAllowableVoiceCall.isAfter(currentTime)) {
         // We're still waiting on the post-first-SMS delay
-        return Optional.of(Duration.between(currentTime, firstAllowableVoiceCall));
+        return Optional.of(firstAllowableVoiceCall);
       }
 
       // We've cleared the post-first-SMS delay and should do the normal thing
-      return super.getDurationUntilActionAllowed(session).join();
+      return super.getTimeOfNextAction(session).join();
     }));
   }
 

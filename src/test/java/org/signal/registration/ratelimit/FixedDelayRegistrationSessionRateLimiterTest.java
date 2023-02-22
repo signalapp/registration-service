@@ -8,6 +8,7 @@ package org.signal.registration.ratelimit;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
 
 import java.time.Clock;
@@ -63,17 +64,27 @@ class FixedDelayRegistrationSessionRateLimiterTest {
 
   @ParameterizedTest
   @MethodSource("getRateLimitTestArguments")
-  void getDurationUntilActionAllowed(final int priorAttemptCount,
+  void getTimeOfNextAction(final int priorAttemptCount,
       @Nullable final Instant lastAttempt,
       final Instant currentTime,
       final List<Duration> delays,
-      @Nullable final Duration expectedDuration) {
+      @Nullable final Instant expectedTimeOfNextAction) {
 
     final FixedDelayRegistrationSessionRateLimiter rateLimiter =
         new TestRateLimiter(priorAttemptCount, lastAttempt, delays, Clock.fixed(currentTime, ZoneId.systemDefault()));
 
-    assertEquals(Optional.ofNullable(expectedDuration),
-        rateLimiter.getDurationUntilActionAllowed(RegistrationSession.newBuilder().build()).join());
+    final Optional<Instant> maybeTimeOfNextAction =
+        rateLimiter.getTimeOfNextAction(RegistrationSession.newBuilder().build()).join();
+
+    if (expectedTimeOfNextAction != null && !expectedTimeOfNextAction.isAfter(currentTime)) {
+      // Accept any "allowed now" timestamp (anything less than or equal to the current time)
+      assertTrue(maybeTimeOfNextAction.map(timeOfNextAction ->
+              timeOfNextAction.equals(expectedTimeOfNextAction) || timeOfNextAction.isBefore(expectedTimeOfNextAction))
+          .orElse(false));
+    } else {
+      // Expect an exact match (either no value or a specific time in the future)
+      assertEquals(Optional.ofNullable(expectedTimeOfNextAction), maybeTimeOfNextAction);
+    }
   }
 
   @ParameterizedTest
@@ -82,19 +93,22 @@ class FixedDelayRegistrationSessionRateLimiterTest {
       @Nullable final Instant lastAttempt,
       final Instant currentTime,
       final List<Duration> delays,
-      @Nullable final Duration expectedDuration) {
+      @Nullable final Instant expectedTimeOfNextAction) {
 
     final FixedDelayRegistrationSessionRateLimiter rateLimiter =
         new TestRateLimiter(priorAttemptCount, lastAttempt, delays, Clock.fixed(currentTime, ZoneId.systemDefault()));
 
-    if (Duration.ZERO.equals(expectedDuration)) {
+    if (currentTime.equals(expectedTimeOfNextAction)) {
       assertDoesNotThrow(() -> rateLimiter.checkRateLimit(RegistrationSession.newBuilder().build()).join());
     } else {
       final CompletionException completionException = assertThrows(CompletionException.class,
           () -> rateLimiter.checkRateLimit(RegistrationSession.newBuilder().build()).join());
 
       if (CompletionExceptions.unwrap(completionException) instanceof final RateLimitExceededException rateLimitExceededException) {
-        assertEquals(Optional.ofNullable(expectedDuration), rateLimitExceededException.getRetryAfterDuration());
+
+        assertEquals(
+            Optional.ofNullable(expectedTimeOfNextAction).map(nextAction -> Duration.between(currentTime, nextAction)),
+            rateLimitExceededException.getRetryAfterDuration());
       } else {
         fail("Expected RateLimitExceededException");
       }
@@ -107,22 +121,22 @@ class FixedDelayRegistrationSessionRateLimiterTest {
 
     return Stream.of(
         // No prior attempts; action should be allowed immediately
-        Arguments.of(0, null, currentTime, delays, Duration.ZERO),
+        Arguments.of(0, null, currentTime, delays, currentTime),
 
         // One prior attempt; action should be allowed after first delay
-        Arguments.of(1, currentTime, currentTime, delays, Duration.ofMinutes(1)),
+        Arguments.of(1, currentTime, currentTime, delays, currentTime.plus(Duration.ofMinutes(1))),
 
         // Two prior attempts; action should be allowed after second delay
-        Arguments.of(2, currentTime, currentTime, delays, Duration.ofMinutes(2)),
+        Arguments.of(2, currentTime, currentTime, delays, currentTime.plus(Duration.ofMinutes(2))),
 
         // Three prior attempts; action should no longer be allowed
         Arguments.of(3, currentTime, currentTime, delays, null),
 
         // One prior attempt with partially-elapsed delay; action should be allowed after partial delay
-        Arguments.of(1, currentTime.minusSeconds(30), currentTime, delays, Duration.ofSeconds(30)),
+        Arguments.of(1, currentTime.minusSeconds(30), currentTime, delays, currentTime.plus(Duration.ofSeconds(30))),
 
         // One prior attempt with fully-elapsed delay; action should be allowed immediately
-        Arguments.of(1, currentTime.minusSeconds(120), currentTime, delays, Duration.ZERO)
+        Arguments.of(1, currentTime.minusSeconds(120), currentTime, delays, currentTime)
     );
   }
 }

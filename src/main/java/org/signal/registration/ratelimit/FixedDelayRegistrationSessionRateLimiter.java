@@ -13,7 +13,6 @@ import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import org.signal.registration.session.RegistrationSession;
-import org.signal.registration.util.Durations;
 
 /**
  * A fixed-delay registration session rate limiter controls the pace and absolute number of times an actor may take an
@@ -57,45 +56,38 @@ public abstract class FixedDelayRegistrationSessionRateLimiter implements RateLi
   protected abstract Optional<Instant> getLastAttemptTime(final RegistrationSession session);
 
   @Override
-  public CompletableFuture<Optional<Duration>> getDurationUntilActionAllowed(final RegistrationSession session) {
+  public CompletableFuture<Optional<Instant>> getTimeOfNextAction(final RegistrationSession session) {
     final int attempts = getPriorAttemptCount(session);
     final Optional<Instant> maybeLastAttempt = getLastAttemptTime(session);
 
-    final Optional<Duration> maybeDurationUntilActionAllowed;
+    final Optional<Instant> maybeNextAction;
 
     if (attempts == 0) {
       // If the caller has never attempted this action before, they may do so immediately
-      maybeDurationUntilActionAllowed = Optional.of(Duration.ZERO);
+      maybeNextAction = Optional.of(clock.instant());
     } else if (attempts <= delays.size()) {
-      final Instant nextAllowedAttempt = maybeLastAttempt
+      maybeNextAction = Optional.of(maybeLastAttempt
           .orElseThrow(() -> new IllegalStateException("Last attempt must be present if attempt count is non-zero"))
-          .plus(delays.get(attempts - 1));
-
-      final Instant currentTime = clock.instant();
-
-      if (currentTime.isAfter(nextAllowedAttempt)) {
-        // We've crossed the "allowed to take action" threshold, and the caller does not need to wait
-        maybeDurationUntilActionAllowed = Optional.of(Duration.ZERO);
-      } else {
-        maybeDurationUntilActionAllowed = Optional.of(Duration.between(currentTime, nextAllowedAttempt));
-      }
+          .plus(delays.get(attempts - 1)));
     } else {
       // The caller has exhausted all permitted attempts to take the rate-limited action
-      maybeDurationUntilActionAllowed = Optional.empty();
+      maybeNextAction = Optional.empty();
     }
 
-    return CompletableFuture.completedFuture(maybeDurationUntilActionAllowed);
+    return CompletableFuture.completedFuture(maybeNextAction);
   }
 
   @Override
   public CompletableFuture<Void> checkRateLimit(final RegistrationSession session) {
-    return getDurationUntilActionAllowed(session)
-        .thenAccept(maybeDurationUntilActionAllowed -> {
-          if (maybeDurationUntilActionAllowed.isPresent()) {
-            final Duration durationUntilActionAllowed = maybeDurationUntilActionAllowed.get();
+    return getTimeOfNextAction(session)
+        .thenAccept(maybeTimeOfNextAction -> {
+          if (maybeTimeOfNextAction.isPresent()) {
+            final Instant currentTime = clock.instant();
+            final Instant timeOfNextAction = maybeTimeOfNextAction.get();
 
-            if (Durations.isPositive(durationUntilActionAllowed)) {
-              throw new CompletionException(new RateLimitExceededException(durationUntilActionAllowed, session));
+            if (currentTime.isBefore(timeOfNextAction)) {
+              throw new CompletionException(
+                  new RateLimitExceededException(Duration.between(currentTime, timeOfNextAction), session));
             }
           } else {
             throw new CompletionException(new RateLimitExceededException(null, session));

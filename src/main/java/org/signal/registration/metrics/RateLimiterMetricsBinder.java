@@ -9,14 +9,13 @@ import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.Timer;
 import io.micronaut.configuration.metrics.annotation.RequiresMetrics;
 import io.micronaut.context.BeanProvider;
-import io.micronaut.context.annotation.Requires;
 import io.micronaut.context.event.BeanCreatedEvent;
 import io.micronaut.context.event.BeanCreatedEventListener;
 import jakarta.inject.Singleton;
 import org.signal.registration.ratelimit.RateLimitExceededException;
 import org.signal.registration.ratelimit.RateLimiter;
 import org.signal.registration.util.CompletionExceptions;
-import java.time.Duration;
+import java.time.Instant;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 
@@ -50,8 +49,8 @@ public class RateLimiterMetricsBinder implements BeanCreatedEventListener<RateLi
     }
 
     @Override
-    public CompletableFuture<Optional<Duration>> getDurationUntilActionAllowed(final K key) {
-      return delegate.getDurationUntilActionAllowed(key);
+    public CompletableFuture<Optional<Instant>> getTimeOfNextAction(final K key) {
+      return delegate.getTimeOfNextAction(key);
     }
 
     @Override

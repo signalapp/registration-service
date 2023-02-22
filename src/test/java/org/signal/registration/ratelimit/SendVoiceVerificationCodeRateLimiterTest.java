@@ -33,11 +33,11 @@ class SendVoiceVerificationCodeRateLimiterTest {
 
     // No prior SMS
     assertEquals(Optional.empty(),
-        rateLimiter.getDurationUntilActionAllowed(RegistrationSession.newBuilder().build()).join());
+        rateLimiter.getTimeOfNextAction(RegistrationSession.newBuilder().build()).join());
 
     // Still in "cooldown" period from first SMS
-    assertEquals(Optional.of(delayAfterFirstSms),
-        rateLimiter.getDurationUntilActionAllowed(RegistrationSession.newBuilder()
+    assertEquals(Optional.of(currentTime.plus(delayAfterFirstSms)),
+        rateLimiter.getTimeOfNextAction(RegistrationSession.newBuilder()
                 .addRegistrationAttempts(RegistrationAttempt.newBuilder()
                     .setMessageTransport(MessageTransport.MESSAGE_TRANSPORT_SMS)
                     .setTimestampEpochMillis(currentTime.toEpochMilli())
@@ -46,18 +46,19 @@ class SendVoiceVerificationCodeRateLimiterTest {
             .join());
 
     // After SMS "cooldown" period, but before first voice verification code
-    assertEquals(Optional.of(Duration.ZERO),
-        rateLimiter.getDurationUntilActionAllowed(RegistrationSession.newBuilder()
+    assertTrue(rateLimiter.getTimeOfNextAction(RegistrationSession.newBuilder()
             .addRegistrationAttempts(RegistrationAttempt.newBuilder()
                 .setMessageTransport(MessageTransport.MESSAGE_TRANSPORT_SMS)
                 .setTimestampEpochMillis(currentTime.minus(delayAfterFirstSms).toEpochMilli())
                 .build())
             .build())
-            .join());
+        .join()
+        .map(timeOfNextAction -> timeOfNextAction.equals(currentTime) || timeOfNextAction.isBefore(currentTime))
+        .orElse(false));
 
     // After first voice verification code
-    assertEquals(Optional.of(delays.get(0)),
-        rateLimiter.getDurationUntilActionAllowed(RegistrationSession.newBuilder()
+    assertEquals(Optional.of(currentTime.plus(delays.get(0))),
+        rateLimiter.getTimeOfNextAction(RegistrationSession.newBuilder()
                 .addRegistrationAttempts(RegistrationAttempt.newBuilder()
                     .setMessageTransport(MessageTransport.MESSAGE_TRANSPORT_SMS)
                     .setTimestampEpochMillis(currentTime.minus(delayAfterFirstSms).toEpochMilli())
@@ -71,7 +72,7 @@ class SendVoiceVerificationCodeRateLimiterTest {
 
     // Voice verification attempts exhausted
     assertEquals(Optional.empty(),
-        rateLimiter.getDurationUntilActionAllowed(RegistrationSession.newBuilder()
+        rateLimiter.getTimeOfNextAction(RegistrationSession.newBuilder()
                 .addRegistrationAttempts(RegistrationAttempt.newBuilder()
                     .setMessageTransport(MessageTransport.MESSAGE_TRANSPORT_SMS)
                     .setTimestampEpochMillis(currentTime.minus(delayAfterFirstSms).minus(delayAfterFirstSms).toEpochMilli())

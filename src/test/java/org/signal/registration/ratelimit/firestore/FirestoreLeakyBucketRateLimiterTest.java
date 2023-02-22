@@ -153,13 +153,13 @@ class FirestoreLeakyBucketRateLimiterTest {
 
     final String key = "key";
 
-    assertEquals(Duration.ZERO, rateLimiter.takePermit(key).join(),
+    assertEquals(currentTime, rateLimiter.takePermit(key).join(),
         "Rate limiter should not return a time to next permit when bucket doesn't exist");
 
-    assertEquals(Duration.ZERO, rateLimiter.takePermit(key).join(),
+    assertEquals(currentTime, rateLimiter.takePermit(key).join(),
         "Rate limiter should not return a time to next permit when bucket exists, but has permits");
 
-    assertEquals(permitRegenerationPeriod, rateLimiter.takePermit(key).join(),
+    assertEquals(currentTime.plus(permitRegenerationPeriod), rateLimiter.takePermit(key).join(),
         "Rate limiter should return the correct time to next permit when bucket is empty");
   }
 
@@ -174,10 +174,10 @@ class FirestoreLeakyBucketRateLimiterTest {
 
     final String key = "key";
 
-    assertEquals(Duration.ZERO, rateLimiter.takePermit(key).join(),
+    assertEquals(currentTime, rateLimiter.takePermit(key).join(),
         "Rate limiter should not return a time to next permit when bucket doesn't exist");
 
-    assertEquals(minDelay, rateLimiter.takePermit(key).join(),
+    assertEquals(currentTime.plus(minDelay), rateLimiter.takePermit(key).join(),
         "Rate limiter should return the correct time to next permit when bucket has permits, but cooldown is in effect");
   }
 
