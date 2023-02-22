@@ -67,3 +67,19 @@ For local testing, this service can be run in the `dev` [Micronaut environment](
 - An in-memory session store
 
 These components are, obviously, not suitable for production use and are intended only to facilitate local development and testing.
+
+## Testing with command-line tools
+
+The registration service include a set of CLI tools to facilitate testing and development. The tools allow operators to create and inspect registration sessions, send verification codes, and check verification codes.
+
+To build the CLI tools:
+
+```shell
+./mvnw clean package
+```
+
+To run the tool:
+
+```shell
+java -cp target/registration-service-0.1.jar org.signal.registration.cli.RegistrationClient
+```
