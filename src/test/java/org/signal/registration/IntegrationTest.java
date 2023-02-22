@@ -92,11 +92,11 @@ public class IntegrationTest {
 
     final CheckVerificationCodeResponse checkVerificationCodeResponse =
         blockingStub.checkVerificationCode(CheckVerificationCodeRequest.newBuilder()
-            .setSessionId(sendVerificationCodeResponse.getSessionId())
+            .setSessionId(createRegistrationSessionResponse.getSessionMetadata().getSessionId())
             .setVerificationCode(LastDigitsOfPhoneNumberVerificationCodeSender.getVerificationCode(phoneNumber))
             .build());
 
-    assertTrue(checkVerificationCodeResponse.getVerified());
+    assertTrue(checkVerificationCodeResponse.getSessionMetadata().getVerified());
   }
 
   @Test
@@ -119,11 +119,11 @@ public class IntegrationTest {
 
     final CheckVerificationCodeResponse checkVerificationCodeResponse =
         blockingStub.checkVerificationCode(CheckVerificationCodeRequest.newBuilder()
-            .setSessionId(sendVerificationCodeResponse.getSessionId())
+            .setSessionId(createRegistrationSessionResponse.getSessionMetadata().getSessionId())
             .setVerificationCode("incorrect")
             .build());
 
-    assertFalse(checkVerificationCodeResponse.getVerified());
+    assertFalse(checkVerificationCodeResponse.getSessionMetadata().getVerified());
   }
 
   @Test
@@ -198,11 +198,11 @@ public class IntegrationTest {
 
     final CheckVerificationCodeResponse checkVerificationCodeResponse =
         blockingStub.checkVerificationCode(CheckVerificationCodeRequest.newBuilder()
-            .setSessionId(sendVerificationCodeResponse.getSessionId())
+            .setSessionId(createRegistrationSessionResponse.getSessionMetadata().getSessionId())
             .setVerificationCode(LastDigitsOfPhoneNumberVerificationCodeSender.getVerificationCode(phoneNumber))
             .build());
 
-    assertTrue(checkVerificationCodeResponse.getVerified());
+    assertTrue(checkVerificationCodeResponse.getSessionMetadata().getVerified());
 
     final SendVerificationCodeResponse sendVerificationCodeAfterVerificationResponse =
         blockingStub.sendVerificationCode(SendVerificationCodeRequest.newBuilder()
@@ -226,7 +226,7 @@ public class IntegrationTest {
             .setVerificationCode("550123")
             .build());
 
-    assertFalse(checkVerificationCodeResponse.getVerified());
+    assertFalse(checkVerificationCodeResponse.getSessionMetadata().getVerified());
   }
 
   @Test

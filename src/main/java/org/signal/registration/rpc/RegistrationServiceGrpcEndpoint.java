@@ -155,7 +155,6 @@ public class RegistrationServiceGrpcEndpoint extends RegistrationServiceGrpc.Reg
           .whenComplete((session, throwable) -> {
             if (throwable == null) {
               responseObserver.onNext(SendVerificationCodeResponse.newBuilder()
-                  .setSessionId(session.getId())
                   .setSessionMetadata(registrationService.buildSessionMetadata(session))
                   .build());
 
@@ -233,7 +232,6 @@ public class RegistrationServiceGrpcEndpoint extends RegistrationServiceGrpc.Reg
         .whenComplete((session, throwable) -> {
           if (throwable == null) {
             responseObserver.onNext(CheckVerificationCodeResponse.newBuilder()
-                .setVerified(StringUtils.isNotBlank(session.getVerifiedCode()))
                 .setSessionMetadata(registrationService.buildSessionMetadata(session))
                 .build());
 

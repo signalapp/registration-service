@@ -8,6 +8,7 @@ package org.signal.registration.cli;
 import com.google.protobuf.ByteString;
 import org.apache.commons.codec.DecoderException;
 import org.apache.commons.codec.binary.Hex;
+import org.apache.commons.lang3.StringUtils;
 import org.signal.registration.rpc.CheckVerificationCodeRequest;
 import org.signal.registration.rpc.CheckVerificationCodeResponse;
 import picocli.CommandLine;
@@ -42,7 +43,7 @@ class CheckVerificationCode implements Runnable {
         System.err.println("Failed to check verification code");
         System.err.println(response);
       } else {
-        System.out.println(response.getVerified() ? "Session verified" : "Session not verified");
+        System.out.println(response.getSessionMetadata().getVerified() ? "Session verified" : "Session not verified");
         System.out.println(response);
       }
     } catch (final IOException e) {

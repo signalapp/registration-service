@@ -22,6 +22,7 @@ import java.util.Locale;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.Stream;
+import org.apache.commons.lang3.StringUtils;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
@@ -48,11 +49,12 @@ class RegistrationServiceGrpcEndpointTest {
     final RegistrationService registrationService = mock(RegistrationService.class);
 
     when(registrationService.buildSessionMetadata(any()))
-        .thenAnswer((Answer<RegistrationSessionMetadata>) invocationOnMock -> {
-          final RegistrationSession session = invocationOnMock.getArgument(0, RegistrationSession.class);
+        .thenAnswer((Answer<RegistrationSessionMetadata>) invocation -> {
+          final RegistrationSession session = invocation.getArgument(0, RegistrationSession.class);
 
           return RegistrationSessionMetadata.newBuilder()
               .setSessionId(session.getId())
+              .setVerified(StringUtils.isNotBlank(session.getVerifiedCode()))
               .build();
         });
 
@@ -169,7 +171,7 @@ class RegistrationServiceGrpcEndpointTest {
     verify(registrationService)
         .sendVerificationCode(MessageTransport.SMS, sessionUuid, null, Locale.LanguageRange.parse("en"), ClientType.UNKNOWN);
 
-    assertEquals(sessionUuid, UUIDUtil.uuidFromByteString(response.getSessionId()));
+    assertEquals(sessionUuid, UUIDUtil.uuidFromByteString(response.getSessionMetadata().getSessionId()));
     assertTrue(response.hasSessionMetadata());
     assertFalse(response.hasError());
   }
@@ -298,9 +300,10 @@ class RegistrationServiceGrpcEndpointTest {
 
     verify(registrationService).checkVerificationCode(sessionId, verificationCode);
 
-    assertTrue(response.getVerified());
     assertTrue(response.hasSessionMetadata());
     assertFalse(response.hasError());
+    assertTrue(response.getSessionMetadata().getVerified());
+    assertEquals(UUIDUtil.uuidToByteString(sessionId), response.getSessionMetadata().getSessionId());
   }
 
   @Test
