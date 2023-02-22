@@ -10,6 +10,7 @@ import java.io.File;
 
 @CommandLine.Command(subcommands = {
     CreateSession.class,
+    GetSession.class,
     SendVerificationCode.class,
     CheckVerificationCode.class
 })
