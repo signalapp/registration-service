@@ -38,10 +38,12 @@ class CheckVerificationCode implements Runnable {
               .setVerificationCode(verificationCode)
               .build());
 
-      if (response.getVerified()) {
-        System.out.println("Verified");
+      if (response.hasError()) {
+        System.err.println("Failed to check verification code");
+        System.err.println(response);
       } else {
-        System.out.println("Not verified");
+        System.out.println(response.getVerified() ? "Session verified" : "Session not verified");
+        System.out.println(response);
       }
     } catch (final IOException e) {
       throw new UncheckedIOException(e);

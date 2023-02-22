@@ -37,7 +37,14 @@ class CreateSession implements Runnable {
           System.out.println("Created registration session " + sessionIdHex);
         }
 
-        case RESPONSE_NOT_SET -> throw new RuntimeException("Response contained no data");
+        case ERROR -> {
+          System.err.println("Could not create session");
+          System.err.println(response);
+        }
+
+        case RESPONSE_NOT_SET -> {
+          System.err.println("Response contained no data");
+        }
       }
 
     } catch (final IOException e) {

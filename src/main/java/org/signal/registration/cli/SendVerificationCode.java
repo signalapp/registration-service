@@ -11,6 +11,7 @@ import java.io.UncheckedIOException;
 import org.apache.commons.codec.DecoderException;
 import org.apache.commons.codec.binary.Hex;
 import org.signal.registration.rpc.SendVerificationCodeRequest;
+import org.signal.registration.rpc.SendVerificationCodeResponse;
 import org.signal.registration.sender.ClientType;
 import org.signal.registration.sender.MessageTransport;
 import picocli.CommandLine;
@@ -73,8 +74,15 @@ class SendVerificationCode implements Runnable {
         requestBuilder.setSenderName(senderName);
       }
 
-      //noinspection ResultOfMethodCallIgnored
-      stubSupplier.get().sendVerificationCode(requestBuilder.build());
+      final SendVerificationCodeResponse response = stubSupplier.get().sendVerificationCode(requestBuilder.build());
+
+      if (response.hasError()) {
+        System.err.println("Could not send verification code");
+        System.err.println(response);
+      } else {
+        System.out.println("Sent verification code");
+        System.out.println(response);
+      }
 
       System.out.println("Sent verification code");
     } catch (final IOException e) {
