@@ -589,6 +589,38 @@ class RegistrationServiceTest {
   }
 
   @Test
+  void buildSessionMetadataActionInPast() {
+    when(sendSmsVerificationCodeRateLimiter.getTimeOfNextAction(any()))
+        .thenReturn(CompletableFuture.completedFuture(Optional.of(CURRENT_TIME.minusSeconds(17))));
+
+    when(sendVoiceVerificationCodeRateLimiter.getTimeOfNextAction(any()))
+        .thenReturn(CompletableFuture.completedFuture(Optional.of(CURRENT_TIME.minusSeconds(19))));
+
+    when(checkVerificationCodeRateLimiter.getTimeOfNextAction(any()))
+        .thenReturn(CompletableFuture.completedFuture(Optional.of(CURRENT_TIME.minusSeconds(23))));
+
+    final RegistrationSession session = getBaseSessionBuilder()
+        .setCreatedEpochMillis(CURRENT_TIME.toEpochMilli())
+        .addRegistrationAttempts(RegistrationAttempt.newBuilder()
+            .setMessageTransport(org.signal.registration.session.MessageTransport.MESSAGE_TRANSPORT_SMS)
+            .setTimestampEpochMillis(CURRENT_TIME.toEpochMilli())
+            .setExpirationEpochMillis(CURRENT_TIME.plusSeconds(600).toEpochMilli())
+            .build())
+        .build();
+
+    final RegistrationSessionMetadata metadata = registrationService.buildSessionMetadata(session);
+
+    assertTrue(metadata.getMayRequestSms());
+    assertEquals(0, metadata.getNextSmsSeconds());
+
+    assertTrue(metadata.getMayRequestVoiceCall());
+    assertEquals(0, metadata.getNextVoiceCallSeconds());
+
+    assertTrue(metadata.getMayCheckCode());
+    assertEquals(0, metadata.getNextCodeCheckSeconds());
+  }
+
+  @Test
   void checkVerificationCodeSenderException() {
     when(sender.sendVerificationCode(any(), any(), any(), any()))
         .thenReturn(CompletableFuture.completedFuture(VERIFICATION_CODE_BYTES));
@@ -614,7 +646,8 @@ class RegistrationServiceTest {
   @ParameterizedTest
   @MethodSource
   @SuppressWarnings("OptionalUsedAsFieldOrParameterType")
-  void getSessionExpiration(final boolean verified,
+  void getSessionExpiration(final Instant sessionCreation,
+      final boolean verified,
       final Instant lastCodeCheck,
       final Optional<Instant> nextSms,
       final List<Instant> attemptExpirations,
@@ -624,6 +657,7 @@ class RegistrationServiceTest {
         .thenReturn(CompletableFuture.completedFuture(nextSms));
 
     final RegistrationSession.Builder sessionBuilder = RegistrationSession.newBuilder()
+        .setCreatedEpochMillis(sessionCreation.toEpochMilli())
         .setLastCheckCodeAttemptEpochMillis(lastCodeCheck.toEpochMilli());
 
     if (verified) {
@@ -641,31 +675,48 @@ class RegistrationServiceTest {
 
   private static Stream<Arguments> getSessionExpiration() {
     return Stream.of(
-        Arguments.of(true,
+        // Session verified right now
+        Arguments.of(CURRENT_TIME,
+            true,
             CURRENT_TIME,
             Optional.empty(),
             List.of(),
             CURRENT_TIME.plus(RegistrationService.SESSION_TTL_AFTER_LAST_ACTION)),
 
-        Arguments.of(false,
+        // Verification code never checked, ready to send an SMS in two minutes
+        Arguments.of(CURRENT_TIME.minusSeconds(600),
+            false,
             Instant.ofEpochMilli(0),
             Optional.of(CURRENT_TIME.plusSeconds(120)),
             List.of(),
             CURRENT_TIME.plus(RegistrationService.SESSION_TTL_AFTER_LAST_ACTION).plus(Duration.ofMinutes(2))),
 
-        Arguments.of(false,
+        // Verification code never checked, not allowed to request another SMS
+        Arguments.of(CURRENT_TIME.minusSeconds(600),
+            false,
             Instant.ofEpochMilli(0),
             Optional.empty(),
             List.of(CURRENT_TIME.plus(RegistrationService.SESSION_TTL_AFTER_LAST_ACTION).plus(Duration.ofMinutes(3))),
             CURRENT_TIME.plus(RegistrationService.SESSION_TTL_AFTER_LAST_ACTION).plus(Duration.ofMinutes(3))),
 
-        Arguments.of(false,
+        // Verification code never checked; two recent registration attempts
+        Arguments.of(CURRENT_TIME.minusSeconds(600),
+            false,
             Instant.ofEpochMilli(0),
             Optional.of(CURRENT_TIME.plusSeconds(120)),
             List.of(
                 CURRENT_TIME.plus(RegistrationService.SESSION_TTL_AFTER_LAST_ACTION).plus(Duration.ofMinutes(3)),
                 CURRENT_TIME.plus(RegistrationService.SESSION_TTL_AFTER_LAST_ACTION).plus(Duration.ofMinutes(5))),
-            CURRENT_TIME.plus(RegistrationService.SESSION_TTL_AFTER_LAST_ACTION).plus(Duration.ofMinutes(5)))
+            CURRENT_TIME.plus(RegistrationService.SESSION_TTL_AFTER_LAST_ACTION).plus(Duration.ofMinutes(5))),
+
+        // Fresh session with some time elapsed
+        Arguments.of(
+            CURRENT_TIME.minus(RegistrationService.SESSION_TTL_AFTER_LAST_ACTION.dividedBy(2)),
+            false,
+            Instant.ofEpochMilli(0),
+            Optional.of(CURRENT_TIME.minus(RegistrationService.SESSION_TTL_AFTER_LAST_ACTION.dividedBy(2))),
+            List.of(),
+            CURRENT_TIME.plus(RegistrationService.SESSION_TTL_AFTER_LAST_ACTION.dividedBy(2)))
     );
   }
 }

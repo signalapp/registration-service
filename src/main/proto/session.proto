@@ -55,6 +55,11 @@ message RegistrationSession {
    * The UNIX timestamp (in milliseconds) after which this session will expire.
    */
   uint64 expiration_epoch_millis = 9;
+
+  /**
+   * The UNIX timestamp (in milliseconds) at which this session was created.
+   */
+  uint64 created_epoch_millis = 10;
 }
 
 message RegistrationAttempt {

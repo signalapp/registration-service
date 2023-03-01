@@ -53,6 +53,7 @@ class MemorySessionRepositoryTest extends AbstractSessionRepositoryTest {
     final RegistrationSession expectedSession = RegistrationSession.newBuilder()
         .setId(createdSession.getId())
         .setPhoneNumber(PhoneNumberUtil.getInstance().format(PHONE_NUMBER, PhoneNumberUtil.PhoneNumberFormat.E164))
+        .setCreatedEpochMillis(getClock().instant().toEpochMilli())
         .setExpirationEpochMillis(getClock().instant().plus(TTL).toEpochMilli())
         .build();
 
@@ -86,6 +87,7 @@ class MemorySessionRepositoryTest extends AbstractSessionRepositoryTest {
         .setId(UUIDUtil.uuidToByteString(sessionId))
         .setPhoneNumber(PhoneNumberUtil.getInstance().format(PHONE_NUMBER, PhoneNumberUtil.PhoneNumberFormat.E164))
         .setVerifiedCode(verificationCode)
+        .setCreatedEpochMillis(getClock().instant().toEpochMilli())
         .setExpirationEpochMillis(getClock().instant().plus(TTL).toEpochMilli())
         .build();
 
@@ -131,6 +133,7 @@ class MemorySessionRepositoryTest extends AbstractSessionRepositoryTest {
     final SessionCompletedEvent expectedEvent = new SessionCompletedEvent(RegistrationSession.newBuilder()
         .setId(session.getId())
         .setPhoneNumber(PhoneNumberUtil.getInstance().format(PHONE_NUMBER, PhoneNumberUtil.PhoneNumberFormat.E164))
+        .setCreatedEpochMillis(now.toEpochMilli())
         .setExpirationEpochMillis(expiration.toEpochMilli())
         .build());
 

@@ -313,17 +313,20 @@ public class RegistrationService {
 
     nextActionTimes.nextSms().ifPresent(nextAction -> {
       sessionMetadataBuilder.setMayRequestSms(true);
-      sessionMetadataBuilder.setNextSmsSeconds(Duration.between(currentTime, nextAction).toSeconds());
+      sessionMetadataBuilder.setNextSmsSeconds(
+          nextAction.isBefore(currentTime) ? 0 : Duration.between(currentTime, nextAction).toSeconds());
     });
 
     nextActionTimes.nextVoiceCall().ifPresent(nextAction -> {
       sessionMetadataBuilder.setMayRequestVoiceCall(true);
-      sessionMetadataBuilder.setNextVoiceCallSeconds(Duration.between(currentTime, nextAction).toSeconds());
+      sessionMetadataBuilder.setNextVoiceCallSeconds(
+          nextAction.isBefore(currentTime) ? 0 : Duration.between(currentTime, nextAction).toSeconds());
     });
 
     nextActionTimes.nextCodeCheck().ifPresent(nextAction -> {
       sessionMetadataBuilder.setMayCheckCode(true);
-      sessionMetadataBuilder.setNextCodeCheckSeconds(Duration.between(currentTime, nextAction).toSeconds());
+      sessionMetadataBuilder.setNextCodeCheckSeconds(
+          nextAction.isBefore(currentTime) ? 0 : Duration.between(currentTime, nextAction).toSeconds());
     });
 
     return sessionMetadataBuilder.build();

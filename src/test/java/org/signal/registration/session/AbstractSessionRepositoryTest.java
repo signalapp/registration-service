@@ -56,7 +56,21 @@ public abstract class AbstractSessionRepositoryTest {
 
   @Test
   void createSession() {
-    assertNotNull(getRepository().createSession(PHONE_NUMBER, clock.instant().plus(TTL)).join());
+    final Instant currentTime = getClock().instant();
+    final RegistrationSession createdSession = getRepository().createSession(PHONE_NUMBER, currentTime.plus(TTL)).join();
+
+    assertNotNull(createdSession);
+    assertNotNull(createdSession.getId());
+    assertTrue(createdSession.getId().size() > 0);
+
+    final RegistrationSession expectedSession = RegistrationSession.newBuilder()
+        .setId(createdSession.getId())
+        .setPhoneNumber(PhoneNumberUtil.getInstance().format(PHONE_NUMBER, PhoneNumberUtil.PhoneNumberFormat.E164))
+        .setCreatedEpochMillis(currentTime.toEpochMilli())
+        .setExpirationEpochMillis(currentTime.plus(TTL).toEpochMilli())
+        .build();
+
+    assertEquals(expectedSession, createdSession);
   }
 
   @Test
@@ -75,6 +89,7 @@ public abstract class AbstractSessionRepositoryTest {
       final RegistrationSession expectedSession = RegistrationSession.newBuilder()
           .setId(createdSession.getId())
           .setPhoneNumber(PhoneNumberUtil.getInstance().format(PHONE_NUMBER, PhoneNumberUtil.PhoneNumberFormat.E164))
+          .setCreatedEpochMillis(clock.instant().toEpochMilli())
           .setExpirationEpochMillis(clock.instant().plus(TTL).toEpochMilli())
           .build();
 
@@ -114,6 +129,7 @@ public abstract class AbstractSessionRepositoryTest {
           .setId(createdSession.getId())
           .setPhoneNumber(PhoneNumberUtil.getInstance().format(PHONE_NUMBER, PhoneNumberUtil.PhoneNumberFormat.E164))
           .setVerifiedCode(verificationCode)
+          .setCreatedEpochMillis(clock.instant().toEpochMilli())
           .setExpirationEpochMillis(expirationAfterUpdate.toEpochMilli())
           .build();
 

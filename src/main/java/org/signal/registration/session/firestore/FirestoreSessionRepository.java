@@ -150,6 +150,7 @@ public class FirestoreSessionRepository implements SessionRepository {
     final RegistrationSession session = RegistrationSession.newBuilder()
         .setId(UUIDUtil.uuidToByteString(sessionId))
         .setPhoneNumber(PhoneNumberUtil.getInstance().format(phoneNumber, PhoneNumberUtil.PhoneNumberFormat.E164))
+        .setCreatedEpochMillis(clock.instant().toEpochMilli())
         .setExpirationEpochMillis(expiration.toEpochMilli())
         .build();
 

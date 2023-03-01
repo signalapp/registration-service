@@ -64,7 +64,7 @@ public abstract class FixedDelayRegistrationSessionRateLimiter implements RateLi
 
     if (attempts == 0) {
       // If the caller has never attempted this action before, they may do so immediately
-      maybeNextAction = Optional.of(clock.instant());
+      maybeNextAction = Optional.of(Instant.ofEpochMilli(session.getCreatedEpochMillis()));
     } else if (attempts <= delays.size()) {
       maybeNextAction = Optional.of(maybeLastAttempt
           .orElseThrow(() -> new IllegalStateException("Last attempt must be present if attempt count is non-zero"))
