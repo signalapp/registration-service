@@ -68,6 +68,12 @@ For local testing, this service can be run in the `dev` [Micronaut environment](
 
 These components are, obviously, not suitable for production use and are intended only to facilitate local development and testing.
 
+To run the registration service locally with the `dev` environment enabled:
+
+```shell
+./mvnw mn:run -Dmicronaut.environments=dev
+```
+
 ## Testing with command-line tools
 
 The registration service include a set of CLI tools to facilitate testing and development. The tools allow operators to create and inspect registration sessions, send verification codes, and check verification codes.
@@ -78,8 +84,67 @@ To build the CLI tools:
 ./mvnw clean package
 ```
 
-To run the tool:
+To run the tool and get an exhaustive list of subcommands and flags:
 
 ```shell
 java -cp target/registration-service-0.1.jar org.signal.registration.cli.RegistrationClient
+```
+
+…which yields (at the time of writing):
+
+```
+Usage: <main class> [--api-key=<apiKey>] [--host=<host>] [--port=<port>]
+                    [[--plaintext] |
+                    --trusted-server-certificate=<trustedServerCertificate>]
+                    [COMMAND]
+      --api-key=<apiKey>   API key for this call
+      --host=<host>        Registration service hostname (default: localhost)
+      --plaintext          Use plaintext instead of TLS? (default: false)
+      --port=<port>        Registration service port (default: 50051)
+      --trusted-server-certificate=<trustedServerCertificate>
+                           Path to a trusted server certificate; signal.org
+                           certificate trusted by default
+Commands:
+  create-session, create          Start a new registration session
+  get-session, get                Describe an existing registration session
+  send-verification-code, send    Send a verification code to a phone number
+                                  associated with a session
+  check-verification-code, check  Check a verification code for a registration
+                                  session
+```
+
+As a concrete example of interacting with a local registration service running on port 50051, callers may create a registration session with the following command:
+
+```shell
+java -cp target/registration-service-0.1.jar org.signal.registration.cli.RegistrationClient \
+  --host=localhost \
+  --port=50051 \
+  --plaintext \
+  create-session +18005550123
+```
+
+…which yields (in this example):
+
+```
+Created registration session 2a3d2a2a41ff41fb9ce41687ddcc51a4
+```
+
+To send an SMS verification code for that session:
+
+```shell
+java -cp target/registration-service-0.1.jar org.signal.registration.cli.RegistrationClient \
+  --host=localhost \
+  --port=50051 \
+  --plaintext \
+  send-verification-code 2a3d2a2a41ff41fb9ce41687ddcc51a4
+```
+
+…and, finally, to submit a verification code for that session:
+
+```shell
+java -cp target/registration-service-0.1.jar org.signal.registration.cli.RegistrationClient \
+  --host=localhost \
+  --port=50051 \
+  --plaintext \
+  check-verification-code 2a3d2a2a41ff41fb9ce41687ddcc51a4 550123
 ```
