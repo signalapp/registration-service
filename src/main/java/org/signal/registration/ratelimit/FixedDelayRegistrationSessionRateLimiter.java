@@ -63,8 +63,12 @@ public abstract class FixedDelayRegistrationSessionRateLimiter implements RateLi
     final Optional<Instant> maybeNextAction;
 
     if (attempts == 0) {
-      // If the caller has never attempted this action before, they may do so immediately
-      maybeNextAction = Optional.of(Instant.ofEpochMilli(session.getCreatedEpochMillis()));
+      // If the caller has never attempted this action before, they may do so immediately. To support
+      // deployment, fall back to the current time for session creation time if no creation time is set; once deployment
+      // is complete and all sessions have a non-zero creation time, we can use session creation time unconditionally.
+      maybeNextAction = Optional.of(session.getCreatedEpochMillis() > 0
+          ? Instant.ofEpochMilli(session.getCreatedEpochMillis())
+          : clock.instant());
     } else if (attempts <= delays.size()) {
       maybeNextAction = Optional.of(maybeLastAttempt
           .orElseThrow(() -> new IllegalStateException("Last attempt must be present if attempt count is non-zero"))
