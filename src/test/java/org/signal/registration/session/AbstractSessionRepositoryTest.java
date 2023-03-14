@@ -12,7 +12,6 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
-import com.google.i18n.phonenumbers.NumberParseException;
 import com.google.i18n.phonenumbers.PhoneNumberUtil;
 import com.google.i18n.phonenumbers.Phonenumber;
 import java.time.Clock;
@@ -29,16 +28,7 @@ public abstract class AbstractSessionRepositoryTest {
 
   private Clock clock;
 
-  protected static final Phonenumber.PhoneNumber PHONE_NUMBER;
-
-  static {
-    try {
-      PHONE_NUMBER = PhoneNumberUtil.getInstance().parse("+12025550123", null);
-    } catch (final NumberParseException e) {
-      // This should never happen for a literally-specified, known-good number
-      throw new AssertionError("Could not parse test phone number", e);
-    }
-  }
+  protected static final Phonenumber.PhoneNumber PHONE_NUMBER = PhoneNumberUtil.getInstance().getExampleNumber("US");
 
   protected static final Duration TTL = Duration.ofMinutes(1);
 
