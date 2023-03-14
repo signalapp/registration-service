@@ -56,7 +56,9 @@ public class RegistrationServiceGrpcEndpoint extends RegistrationServiceGrpc.Reg
       final Phonenumber.PhoneNumber phoneNumber =
           PhoneNumberUtil.getInstance().parse("+" + request.getE164(), null);
 
-      registrationService.createRegistrationSession(phoneNumber, SessionMetadata.newBuilder().build())
+      registrationService.createRegistrationSession(phoneNumber, SessionMetadata.newBuilder()
+              .setAccountExistsWithE164(request.getAccountExistsWithE164())
+              .build())
           .whenComplete((session, throwable) -> {
             if (throwable == null) {
               responseObserver.onNext(CreateRegistrationSessionResponse.newBuilder()
