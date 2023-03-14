@@ -60,6 +60,8 @@ message RegistrationSession {
    * The UNIX timestamp (in milliseconds) at which this session was created.
    */
   uint64 created_epoch_millis = 10;
+
+  SessionMetadata session_metadata = 11;
 }
 
 message RegistrationAttempt {
@@ -96,4 +98,12 @@ enum MessageTransport {
   MESSAGE_TRANSPORT_UNSPECIFIED = 0;
   MESSAGE_TRANSPORT_SMS = 1;
   MESSAGE_TRANSPORT_VOICE = 2;
+}
+
+message SessionMetadata {
+  /**
+   * Indicates whether an account already exists with the given e164 (i.e. this
+   * session represents a "re-registration" attempt).
+   */
+  bool account_exists_with_e164 = 1;
 }

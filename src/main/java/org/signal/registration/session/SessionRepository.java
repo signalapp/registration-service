@@ -24,11 +24,13 @@ public interface SessionRepository {
    * Asynchronously stores a new registration session.
    *
    * @param phoneNumber the phone number to be verified as part of this registration session
+   * @param sessionMetadata additional metadata to store as part of this session
    * @param expiration the time at which this newly-created session expires
    *
    * @return a future that yields the newly-created registration session after the session has been created and stored
    */
-  CompletableFuture<RegistrationSession> createSession(Phonenumber.PhoneNumber phoneNumber, Instant expiration);
+  CompletableFuture<RegistrationSession> createSession(Phonenumber.PhoneNumber phoneNumber,
+      SessionMetadata sessionMetadata, Instant expiration);
 
   /**
    * Returns the registration session associated with the given session identifier.

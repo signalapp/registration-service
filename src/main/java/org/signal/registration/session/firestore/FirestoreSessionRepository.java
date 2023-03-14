@@ -41,6 +41,7 @@ import java.util.function.Function;
 import org.signal.registration.metrics.MetricsUtil;
 import org.signal.registration.session.RegistrationSession;
 import org.signal.registration.session.SessionCompletedEvent;
+import org.signal.registration.session.SessionMetadata;
 import org.signal.registration.session.SessionNotFoundException;
 import org.signal.registration.session.SessionRepository;
 import org.signal.registration.util.CompletionExceptions;
@@ -142,7 +143,9 @@ public class FirestoreSessionRepository implements SessionRepository {
   }
 
   @Override
-  public CompletableFuture<RegistrationSession> createSession(final Phonenumber.PhoneNumber phoneNumber, final Instant expiration) {
+  public CompletableFuture<RegistrationSession> createSession(final Phonenumber.PhoneNumber phoneNumber,
+      final SessionMetadata sessionMetadata,
+      final Instant expiration) {
 
     final Timer.Sample sample = Timer.start();
 
@@ -152,6 +155,7 @@ public class FirestoreSessionRepository implements SessionRepository {
         .setPhoneNumber(PhoneNumberUtil.getInstance().format(phoneNumber, PhoneNumberUtil.PhoneNumberFormat.E164))
         .setCreatedEpochMillis(clock.instant().toEpochMilli())
         .setExpirationEpochMillis(expiration.toEpochMilli())
+        .setSessionMetadata(sessionMetadata)
         .build();
 
     return FirestoreUtil.toCompletableFuture(firestore.collection(configuration.collectionName())

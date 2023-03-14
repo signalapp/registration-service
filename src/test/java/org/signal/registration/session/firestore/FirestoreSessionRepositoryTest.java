@@ -86,7 +86,7 @@ class FirestoreSessionRepositoryTest extends AbstractSessionRepositoryTest {
 
   @Test
   void getSessionExpired() {
-    final UUID sessionId = UUIDUtil.uuidFromByteString(repository.createSession(PHONE_NUMBER, getClock().instant().plus(TTL)).join().getId());
+    final UUID sessionId = UUIDUtil.uuidFromByteString(repository.createSession(PHONE_NUMBER, SESSION_METADATA, getClock().instant().plus(TTL)).join().getId());
 
     when(getClock().instant()).thenReturn(NOW.plus(TTL).plusMillis(1));
 
@@ -101,7 +101,7 @@ class FirestoreSessionRepositoryTest extends AbstractSessionRepositoryTest {
     final Instant creation = getClock().instant();
     final Instant expiration = creation.plus(TTL);
     final UUID sessionId =
-        UUIDUtil.uuidFromByteString(repository.createSession(PHONE_NUMBER, expiration).join().getId());
+        UUIDUtil.uuidFromByteString(repository.createSession(PHONE_NUMBER, SESSION_METADATA, expiration).join().getId());
 
     assertDoesNotThrow(() -> repository.getSession(sessionId).join());
 
@@ -120,6 +120,7 @@ class FirestoreSessionRepositoryTest extends AbstractSessionRepositoryTest {
         .setPhoneNumber(PhoneNumberUtil.getInstance().format(PHONE_NUMBER, PhoneNumberUtil.PhoneNumberFormat.E164))
         .setCreatedEpochMillis(creation.toEpochMilli())
         .setExpirationEpochMillis(expiration.toEpochMilli())
+        .setSessionMetadata(SESSION_METADATA)
         .build());
 
     verify(sessionCompletedEventPublisher).publishEventAsync(expectedEvent);

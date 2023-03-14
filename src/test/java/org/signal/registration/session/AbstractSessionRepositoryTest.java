@@ -32,6 +32,9 @@ public abstract class AbstractSessionRepositoryTest {
 
   protected static final Duration TTL = Duration.ofMinutes(1);
 
+  protected static final SessionMetadata SESSION_METADATA =
+      SessionMetadata.newBuilder().setAccountExistsWithE164(true).build();
+
   protected Clock getClock() {
     return clock;
   }
@@ -47,7 +50,7 @@ public abstract class AbstractSessionRepositoryTest {
   @Test
   void createSession() {
     final Instant currentTime = getClock().instant();
-    final RegistrationSession createdSession = getRepository().createSession(PHONE_NUMBER, currentTime.plus(TTL)).join();
+    final RegistrationSession createdSession = getRepository().createSession(PHONE_NUMBER, SESSION_METADATA, currentTime.plus(TTL)).join();
 
     assertNotNull(createdSession);
     assertNotNull(createdSession.getId());
@@ -58,6 +61,7 @@ public abstract class AbstractSessionRepositoryTest {
         .setPhoneNumber(PhoneNumberUtil.getInstance().format(PHONE_NUMBER, PhoneNumberUtil.PhoneNumberFormat.E164))
         .setCreatedEpochMillis(currentTime.toEpochMilli())
         .setExpirationEpochMillis(currentTime.plus(TTL).toEpochMilli())
+        .setSessionMetadata(SESSION_METADATA)
         .build();
 
     assertEquals(expectedSession, createdSession);
@@ -75,12 +79,13 @@ public abstract class AbstractSessionRepositoryTest {
     }
 
     {
-      final RegistrationSession createdSession = repository.createSession(PHONE_NUMBER, clock.instant().plus(TTL)).join();
+      final RegistrationSession createdSession = repository.createSession(PHONE_NUMBER, SESSION_METADATA, clock.instant().plus(TTL)).join();
       final RegistrationSession expectedSession = RegistrationSession.newBuilder()
           .setId(createdSession.getId())
           .setPhoneNumber(PhoneNumberUtil.getInstance().format(PHONE_NUMBER, PhoneNumberUtil.PhoneNumberFormat.E164))
           .setCreatedEpochMillis(clock.instant().toEpochMilli())
           .setExpirationEpochMillis(clock.instant().plus(TTL).toEpochMilli())
+          .setSessionMetadata(SESSION_METADATA)
           .build();
 
       assertEquals(expectedSession, repository.getSession(UUIDUtil.uuidFromByteString(createdSession.getId())).join());
@@ -109,7 +114,7 @@ public abstract class AbstractSessionRepositoryTest {
     }
 
     {
-      final RegistrationSession createdSession = repository.createSession(PHONE_NUMBER, expiration).join();
+      final RegistrationSession createdSession = repository.createSession(PHONE_NUMBER, SESSION_METADATA, expiration).join();
       final UUID sessionId = UUIDUtil.uuidFromByteString(createdSession.getId());
 
       final RegistrationSession updatedSession =
@@ -121,6 +126,7 @@ public abstract class AbstractSessionRepositoryTest {
           .setVerifiedCode(verificationCode)
           .setCreatedEpochMillis(clock.instant().toEpochMilli())
           .setExpirationEpochMillis(expirationAfterUpdate.toEpochMilli())
+          .setSessionMetadata(SESSION_METADATA)
           .build();
 
       assertEquals(expectedSession, updatedSession);

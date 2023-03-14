@@ -50,6 +50,7 @@ import org.signal.registration.sender.VerificationCodeSender;
 import org.signal.registration.session.MemorySessionRepository;
 import org.signal.registration.session.RegistrationAttempt;
 import org.signal.registration.session.RegistrationSession;
+import org.signal.registration.session.SessionMetadata;
 import org.signal.registration.session.SessionNotFoundException;
 import org.signal.registration.session.SessionRepository;
 import org.signal.registration.util.CompletionExceptions;
@@ -74,6 +75,7 @@ class RegistrationServiceTest {
   private static final byte[] VERIFICATION_CODE_BYTES = VERIFICATION_CODE.getBytes(StandardCharsets.UTF_8);
   private static final List<Locale.LanguageRange> LANGUAGE_RANGES = Locale.LanguageRange.parse("en,de");
   private static final ClientType CLIENT_TYPE = ClientType.UNKNOWN;
+  private static final SessionMetadata SESSION_METADATA = SessionMetadata.newBuilder().build();
   private static final Instant CURRENT_TIME = Instant.now().truncatedTo(ChronoUnit.MILLIS);
 
   @BeforeEach
@@ -126,7 +128,7 @@ class RegistrationServiceTest {
 
   @Test
   void createSession() {
-    final RegistrationSession session = registrationService.createRegistrationSession(PHONE_NUMBER).join();
+    final RegistrationSession session = registrationService.createRegistrationSession(PHONE_NUMBER, SESSION_METADATA).join();
 
     assertEquals(PhoneNumberUtil.getInstance().format(PHONE_NUMBER, PhoneNumberUtil.PhoneNumberFormat.E164),
         session.getPhoneNumber());
@@ -143,17 +145,17 @@ class RegistrationServiceTest {
         .thenReturn(CompletableFuture.failedFuture(rateLimitExceededException));
 
     final CompletionException completionException = assertThrows(CompletionException.class,
-        () -> registrationService.createRegistrationSession(PHONE_NUMBER).join());
+        () -> registrationService.createRegistrationSession(PHONE_NUMBER, SESSION_METADATA).join());
 
     assertEquals(rateLimitExceededException, CompletionExceptions.unwrap(completionException));
-    verify(sessionRepository, never()).createSession(any(), any());
+    verify(sessionRepository, never()).createSession(any(), any(), any());
   }
 
   @Test
   void sendVerificationCode() {
     final UUID sessionId;
     {
-      final RegistrationSession session = registrationService.createRegistrationSession(PHONE_NUMBER).join();
+      final RegistrationSession session = registrationService.createRegistrationSession(PHONE_NUMBER, SESSION_METADATA).join();
       sessionId = UUIDUtil.uuidFromByteString(session.getId());
     }
 
@@ -177,7 +179,7 @@ class RegistrationServiceTest {
   void sendVerificationCodeSmsRateLimited() {
     final UUID sessionId;
     {
-      final RegistrationSession session = registrationService.createRegistrationSession(PHONE_NUMBER).join();
+      final RegistrationSession session = registrationService.createRegistrationSession(PHONE_NUMBER, SESSION_METADATA).join();
       sessionId = UUIDUtil.uuidFromByteString(session.getId());
     }
 
@@ -199,7 +201,7 @@ class RegistrationServiceTest {
   void sendVerificationCodeVoiceRateLimited() {
     final UUID sessionId;
     {
-      final RegistrationSession session = registrationService.createRegistrationSession(PHONE_NUMBER).join();
+      final RegistrationSession session = registrationService.createRegistrationSession(PHONE_NUMBER, SESSION_METADATA).join();
       sessionId = UUIDUtil.uuidFromByteString(session.getId());
     }
 
@@ -228,7 +230,7 @@ class RegistrationServiceTest {
 
     final UUID sessionId;
     {
-      final RegistrationSession session = registrationService.createRegistrationSession(PHONE_NUMBER).join();
+      final RegistrationSession session = registrationService.createRegistrationSession(PHONE_NUMBER, SESSION_METADATA).join();
       sessionId = UUIDUtil.uuidFromByteString(session.getId());
     }
 
@@ -274,7 +276,7 @@ class RegistrationServiceTest {
 
     final UUID sessionId;
     {
-      final RegistrationSession session = registrationService.createRegistrationSession(PHONE_NUMBER).join();
+      final RegistrationSession session = registrationService.createRegistrationSession(PHONE_NUMBER, SESSION_METADATA).join();
       sessionId = UUIDUtil.uuidFromByteString(session.getId());
 
       registrationService.sendVerificationCode(MessageTransport.SMS, sessionId, SENDER_NAME, LANGUAGE_RANGES, CLIENT_TYPE).join();
@@ -296,7 +298,7 @@ class RegistrationServiceTest {
   void checkVerificationCodeResend() {
     final UUID sessionId;
     {
-      final RegistrationSession session = registrationService.createRegistrationSession(PHONE_NUMBER).join();
+      final RegistrationSession session = registrationService.createRegistrationSession(PHONE_NUMBER, SESSION_METADATA).join();
       sessionId = UUIDUtil.uuidFromByteString(session.getId());
     }
 
@@ -627,7 +629,7 @@ class RegistrationServiceTest {
 
     final UUID sessionId;
     {
-      final RegistrationSession session = registrationService.createRegistrationSession(PHONE_NUMBER).join();
+      final RegistrationSession session = registrationService.createRegistrationSession(PHONE_NUMBER, SESSION_METADATA).join();
       sessionId = UUIDUtil.uuidFromByteString(session.getId());
 
       registrationService.sendVerificationCode(MessageTransport.SMS, sessionId, SENDER_NAME, LANGUAGE_RANGES, CLIENT_TYPE).join();

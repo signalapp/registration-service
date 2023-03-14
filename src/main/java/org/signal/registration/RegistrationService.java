@@ -37,6 +37,7 @@ import org.signal.registration.sender.SenderSelectionStrategy;
 import org.signal.registration.sender.VerificationCodeSender;
 import org.signal.registration.session.RegistrationAttempt;
 import org.signal.registration.session.RegistrationSession;
+import org.signal.registration.session.SessionMetadata;
 import org.signal.registration.session.SessionRepository;
 import org.signal.registration.util.CompletionExceptions;
 import org.signal.registration.util.UUIDUtil;
@@ -114,10 +115,12 @@ public class RegistrationService {
    * this service's session repository; the returned future may fail with a
    * {@link org.signal.registration.ratelimit.RateLimitExceededException}
    */
-  public CompletableFuture<RegistrationSession> createRegistrationSession(final Phonenumber.PhoneNumber phoneNumber) {
+  public CompletableFuture<RegistrationSession> createRegistrationSession(final Phonenumber.PhoneNumber phoneNumber,
+      final SessionMetadata sessionMetadata) {
+
     return sessionCreationRateLimiter.checkRateLimit(phoneNumber)
         .thenCompose(ignored ->
-            sessionRepository.createSession(phoneNumber, clock.instant().plus(SESSION_TTL_AFTER_LAST_ACTION)));
+            sessionRepository.createSession(phoneNumber, sessionMetadata, clock.instant().plus(SESSION_TTL_AFTER_LAST_ACTION)));
   }
 
   /**

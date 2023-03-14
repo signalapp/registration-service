@@ -77,7 +77,7 @@ class RegistrationServiceGrpcEndpointTest {
         .setPhoneNumber("+" + e164)
         .build();
 
-    when(registrationService.createRegistrationSession(any()))
+    when(registrationService.createRegistrationSession(any(), any()))
         .thenReturn(CompletableFuture.completedFuture(session));
 
     final CreateRegistrationSessionResponse response =
@@ -93,7 +93,7 @@ class RegistrationServiceGrpcEndpointTest {
   void createSessionRateLimited() {
     final Duration retryAfter = Duration.ofSeconds(60);
 
-    when(registrationService.createRegistrationSession(any()))
+    when(registrationService.createRegistrationSession(any(), any()))
         .thenReturn(CompletableFuture.failedFuture(new RateLimitExceededException(retryAfter)));
 
     final CreateRegistrationSessionResponse response =

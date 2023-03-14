@@ -26,6 +26,7 @@ import org.signal.registration.ratelimit.RateLimitExceededException;
 import org.signal.registration.sender.ClientType;
 import org.signal.registration.sender.IllegalSenderArgumentException;
 import org.signal.registration.sender.SenderRejectedRequestException;
+import org.signal.registration.session.SessionMetadata;
 import org.signal.registration.session.SessionNotFoundException;
 import org.signal.registration.util.CompletionExceptions;
 import org.signal.registration.util.MessageTransports;
@@ -55,7 +56,7 @@ public class RegistrationServiceGrpcEndpoint extends RegistrationServiceGrpc.Reg
       final Phonenumber.PhoneNumber phoneNumber =
           PhoneNumberUtil.getInstance().parse("+" + request.getE164(), null);
 
-      registrationService.createRegistrationSession(phoneNumber)
+      registrationService.createRegistrationSession(phoneNumber, SessionMetadata.newBuilder().build())
           .whenComplete((session, throwable) -> {
             if (throwable == null) {
               responseObserver.onNext(CreateRegistrationSessionResponse.newBuilder()

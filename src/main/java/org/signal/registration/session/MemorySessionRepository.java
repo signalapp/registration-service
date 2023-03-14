@@ -55,6 +55,7 @@ public class MemorySessionRepository implements SessionRepository {
 
   @Override
   public CompletableFuture<RegistrationSession> createSession(final Phonenumber.PhoneNumber phoneNumber,
+      final SessionMetadata sessionMetadata,
       final Instant expiration) {
 
     final UUID sessionId = UUID.randomUUID();
@@ -63,6 +64,7 @@ public class MemorySessionRepository implements SessionRepository {
         .setPhoneNumber(PhoneNumberUtil.getInstance().format(phoneNumber, PhoneNumberUtil.PhoneNumberFormat.E164))
         .setCreatedEpochMillis(clock.instant().toEpochMilli())
         .setExpirationEpochMillis(expiration.toEpochMilli())
+        .setSessionMetadata(sessionMetadata)
         .build();
 
     sessionsById.put(sessionId, session);
