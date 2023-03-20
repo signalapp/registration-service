@@ -242,38 +242,60 @@ public class RegistrationService {
           // instead of making a call upstream.
           if (StringUtils.isNotBlank(session.getVerifiedCode())) {
             return CompletableFuture.completedFuture(session);
-          } else if (session.getRegistrationAttemptsCount() == 0) {
-            return CompletableFuture.failedFuture(new NoVerificationCodeSentException(session));
           } else {
-            return checkVerificationCodeRateLimiter.checkRateLimit(session).thenCompose(ignored -> {
-              final RegistrationAttempt currentRegistrationAttempt =
-                  session.getRegistrationAttempts(session.getRegistrationAttemptsCount() - 1);
-
-              if (Instant.ofEpochMilli(currentRegistrationAttempt.getExpirationEpochMillis()).isBefore(clock.instant())) {
-                return CompletableFuture.failedFuture(new AttemptExpiredException());
-              }
-
-              final VerificationCodeSender sender = sendersByName.get(currentRegistrationAttempt.getSenderName());
-
-              if (sender == null) {
-                throw new IllegalArgumentException("Unrecognized sender: " + currentRegistrationAttempt.getSenderName());
-              }
-
-              return sender.checkVerificationCode(verificationCode, currentRegistrationAttempt.getSessionData().toByteArray())
-                  .exceptionally(throwable -> {
-                    // The sender may view the submitted code as an illegal argument or may reject the attempt to check a
-                    // code altogether. We can treat any case of "the sender got it, but said 'no'" the same way we would
-                    // treat an accepted-but-incorrect code.
-                    if (throwable instanceof SenderException) {
-                      return false;
-                    }
-
-                    throw CompletionExceptions.wrap(throwable);
-                  })
-                  .thenCompose(verified -> recordCheckVerificationCodeAttempt(session, verified ? verificationCode : null));
-            });
+            return checkVerificationCode(session, verificationCode);
           }
         });
+  }
+
+  @Deprecated
+  public CompletableFuture<Boolean> legacyCheckVerificationCode(final UUID sessionId, final String verificationCode) {
+    return sessionRepository.getSession(sessionId)
+        .thenCompose(session -> {
+          // If a connection was interrupted, a caller may repeat a verification request. Check to see if we already
+          // have a known verification code for this session and, if so, check the provided code against that code
+          // instead of making a call upstream.
+          if (StringUtils.isNotBlank(verificationCode) && verificationCode.equals(session.getVerifiedCode())) {
+            return CompletableFuture.completedFuture(true);
+          } else {
+            return checkVerificationCode(session, verificationCode)
+                .thenApply(updatedSession -> StringUtils.isNotBlank(verificationCode) && verificationCode.equals(updatedSession.getVerifiedCode()));
+          }
+        });
+  }
+
+  private CompletableFuture<RegistrationSession> checkVerificationCode(final RegistrationSession session, final String verificationCode) {
+    if (session.getRegistrationAttemptsCount() == 0) {
+      return CompletableFuture.failedFuture(new NoVerificationCodeSentException(session));
+    } else {
+      return checkVerificationCodeRateLimiter.checkRateLimit(session).thenCompose(ignored -> {
+        final RegistrationAttempt currentRegistrationAttempt =
+            session.getRegistrationAttempts(session.getRegistrationAttemptsCount() - 1);
+
+        if (Instant.ofEpochMilli(currentRegistrationAttempt.getExpirationEpochMillis()).isBefore(clock.instant())) {
+          return CompletableFuture.failedFuture(new AttemptExpiredException());
+        }
+
+        final VerificationCodeSender sender = sendersByName.get(currentRegistrationAttempt.getSenderName());
+
+        if (sender == null) {
+          throw new IllegalArgumentException("Unrecognized sender: " + currentRegistrationAttempt.getSenderName());
+        }
+
+        return sender.checkVerificationCode(verificationCode, currentRegistrationAttempt.getSessionData().toByteArray())
+            .exceptionally(throwable -> {
+              // The sender may view the submitted code as an illegal argument or may reject the attempt to check a
+              // code altogether. We can treat any case of "the sender got it, but said 'no'" the same way we would
+              // treat an accepted-but-incorrect code.
+              if (throwable instanceof SenderException) {
+                return false;
+              }
+
+              throw CompletionExceptions.wrap(throwable);
+            })
+            .thenCompose(verified -> recordCheckVerificationCodeAttempt(session, verified ? verificationCode : null));
+      });
+    }
   }
 
   private CompletableFuture<RegistrationSession> recordCheckVerificationCodeAttempt(final RegistrationSession session,
