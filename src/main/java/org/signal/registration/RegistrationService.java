@@ -252,14 +252,16 @@ public class RegistrationService {
   public CompletableFuture<Boolean> legacyCheckVerificationCode(final UUID sessionId, final String verificationCode) {
     return sessionRepository.getSession(sessionId)
         .thenCompose(session -> {
-          // If a connection was interrupted, a caller may repeat a verification request. Check to see if we already
-          // have a known verification code for this session and, if so, check the provided code against that code
-          // instead of making a call upstream.
-          if (StringUtils.isNotBlank(verificationCode) && verificationCode.equals(session.getVerifiedCode())) {
-            return CompletableFuture.completedFuture(true);
+          if (StringUtils.isNotBlank(session.getVerifiedCode())) {
+            if (!verificationCode.equals(session.getVerifiedCode())) {
+              recordCheckVerificationCodeAttempt(session, session.getVerifiedCode());
+            }
+
+            return CompletableFuture.completedFuture(verificationCode.equals(session.getVerifiedCode()));
           } else {
             return checkVerificationCode(session, verificationCode)
-                .thenApply(updatedSession -> StringUtils.isNotBlank(verificationCode) && verificationCode.equals(updatedSession.getVerifiedCode()));
+                .thenApply(updatedSession -> StringUtils.isNotBlank(updatedSession.getVerifiedCode()) &&
+                    verificationCode.equals(updatedSession.getVerifiedCode()));
           }
         });
   }

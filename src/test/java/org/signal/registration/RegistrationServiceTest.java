@@ -489,7 +489,6 @@ class RegistrationServiceTest {
     assertEquals(secondCheckTime.toEpochMilli(), session.getLastCheckCodeAttemptEpochMillis());
 
     verify(sender).checkVerificationCode(VERIFICATION_CODE, VERIFICATION_CODE_BYTES);
-    verify(sender).checkVerificationCode(VERIFICATION_CODE + "-incorrect", VERIFICATION_CODE_BYTES);
   }
 
   @ParameterizedTest
