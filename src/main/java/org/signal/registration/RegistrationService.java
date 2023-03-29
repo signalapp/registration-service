@@ -39,6 +39,7 @@ import org.signal.registration.session.RegistrationAttempt;
 import org.signal.registration.session.RegistrationSession;
 import org.signal.registration.session.SessionMetadata;
 import org.signal.registration.session.SessionRepository;
+import org.signal.registration.util.ClientTypes;
 import org.signal.registration.util.CompletionExceptions;
 import org.signal.registration.util.MessageTransports;
 import org.signal.registration.util.UUIDUtil;
@@ -193,6 +194,7 @@ public class RegistrationService {
               .setLastCheckCodeAttemptEpochMillis(0)
               .addRegistrationAttempts(buildRegistrationAttempt(senderAndSessionData.sender(),
                   messageTransport,
+                  clientType,
                   senderAndSessionData.sessionData(),
                   senderAndSessionData.sender().getAttemptTtl()));
 
@@ -204,6 +206,7 @@ public class RegistrationService {
 
   private RegistrationAttempt buildRegistrationAttempt(final VerificationCodeSender sender,
       final MessageTransport messageTransport,
+      final ClientType clientType,
       final byte[] sessionData,
       final Duration ttl) {
 
@@ -214,6 +217,7 @@ public class RegistrationService {
         .setExpirationEpochMillis(currentTime.plus(ttl).toEpochMilli())
         .setSenderName(sender.getName())
         .setMessageTransport(MessageTransports.getRpcMessageTransportFromSenderTransport(messageTransport))
+        .setClientType(ClientTypes.getRpcClientTypeFromSenderClientType(clientType))
         .setSessionData(ByteString.copyFrom(sessionData))
         .build();
   }

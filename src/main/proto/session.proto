@@ -94,6 +94,11 @@ message RegistrationAttempt {
    * be valid.
    */
   uint64 expiration_epoch_millis = 5;
+
+  /**
+   * The type of client that initiated this attempt.
+   */
+  org.signal.registration.rpc.ClientType client_type = 6;
 }
 
 message SessionMetadata {
