@@ -14,6 +14,7 @@ import org.signal.registration.rpc.SendVerificationCodeRequest;
 import org.signal.registration.rpc.SendVerificationCodeResponse;
 import org.signal.registration.sender.ClientType;
 import org.signal.registration.sender.MessageTransport;
+import org.signal.registration.util.ClientTypes;
 import picocli.CommandLine;
 
 @CommandLine.Command(name = "send-verification-code",
@@ -54,12 +55,8 @@ class SendVerificationCode implements Runnable {
         case VOICE -> org.signal.registration.rpc.MessageTransport.MESSAGE_TRANSPORT_VOICE;
       };
 
-      final org.signal.registration.rpc.ClientType rpcClientType = switch (clientType) {
-        case IOS -> org.signal.registration.rpc.ClientType.CLIENT_TYPE_IOS;
-        case ANDROID_WITH_FCM -> org.signal.registration.rpc.ClientType.CLIENT_TYPE_ANDROID_WITH_FCM;
-        case ANDROID_WITHOUT_FCM -> org.signal.registration.rpc.ClientType.CLIENT_TYPE_ANDROID_WITHOUT_FCM;
-        case UNKNOWN -> org.signal.registration.rpc.ClientType.CLIENT_TYPE_UNSPECIFIED;
-      };
+      final org.signal.registration.rpc.ClientType rpcClientType =
+          ClientTypes.getRpcClientTypeFromSenderClientType(clientType);
 
       final SendVerificationCodeRequest.Builder requestBuilder = SendVerificationCodeRequest.newBuilder()
           .setSessionId(ByteString.copyFrom(Hex.decodeHex(sessionId)))
