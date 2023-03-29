@@ -14,7 +14,7 @@ import java.time.Instant;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Optional;
-import org.signal.registration.session.MessageTransport;
+import org.signal.registration.rpc.MessageTransport;
 import org.signal.registration.session.RegistrationSession;
 
 @Singleton

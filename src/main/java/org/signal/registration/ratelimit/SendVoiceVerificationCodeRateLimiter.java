@@ -8,7 +8,7 @@ package org.signal.registration.ratelimit;
 import io.micronaut.context.annotation.Value;
 import jakarta.inject.Named;
 import jakarta.inject.Singleton;
-import org.signal.registration.session.MessageTransport;
+import org.signal.registration.rpc.MessageTransport;
 import org.signal.registration.session.RegistrationSession;
 import java.time.Clock;
 import java.time.Duration;

@@ -171,7 +171,7 @@ class RegistrationServiceTest {
     verify(sessionRepository).updateSession(eq(sessionId), any());
 
     assertEquals(1, session.getRegistrationAttemptsCount());
-    assertEquals(org.signal.registration.session.MessageTransport.MESSAGE_TRANSPORT_SMS,
+    assertEquals(org.signal.registration.rpc.MessageTransport.MESSAGE_TRANSPORT_SMS,
         session.getRegistrationAttemptsList().get(0).getMessageTransport());
   }
 
@@ -246,7 +246,7 @@ class RegistrationServiceTest {
       assertEquals(sender.getName(), firstAttempt.getSenderName());
       assertEquals(CURRENT_TIME.toEpochMilli(), firstAttempt.getTimestampEpochMillis());
       assertEquals(expectedSessionData, firstAttempt.getSessionData());
-      assertEquals(org.signal.registration.session.MessageTransport.MESSAGE_TRANSPORT_SMS, firstAttempt.getMessageTransport());
+      assertEquals(org.signal.registration.rpc.MessageTransport.MESSAGE_TRANSPORT_SMS, firstAttempt.getMessageTransport());
     }
 
     final Instant future = CURRENT_TIME.plus(SESSION_TTL.dividedBy(2));
@@ -265,7 +265,7 @@ class RegistrationServiceTest {
       assertEquals(sender.getName(), secondAttempt.getSenderName());
       assertEquals(future.toEpochMilli(), secondAttempt.getTimestampEpochMillis());
       assertEquals(expectedSessionData, secondAttempt.getSessionData());
-      assertEquals(org.signal.registration.session.MessageTransport.MESSAGE_TRANSPORT_VOICE, secondAttempt.getMessageTransport());
+      assertEquals(org.signal.registration.rpc.MessageTransport.MESSAGE_TRANSPORT_VOICE, secondAttempt.getMessageTransport());
     }
   }
 
@@ -371,7 +371,7 @@ class RegistrationServiceTest {
         .setId(UUIDUtil.uuidToByteString(sessionId))
         .setPhoneNumber(PhoneNumberUtil.getInstance().format(PHONE_NUMBER, PhoneNumberUtil.PhoneNumberFormat.E164))
         .addRegistrationAttempts(RegistrationAttempt.newBuilder()
-            .setMessageTransport(org.signal.registration.session.MessageTransport.MESSAGE_TRANSPORT_SMS)
+            .setMessageTransport(org.signal.registration.rpc.MessageTransport.MESSAGE_TRANSPORT_SMS)
             .setSenderName(SENDER_NAME)
             .setSessionData(ByteString.copyFrom(VERIFICATION_CODE_BYTES))
             .setExpirationEpochMillis(CURRENT_TIME.toEpochMilli() + 1)
@@ -407,7 +407,7 @@ class RegistrationServiceTest {
         .setId(UUIDUtil.uuidToByteString(sessionId))
         .setPhoneNumber(PhoneNumberUtil.getInstance().format(PHONE_NUMBER, PhoneNumberUtil.PhoneNumberFormat.E164))
         .addRegistrationAttempts(RegistrationAttempt.newBuilder()
-            .setMessageTransport(org.signal.registration.session.MessageTransport.MESSAGE_TRANSPORT_SMS)
+            .setMessageTransport(org.signal.registration.rpc.MessageTransport.MESSAGE_TRANSPORT_SMS)
             .setSenderName(SENDER_NAME)
             .setSessionData(ByteString.copyFrom(VERIFICATION_CODE_BYTES))
             .setExpirationEpochMillis(CURRENT_TIME.toEpochMilli() - 1)
@@ -589,7 +589,7 @@ class RegistrationServiceTest {
         // Unverified session with an initial SMS sent
         Arguments.of(getBaseSessionBuilder()
                 .addRegistrationAttempts(RegistrationAttempt.newBuilder()
-                    .setMessageTransport(org.signal.registration.session.MessageTransport.MESSAGE_TRANSPORT_SMS)
+                    .setMessageTransport(org.signal.registration.rpc.MessageTransport.MESSAGE_TRANSPORT_SMS)
                     .setExpirationEpochMillis(CURRENT_TIME.plusSeconds(60).toEpochMilli())
                     .build())
                 .build(),
@@ -599,7 +599,7 @@ class RegistrationServiceTest {
         // Unverified session with an initial SMS sent, but the attempt has expired
         Arguments.of(getBaseSessionBuilder()
                 .addRegistrationAttempts(RegistrationAttempt.newBuilder()
-                    .setMessageTransport(org.signal.registration.session.MessageTransport.MESSAGE_TRANSPORT_SMS)
+                    .setMessageTransport(org.signal.registration.rpc.MessageTransport.MESSAGE_TRANSPORT_SMS)
                     .setExpirationEpochMillis(CURRENT_TIME.minusSeconds(60).toEpochMilli())
                     .build())
                 .build(),
@@ -609,7 +609,7 @@ class RegistrationServiceTest {
         // Unverified session with an initial SMS sent, but checks for the attempt have been exhausted
         Arguments.of(getBaseSessionBuilder()
                 .addRegistrationAttempts(RegistrationAttempt.newBuilder()
-                    .setMessageTransport(org.signal.registration.session.MessageTransport.MESSAGE_TRANSPORT_SMS)
+                    .setMessageTransport(org.signal.registration.rpc.MessageTransport.MESSAGE_TRANSPORT_SMS)
                     .setExpirationEpochMillis(CURRENT_TIME.plusSeconds(60).toEpochMilli())
                     .build())
                 .build(),
@@ -619,7 +619,7 @@ class RegistrationServiceTest {
         // Unverified session with SMS attempts exhausted
         Arguments.of(getBaseSessionBuilder()
                 .addRegistrationAttempts(RegistrationAttempt.newBuilder()
-                    .setMessageTransport(org.signal.registration.session.MessageTransport.MESSAGE_TRANSPORT_SMS)
+                    .setMessageTransport(org.signal.registration.rpc.MessageTransport.MESSAGE_TRANSPORT_SMS)
                     .setExpirationEpochMillis(CURRENT_TIME.plusSeconds(60).toEpochMilli())
                     .build())
                 .build(),
@@ -629,7 +629,7 @@ class RegistrationServiceTest {
         // Unverified session with voice calls exhausted
         Arguments.of(getBaseSessionBuilder()
                 .addRegistrationAttempts(RegistrationAttempt.newBuilder()
-                    .setMessageTransport(org.signal.registration.session.MessageTransport.MESSAGE_TRANSPORT_SMS)
+                    .setMessageTransport(org.signal.registration.rpc.MessageTransport.MESSAGE_TRANSPORT_SMS)
                     .setExpirationEpochMillis(CURRENT_TIME.plusSeconds(60).toEpochMilli())
                     .build())
                 .build(),
@@ -639,7 +639,7 @@ class RegistrationServiceTest {
         // Verified session
         Arguments.of(getBaseSessionBuilder()
                 .addRegistrationAttempts(RegistrationAttempt.newBuilder()
-                    .setMessageTransport(org.signal.registration.session.MessageTransport.MESSAGE_TRANSPORT_SMS)
+                    .setMessageTransport(org.signal.registration.rpc.MessageTransport.MESSAGE_TRANSPORT_SMS)
                     .build())
                 .setVerifiedCode("123456")
                 .build(),
@@ -668,7 +668,7 @@ class RegistrationServiceTest {
     final RegistrationSession session = getBaseSessionBuilder()
         .setCreatedEpochMillis(CURRENT_TIME.toEpochMilli())
         .addRegistrationAttempts(RegistrationAttempt.newBuilder()
-            .setMessageTransport(org.signal.registration.session.MessageTransport.MESSAGE_TRANSPORT_SMS)
+            .setMessageTransport(org.signal.registration.rpc.MessageTransport.MESSAGE_TRANSPORT_SMS)
             .setTimestampEpochMillis(CURRENT_TIME.toEpochMilli())
             .setExpirationEpochMillis(CURRENT_TIME.plusSeconds(600).toEpochMilli())
             .build())

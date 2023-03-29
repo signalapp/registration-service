@@ -4,6 +4,8 @@ option java_multiple_files = true;
 
 package org.signal.registration.session;
 
+import "registration_service.proto";
+
 /**
  * A registration session stores information about a current attempt to register
  * a phone number. Registration sessions are created when a client first
@@ -76,7 +78,7 @@ message RegistrationAttempt {
    */
   string sender_name = 2;
 
-  MessageTransport message_transport = 3;
+  org.signal.registration.rpc.MessageTransport message_transport = 3;
 
   /**
    * An opaque collection of bytes provided by senders when an attempt is created
@@ -92,12 +94,6 @@ message RegistrationAttempt {
    * be valid.
    */
   uint64 expiration_epoch_millis = 5;
-}
-
-enum MessageTransport {
-  MESSAGE_TRANSPORT_UNSPECIFIED = 0;
-  MESSAGE_TRANSPORT_SMS = 1;
-  MESSAGE_TRANSPORT_VOICE = 2;
 }
 
 message SessionMetadata {

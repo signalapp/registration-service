@@ -6,7 +6,7 @@
 package org.signal.registration.ratelimit;
 
 import org.junit.jupiter.api.Test;
-import org.signal.registration.session.MessageTransport;
+import org.signal.registration.rpc.MessageTransport;
 import org.signal.registration.session.RegistrationAttempt;
 import org.signal.registration.session.RegistrationSession;
 

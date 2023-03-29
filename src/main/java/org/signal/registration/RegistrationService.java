@@ -40,6 +40,7 @@ import org.signal.registration.session.RegistrationSession;
 import org.signal.registration.session.SessionMetadata;
 import org.signal.registration.session.SessionRepository;
 import org.signal.registration.util.CompletionExceptions;
+import org.signal.registration.util.MessageTransports;
 import org.signal.registration.util.UUIDUtil;
 
 /**
@@ -206,18 +207,13 @@ public class RegistrationService {
       final byte[] sessionData,
       final Duration ttl) {
 
-    final org.signal.registration.session.MessageTransport sessionMessageTransport = switch (messageTransport) {
-      case SMS -> org.signal.registration.session.MessageTransport.MESSAGE_TRANSPORT_SMS;
-      case VOICE -> org.signal.registration.session.MessageTransport.MESSAGE_TRANSPORT_VOICE;
-    };
-
     final Instant currentTime = clock.instant();
 
     return RegistrationAttempt.newBuilder()
         .setTimestampEpochMillis(currentTime.toEpochMilli())
         .setExpirationEpochMillis(currentTime.plus(ttl).toEpochMilli())
         .setSenderName(sender.getName())
-        .setMessageTransport(sessionMessageTransport)
+        .setMessageTransport(MessageTransports.getRpcMessageTransportFromSenderTransport(messageTransport))
         .setSessionData(ByteString.copyFrom(sessionData))
         .build();
   }
@@ -420,7 +416,7 @@ public class RegistrationService {
 
       // Callers may not request codes via phone call until they've attempted an SMS
       final boolean hasSentSms = session.getRegistrationAttemptsList().stream().anyMatch(attempt ->
-          attempt.getMessageTransport() == org.signal.registration.session.MessageTransport.MESSAGE_TRANSPORT_SMS);
+          attempt.getMessageTransport() == org.signal.registration.rpc.MessageTransport.MESSAGE_TRANSPORT_SMS);
 
       if (hasSentSms) {
         nextVoiceCall = sendVoiceVerificationCodeRateLimiter.getTimeOfNextAction(session).join();
