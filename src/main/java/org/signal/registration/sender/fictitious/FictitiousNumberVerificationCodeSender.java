@@ -17,6 +17,7 @@ import org.slf4j.LoggerFactory;
 import java.time.Duration;
 import java.util.List;
 import java.util.Locale;
+import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.regex.Pattern;
 
@@ -78,7 +79,7 @@ public class FictitiousNumberVerificationCodeSender implements VerificationCodeS
   }
 
   @Override
-  public CompletableFuture<byte[]> sendVerificationCode(final MessageTransport messageTransport,
+  public CompletableFuture<AttemptData> sendVerificationCode(final MessageTransport messageTransport,
       final Phonenumber.PhoneNumber phoneNumber,
       final List<Locale.LanguageRange> languageRanges,
       final ClientType clientType) throws UnsupportedMessageTransportException {
@@ -86,19 +87,20 @@ public class FictitiousNumberVerificationCodeSender implements VerificationCodeS
     final String verificationCode = verificationCodeGenerator.generateVerificationCode();
 
     return repository.storeVerificationCode(phoneNumber, verificationCode, getAttemptTtl())
-        .thenApply(ignored -> FictitiousNumberVerificationCodeSessionData.newBuilder()
-            .setVerificationCode(verificationCode)
-            .build()
-            .toByteArray());
+        .thenApply(ignored -> new AttemptData(Optional.empty(),
+            FictitiousNumberVerificationCodeSessionData.newBuilder()
+                .setVerificationCode(verificationCode)
+                .build()
+                .toByteArray()));
   }
 
   @Override
-  public CompletableFuture<Boolean> checkVerificationCode(final String verificationCode, final byte[] sessionDataBytes) {
+  public CompletableFuture<Boolean> checkVerificationCode(final String verificationCode, final byte[] senderData) {
     try {
-      final FictitiousNumberVerificationCodeSessionData sessionData =
-          FictitiousNumberVerificationCodeSessionData.parseFrom(sessionDataBytes);
+      final String expectedVerificationCode =
+          FictitiousNumberVerificationCodeSessionData.parseFrom(senderData).getVerificationCode();
 
-      return CompletableFuture.completedFuture(sessionData.getVerificationCode().equals(verificationCode));
+      return CompletableFuture.completedFuture(expectedVerificationCode.equals(verificationCode));
     } catch (final InvalidProtocolBufferException e) {
       logger.error("Failed to parse stored session data", e);
       return CompletableFuture.failedFuture(e);

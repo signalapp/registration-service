@@ -87,7 +87,7 @@ message RegistrationAttempt {
    * may need to check a verification code (the code itself, for example, or an
    * upstream session ID) after an attempt has been created.
    */
-  bytes session_data = 4;
+  bytes sender_data = 4;
 
   /**
    * The UNIX timestamp (in milliseconds) at which this attempt will no longer
@@ -96,9 +96,17 @@ message RegistrationAttempt {
   uint64 expiration_epoch_millis = 5;
 
   /**
+   * A unique, sender-specific identifier for this attempt. This may be an
+   * upstream session identifier, for example. The interpretation of this value
+   * will vary by sender. Senders that do not have remote session identifiers
+   * may leave this field blank.
+   */
+  string remote_id = 6;
+
+  /**
    * The type of client that initiated this attempt.
    */
-  org.signal.registration.rpc.ClientType client_type = 6;
+  org.signal.registration.rpc.ClientType client_type = 7;
 }
 
 message SessionMetadata {

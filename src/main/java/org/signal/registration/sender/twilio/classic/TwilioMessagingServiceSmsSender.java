@@ -15,6 +15,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.concurrent.CompletableFuture;
 import org.signal.registration.sender.ApiClientInstrumenter;
+import org.signal.registration.sender.AttemptData;
 import org.signal.registration.sender.ClientType;
 import org.signal.registration.sender.MessageTransport;
 import org.signal.registration.sender.UnsupportedMessageTransportException;
@@ -70,10 +71,10 @@ public class TwilioMessagingServiceSmsSender extends AbstractTwilioProvidedCodeS
   }
 
   @Override
-  public CompletableFuture<byte[]> sendVerificationCode(final MessageTransport messageTransport,
-      final Phonenumber.PhoneNumber phoneNumber,
-      final List<Locale.LanguageRange> languageRanges,
-      final ClientType clientType) throws UnsupportedMessageTransportException {
+  public CompletableFuture<AttemptData> sendVerificationCode(final MessageTransport messageTransport,
+                                                             final Phonenumber.PhoneNumber phoneNumber,
+                                                             final List<Locale.LanguageRange> languageRanges,
+                                                             final ClientType clientType) throws UnsupportedMessageTransportException {
 
     if (messageTransport != MessageTransport.SMS) {
       throw new UnsupportedMessageTransportException();
@@ -96,9 +97,9 @@ public class TwilioMessagingServiceSmsSender extends AbstractTwilioProvidedCodeS
                 throwable == null,
                 ApiExceptions.extractErrorCode(throwable),
                 sample))
-        .handle((ignored, throwable) -> {
+        .handle((message, throwable) -> {
           if (throwable == null) {
-            return buildSessionData(verificationCode);
+            return buildAttemptMetadata(message.getSid(), verificationCode);
           }
 
           throw CompletionExceptions.wrap(ApiExceptions.toSenderException(throwable));

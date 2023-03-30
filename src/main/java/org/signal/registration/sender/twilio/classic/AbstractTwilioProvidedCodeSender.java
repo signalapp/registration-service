@@ -9,8 +9,10 @@ import com.google.i18n.phonenumbers.PhoneNumberUtil;
 import com.google.i18n.phonenumbers.Phonenumber;
 import com.google.protobuf.InvalidProtocolBufferException;
 import com.twilio.type.PhoneNumber;
+import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import org.apache.commons.lang3.StringUtils;
+import org.signal.registration.sender.AttemptData;
 import org.signal.registration.sender.VerificationCodeSender;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -23,11 +25,11 @@ abstract class AbstractTwilioProvidedCodeSender implements VerificationCodeSende
 
   private final Logger logger = LoggerFactory.getLogger(getClass());
 
-  protected static byte[] buildSessionData(final String verificationCode) {
-    return TwilioProvidedCodeSessionData.newBuilder()
+  protected static AttemptData buildAttemptMetadata(final String sid, final String verificationCode) {
+    return new AttemptData(Optional.of(sid), TwilioProvidedCodeSessionData.newBuilder()
         .setVerificationCode(verificationCode)
         .build()
-        .toByteArray();
+        .toByteArray());
   }
 
   protected static PhoneNumber twilioNumberFromPhoneNumber(final Phonenumber.PhoneNumber phoneNumber) {
@@ -35,10 +37,10 @@ abstract class AbstractTwilioProvidedCodeSender implements VerificationCodeSende
   }
 
   @Override
-  public CompletableFuture<Boolean> checkVerificationCode(final String verificationCode, final byte[] sessionDataBytes) {
+  public CompletableFuture<Boolean> checkVerificationCode(final String verificationCode, final byte[] senderData) {
     try {
       return CompletableFuture.completedFuture(StringUtils.equals(verificationCode,
-              TwilioProvidedCodeSessionData.parseFrom(sessionDataBytes).getVerificationCode()));
+              TwilioProvidedCodeSessionData.parseFrom(senderData).getVerificationCode()));
     } catch (final InvalidProtocolBufferException e) {
       logger.error("Failed to parse stored session data", e);
       return CompletableFuture.failedFuture(e);

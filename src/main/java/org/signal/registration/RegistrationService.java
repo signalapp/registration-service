@@ -30,6 +30,7 @@ import javax.annotation.Nullable;
 import org.apache.commons.lang3.StringUtils;
 import org.signal.registration.ratelimit.RateLimiter;
 import org.signal.registration.rpc.RegistrationSessionMetadata;
+import org.signal.registration.sender.AttemptData;
 import org.signal.registration.sender.ClientType;
 import org.signal.registration.sender.MessageTransport;
 import org.signal.registration.sender.SenderException;
@@ -64,7 +65,7 @@ public class RegistrationService {
   @VisibleForTesting
   static final Duration SESSION_TTL_AFTER_LAST_ACTION = Duration.ofMinutes(10);
 
-  private record SenderAndSessionData(VerificationCodeSender sender, byte[] sessionData) {}
+  private record SenderAndAttemptData(VerificationCodeSender sender, AttemptData attemptData) {}
 
   @VisibleForTesting
   record NextActionTimes(Optional<Instant> nextSms,
@@ -180,7 +181,7 @@ public class RegistrationService {
                           phoneNumberFromSession,
                           languageRanges,
                           clientType)
-                      .thenApply(sessionData -> new SenderAndSessionData(sender, sessionData));
+                      .thenApply(sessionData -> new SenderAndAttemptData(sender, sessionData));
                 } catch (final NumberParseException e) {
                   // This should never happen because we're parsing a phone number from the session, which means we've
                   // parsed it successfully in the past
@@ -188,15 +189,15 @@ public class RegistrationService {
                 }
               });
         })
-        .thenCompose(senderAndSessionData -> sessionRepository.updateSession(sessionId, session -> {
+        .thenCompose(senderAndAttemptData -> sessionRepository.updateSession(sessionId, session -> {
           final RegistrationSession.Builder builder = session.toBuilder()
               .setCheckCodeAttempts(0)
               .setLastCheckCodeAttemptEpochMillis(0)
-              .addRegistrationAttempts(buildRegistrationAttempt(senderAndSessionData.sender(),
+              .addRegistrationAttempts(buildRegistrationAttempt(senderAndAttemptData.sender(),
                   messageTransport,
                   clientType,
-                  senderAndSessionData.sessionData(),
-                  senderAndSessionData.sender().getAttemptTtl()));
+                  senderAndAttemptData.attemptData(),
+                  senderAndAttemptData.sender().getAttemptTtl()));
 
           builder.setExpirationEpochMillis(getSessionExpiration(builder.build()).toEpochMilli());
 
@@ -207,19 +208,22 @@ public class RegistrationService {
   private RegistrationAttempt buildRegistrationAttempt(final VerificationCodeSender sender,
       final MessageTransport messageTransport,
       final ClientType clientType,
-      final byte[] sessionData,
+      final AttemptData attemptData,
       final Duration ttl) {
 
     final Instant currentTime = clock.instant();
 
-    return RegistrationAttempt.newBuilder()
+    final RegistrationAttempt.Builder registrationAttemptBuilder = RegistrationAttempt.newBuilder()
         .setTimestampEpochMillis(currentTime.toEpochMilli())
         .setExpirationEpochMillis(currentTime.plus(ttl).toEpochMilli())
         .setSenderName(sender.getName())
         .setMessageTransport(MessageTransports.getRpcMessageTransportFromSenderTransport(messageTransport))
         .setClientType(ClientTypes.getRpcClientTypeFromSenderClientType(clientType))
-        .setSessionData(ByteString.copyFrom(sessionData))
-        .build();
+        .setSenderData(ByteString.copyFrom(attemptData.senderData()));
+
+    attemptData.remoteId().ifPresent(registrationAttemptBuilder::setRemoteId);
+
+    return registrationAttemptBuilder.build();
   }
 
   /**
@@ -284,7 +288,7 @@ public class RegistrationService {
           throw new IllegalArgumentException("Unrecognized sender: " + currentRegistrationAttempt.getSenderName());
         }
 
-        return sender.checkVerificationCode(verificationCode, currentRegistrationAttempt.getSessionData().toByteArray())
+        return sender.checkVerificationCode(verificationCode, currentRegistrationAttempt.getSenderData().toByteArray())
             .exceptionally(throwable -> {
               // The sender may view the submitted code as an illegal argument or may reject the attempt to check a
               // code altogether. We can treat any case of "the sender got it, but said 'no'" the same way we would

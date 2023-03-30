@@ -7,7 +7,6 @@ package org.signal.registration.sender.twilio.classic;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.i18n.phonenumbers.Phonenumber;
-import com.twilio.exception.ApiException;
 import com.twilio.http.TwilioRestClient;
 import com.twilio.rest.api.v2010.account.Call;
 import com.twilio.type.PhoneNumber;
@@ -25,6 +24,7 @@ import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ThreadLocalRandom;
 import org.signal.registration.sender.ApiClientInstrumenter;
+import org.signal.registration.sender.AttemptData;
 import org.signal.registration.sender.ClientType;
 import org.signal.registration.sender.MessageTransport;
 import org.signal.registration.sender.UnsupportedMessageTransportException;
@@ -81,10 +81,10 @@ public class TwilioVoiceSender extends AbstractTwilioProvidedCodeSender implemen
   }
 
   @Override
-  public CompletableFuture<byte[]> sendVerificationCode(final MessageTransport messageTransport,
-      final Phonenumber.PhoneNumber phoneNumber,
-      final List<Locale.LanguageRange> languageRanges,
-      final ClientType clientType) throws UnsupportedMessageTransportException {
+  public CompletableFuture<AttemptData> sendVerificationCode(final MessageTransport messageTransport,
+                                                             final Phonenumber.PhoneNumber phoneNumber,
+                                                             final List<Locale.LanguageRange> languageRanges,
+                                                             final ClientType clientType) throws UnsupportedMessageTransportException {
 
     if (messageTransport != MessageTransport.VOICE) {
       throw new UnsupportedMessageTransportException();
@@ -111,9 +111,9 @@ public class TwilioVoiceSender extends AbstractTwilioProvidedCodeSender implemen
                 throwable == null,
                 ApiExceptions.extractErrorCode(throwable),
                 sample))
-        .handle((ignored, throwable) -> {
+        .handle((call, throwable) -> {
           if (throwable == null) {
-            return buildSessionData(verificationCode);
+            return buildAttemptMetadata(call.getSid(), verificationCode);
           }
 
           throw CompletionExceptions.wrap(ApiExceptions.toSenderException(throwable));

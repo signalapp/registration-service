@@ -28,7 +28,7 @@ import org.slf4j.LoggerFactory;
 /**
  * A verification SMS body provider supplies localized, client-appropriate body text for use in SMS verification
  * messages.
- * <p/>
+ * <p>
  * Message text is defined in the {@code sms.properties} resource file, and additional translations may be provided by
  * adding language-specific properties files as explained in
  * <a href="https://docs.micronaut.io/latest/guide/#i18n">Micronaut's internationalization documentation</a>. Each
@@ -39,7 +39,7 @@ import org.slf4j.LoggerFactory;
  *   <li>{@code verification.sms.android}</li>
  *   <li>{@code verification.sms.generic}</li>
  * </ul>
- * <p/>
+ * <p>
  * Message text may have "variants." Variants may be configured by destination phone number region and should have
  * corresponding entries in message properties files. For example, if messages to US-based phone numbers should receive
  * messages with a "verbose" variant, then a mapping from {@code "US"} to {@code "verbose"} should be added to the map

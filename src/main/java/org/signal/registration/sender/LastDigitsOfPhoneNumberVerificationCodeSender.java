@@ -13,6 +13,7 @@ import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.List;
 import java.util.Locale;
+import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 
 /**
@@ -44,17 +45,18 @@ public class LastDigitsOfPhoneNumberVerificationCodeSender implements Verificati
   }
 
   @Override
-  public CompletableFuture<byte[]> sendVerificationCode(final MessageTransport messageTransport,
-      final Phonenumber.PhoneNumber phoneNumber,
-      final List<Locale.LanguageRange> languageRanges,
-      final ClientType clientType) {
+  public CompletableFuture<AttemptData> sendVerificationCode(final MessageTransport messageTransport,
+                                                             final Phonenumber.PhoneNumber phoneNumber,
+                                                             final List<Locale.LanguageRange> languageRanges,
+                                                             final ClientType clientType) {
 
-    return CompletableFuture.completedFuture(getVerificationCode(phoneNumber).getBytes(StandardCharsets.UTF_8));
+        return CompletableFuture.completedFuture(
+            new AttemptData(Optional.empty(), getVerificationCode(phoneNumber).getBytes(StandardCharsets.UTF_8)));
   }
 
   @Override
-  public CompletableFuture<Boolean> checkVerificationCode(final String verificationCode, final byte[] sessionData) {
-    return CompletableFuture.completedFuture(verificationCode.equals(new String(sessionData, StandardCharsets.UTF_8)));
+  public CompletableFuture<Boolean> checkVerificationCode(final String verificationCode, final byte[] senderData) {
+    return CompletableFuture.completedFuture(verificationCode.equals(new String(senderData, StandardCharsets.UTF_8)));
   }
 
   public static String getVerificationCode(final Phonenumber.PhoneNumber phoneNumber) {

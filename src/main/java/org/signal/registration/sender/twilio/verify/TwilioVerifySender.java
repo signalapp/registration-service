@@ -8,7 +8,6 @@ package org.signal.registration.sender.twilio.verify;
 import com.google.i18n.phonenumbers.PhoneNumberUtil;
 import com.google.i18n.phonenumbers.Phonenumber;
 import com.google.protobuf.InvalidProtocolBufferException;
-import com.twilio.exception.ApiException;
 import com.twilio.http.TwilioRestClient;
 import com.twilio.rest.verify.v2.service.Verification;
 import com.twilio.rest.verify.v2.service.VerificationCheck;
@@ -20,8 +19,10 @@ import java.util.EnumMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import org.signal.registration.sender.ApiClientInstrumenter;
+import org.signal.registration.sender.AttemptData;
 import org.signal.registration.sender.ClientType;
 import org.signal.registration.sender.MessageTransport;
 import org.signal.registration.sender.UnsupportedMessageTransportException;
@@ -79,10 +80,10 @@ public class TwilioVerifySender implements VerificationCodeSender {
   }
 
   @Override
-  public CompletableFuture<byte[]> sendVerificationCode(final MessageTransport messageTransport,
-      final Phonenumber.PhoneNumber phoneNumber,
-      final List<Locale.LanguageRange> languageRanges,
-      final ClientType clientType) throws UnsupportedMessageTransportException {
+  public CompletableFuture<AttemptData> sendVerificationCode(final MessageTransport messageTransport,
+                                                             final Phonenumber.PhoneNumber phoneNumber,
+                                                             final List<Locale.LanguageRange> languageRanges,
+                                                             final ClientType clientType) throws UnsupportedMessageTransportException {
 
     final Verification.Channel channel = CHANNELS_BY_TRANSPORT.get(messageTransport);
 
@@ -114,10 +115,15 @@ public class TwilioVerifySender implements VerificationCodeSender {
         )
         .handle((verification, throwable) -> {
           if (throwable == null) {
-            return TwilioVerifySessionData.newBuilder()
-                .setVerificationSid(verification != null ? verification.getSid() : "n/a")
+            final Optional<String> maybeAttemptSid = verification.getSendCodeAttempts().stream()
+                .filter(attempt -> attempt.containsKey("attempt_sid"))
+                .findFirst()
+                .map(attempt -> attempt.get("attempt_sid").toString());
+
+            return new AttemptData(maybeAttemptSid, TwilioVerifySessionData.newBuilder()
+                .setVerificationSid(verification.getSid())
                 .build()
-                .toByteArray();
+                .toByteArray());
           }
 
           throw CompletionExceptions.wrap(ApiExceptions.toSenderException(throwable));
@@ -125,9 +131,9 @@ public class TwilioVerifySender implements VerificationCodeSender {
   }
 
   @Override
-  public CompletableFuture<Boolean> checkVerificationCode(final String verificationCode, final byte[] sessionData) {
+  public CompletableFuture<Boolean> checkVerificationCode(final String verificationCode, final byte[] senderData) {
     try {
-      final String verificationSid = TwilioVerifySessionData.parseFrom(sessionData).getVerificationSid();
+      final String verificationSid = TwilioVerifySessionData.parseFrom(senderData).getVerificationSid();
 
       final Timer.Sample sample = Timer.start();
 

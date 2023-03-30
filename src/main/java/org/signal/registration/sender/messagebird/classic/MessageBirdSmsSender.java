@@ -15,10 +15,12 @@ import jakarta.inject.Singleton;
 import java.time.Duration;
 import java.util.List;
 import java.util.Locale;
+import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
 import org.apache.commons.lang3.StringUtils;
 import org.signal.registration.sender.ApiClientInstrumenter;
+import org.signal.registration.sender.AttemptData;
 import org.signal.registration.sender.ClientType;
 import org.signal.registration.sender.MessageTransport;
 import org.signal.registration.sender.SenderRejectedRequestException;
@@ -90,7 +92,7 @@ public class MessageBirdSmsSender implements VerificationCodeSender {
   }
 
   @Override
-  public CompletableFuture<byte[]> sendVerificationCode(final MessageTransport messageTransport,
+  public CompletableFuture<AttemptData> sendVerificationCode(final MessageTransport messageTransport,
       final Phonenumber.PhoneNumber phoneNumber, final List<Locale.LanguageRange> languageRanges,
       final ClientType clientType) throws UnsupportedMessageTransportException {
     final String e164 = PhoneNumberUtil.getInstance().format(phoneNumber, PhoneNumberUtil.PhoneNumberFormat.E164);
@@ -112,7 +114,8 @@ public class MessageBirdSmsSender implements VerificationCodeSender {
             if (messageResponse.getRecipients().getTotalDeliveryFailedCount() != 0) {
               throw CompletionExceptions.wrap(new SenderRejectedRequestException("Failed to deliver message"));
             }
-            return MessageBirdClassicSessionData.newBuilder().setVerificationCode(verificationCode).build().toByteArray();
+            return new AttemptData(Optional.of(messageResponse.getId()),
+                MessageBirdClassicSessionData.newBuilder().setVerificationCode(verificationCode).build().toByteArray());
           } catch (MessageBirdException e) {
             logger.debug("Failed verification with {}, errors={}", e.getMessage(), e.getErrors());
             throw CompletionExceptions.wrap(MessageBirdExceptions.toSenderException(e));
@@ -128,14 +131,13 @@ public class MessageBirdSmsSender implements VerificationCodeSender {
   }
 
   @Override
-  public CompletableFuture<Boolean> checkVerificationCode(final String verificationCode, final byte[] sessionData) {
+  public CompletableFuture<Boolean> checkVerificationCode(final String verificationCode, final byte[] senderData) {
     try {
-      final String storedVerificationCode = MessageBirdClassicSessionData.parseFrom(sessionData).getVerificationCode();
+      final String storedVerificationCode = MessageBirdClassicSessionData.parseFrom(senderData).getVerificationCode();
       return CompletableFuture.completedFuture(StringUtils.equals(verificationCode, storedVerificationCode));
     } catch (final InvalidProtocolBufferException e) {
       logger.error("Failed to parse stored session data", e);
       return CompletableFuture.failedFuture(e);
     }
-
   }
 }

@@ -36,6 +36,6 @@ class LastDigitsOfPhoneNumberVerificationCodeSenderTest {
         sender.sendVerificationCode(MessageTransport.SMS,
             PhoneNumberUtil.getInstance().parse("+12025550123", null),
             Collections.emptyList(),
-            null).join());
+            null).join().senderData());
   }
 }

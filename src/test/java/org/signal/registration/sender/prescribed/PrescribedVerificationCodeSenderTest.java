@@ -59,7 +59,7 @@ class PrescribedVerificationCodeSenderTest {
     {
       final PrescribedVerificationCodeSessionData sessionData =
           PrescribedVerificationCodeSessionData.parseFrom(
-              sender.sendVerificationCode(MessageTransport.SMS, PRESCRIBED_CODE_NUMBER, Collections.emptyList(), ClientType.UNKNOWN).join());
+              sender.sendVerificationCode(MessageTransport.SMS, PRESCRIBED_CODE_NUMBER, Collections.emptyList(), ClientType.UNKNOWN).join().senderData());
 
       assertEquals(VERIFICATION_CODE, sessionData.getVerificationCode());
     }

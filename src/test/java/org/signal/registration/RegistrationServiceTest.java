@@ -42,6 +42,7 @@ import org.junit.jupiter.params.provider.MethodSource;
 import org.signal.registration.ratelimit.RateLimitExceededException;
 import org.signal.registration.ratelimit.RateLimiter;
 import org.signal.registration.rpc.RegistrationSessionMetadata;
+import org.signal.registration.sender.AttemptData;
 import org.signal.registration.sender.ClientType;
 import org.signal.registration.sender.MessageTransport;
 import org.signal.registration.sender.SenderRejectedRequestException;
@@ -153,6 +154,8 @@ class RegistrationServiceTest {
 
   @Test
   void sendVerificationCode() {
+    final String remoteId = UUID.randomUUID().toString();
+
     final UUID sessionId;
     {
       final RegistrationSession session = registrationService.createRegistrationSession(PHONE_NUMBER, SESSION_METADATA).join();
@@ -160,7 +163,7 @@ class RegistrationServiceTest {
     }
 
     when(sender.sendVerificationCode(MessageTransport.SMS, PHONE_NUMBER, LANGUAGE_RANGES, CLIENT_TYPE))
-        .thenReturn(CompletableFuture.completedFuture(VERIFICATION_CODE_BYTES));
+        .thenReturn(CompletableFuture.completedFuture(new AttemptData(Optional.of(remoteId), VERIFICATION_CODE_BYTES)));
 
     final RegistrationSession session =
         registrationService.sendVerificationCode(MessageTransport.SMS, sessionId, SENDER_NAME, LANGUAGE_RANGES, CLIENT_TYPE).join();
@@ -171,6 +174,7 @@ class RegistrationServiceTest {
     verify(sessionRepository).updateSession(eq(sessionId), any());
 
     assertEquals(1, session.getRegistrationAttemptsCount());
+    assertEquals(remoteId, session.getRegistrationAttempts(0).getRemoteId());
     assertEquals(org.signal.registration.rpc.MessageTransport.MESSAGE_TRANSPORT_SMS,
         session.getRegistrationAttemptsList().get(0).getMessageTransport());
   }
@@ -225,8 +229,8 @@ class RegistrationServiceTest {
     final String secondVerificationCode = "234567";
 
     when(sender.sendVerificationCode(any(), eq(PHONE_NUMBER), eq(LANGUAGE_RANGES), eq(CLIENT_TYPE)))
-        .thenReturn(CompletableFuture.completedFuture(firstVerificationCode.getBytes(StandardCharsets.UTF_8)))
-        .thenReturn(CompletableFuture.completedFuture(secondVerificationCode.getBytes(StandardCharsets.UTF_8)));
+        .thenReturn(CompletableFuture.completedFuture(new AttemptData(Optional.of("first"), firstVerificationCode.getBytes(StandardCharsets.UTF_8))))
+        .thenReturn(CompletableFuture.completedFuture(new AttemptData(Optional.of("second"), secondVerificationCode.getBytes(StandardCharsets.UTF_8))));
 
     final UUID sessionId;
     {
@@ -238,14 +242,14 @@ class RegistrationServiceTest {
       final RegistrationSession session =
           registrationService.sendVerificationCode(MessageTransport.SMS, sessionId, null, LANGUAGE_RANGES, CLIENT_TYPE).join();
 
-      final ByteString expectedSessionData = ByteString.copyFromUtf8(firstVerificationCode);
+      final ByteString expectedSenderData = ByteString.copyFromUtf8(firstVerificationCode);
 
       assertEquals(1, session.getRegistrationAttemptsList().size());
 
       final RegistrationAttempt firstAttempt = session.getRegistrationAttempts(0);
       assertEquals(sender.getName(), firstAttempt.getSenderName());
       assertEquals(CURRENT_TIME.toEpochMilli(), firstAttempt.getTimestampEpochMillis());
-      assertEquals(expectedSessionData, firstAttempt.getSessionData());
+      assertEquals(expectedSenderData, firstAttempt.getSenderData());
       assertEquals(org.signal.registration.rpc.MessageTransport.MESSAGE_TRANSPORT_SMS, firstAttempt.getMessageTransport());
     }
 
@@ -257,22 +261,24 @@ class RegistrationServiceTest {
       final RegistrationSession session =
           registrationService.sendVerificationCode(MessageTransport.VOICE, sessionId, null, LANGUAGE_RANGES, CLIENT_TYPE).join();
 
-      final ByteString expectedSessionData = ByteString.copyFromUtf8(secondVerificationCode);
+      final ByteString expectedSenderData = ByteString.copyFromUtf8(secondVerificationCode);
 
       assertEquals(2, session.getRegistrationAttemptsList().size());
 
       final RegistrationAttempt secondAttempt = session.getRegistrationAttempts(1);
       assertEquals(sender.getName(), secondAttempt.getSenderName());
       assertEquals(future.toEpochMilli(), secondAttempt.getTimestampEpochMillis());
-      assertEquals(expectedSessionData, secondAttempt.getSessionData());
+      assertEquals(expectedSenderData, secondAttempt.getSenderData());
       assertEquals(org.signal.registration.rpc.MessageTransport.MESSAGE_TRANSPORT_VOICE, secondAttempt.getMessageTransport());
     }
   }
 
   @Test
   void checkVerificationCode() {
+    final AttemptData attemptData = new AttemptData(Optional.of("test"), VERIFICATION_CODE_BYTES);
+
     when(sender.sendVerificationCode(MessageTransport.SMS, PHONE_NUMBER, LANGUAGE_RANGES, CLIENT_TYPE))
-        .thenReturn(CompletableFuture.completedFuture(VERIFICATION_CODE_BYTES));
+        .thenReturn(CompletableFuture.completedFuture(attemptData));
 
     final UUID sessionId;
     {
@@ -296,6 +302,8 @@ class RegistrationServiceTest {
 
   @Test
   void checkVerificationCodeResend() {
+    final AttemptData attemptData = new AttemptData(Optional.of("test"), VERIFICATION_CODE_BYTES);
+
     final UUID sessionId;
     {
       final RegistrationSession session = registrationService.createRegistrationSession(PHONE_NUMBER, SESSION_METADATA).join();
@@ -303,7 +311,7 @@ class RegistrationServiceTest {
     }
 
     when(sender.sendVerificationCode(MessageTransport.SMS, PHONE_NUMBER, LANGUAGE_RANGES, CLIENT_TYPE))
-        .thenReturn(CompletableFuture.completedFuture(VERIFICATION_CODE_BYTES));
+        .thenReturn(CompletableFuture.completedFuture(attemptData));
 
     registrationService.sendVerificationCode(MessageTransport.SMS, sessionId, SENDER_NAME, LANGUAGE_RANGES, CLIENT_TYPE).join();
 
@@ -373,7 +381,7 @@ class RegistrationServiceTest {
         .addRegistrationAttempts(RegistrationAttempt.newBuilder()
             .setMessageTransport(org.signal.registration.rpc.MessageTransport.MESSAGE_TRANSPORT_SMS)
             .setSenderName(SENDER_NAME)
-            .setSessionData(ByteString.copyFrom(VERIFICATION_CODE_BYTES))
+            .setSenderData(ByteString.copyFrom(VERIFICATION_CODE_BYTES))
             .setExpirationEpochMillis(CURRENT_TIME.toEpochMilli() + 1)
             .build())
         .build();
@@ -409,7 +417,7 @@ class RegistrationServiceTest {
         .addRegistrationAttempts(RegistrationAttempt.newBuilder()
             .setMessageTransport(org.signal.registration.rpc.MessageTransport.MESSAGE_TRANSPORT_SMS)
             .setSenderName(SENDER_NAME)
-            .setSessionData(ByteString.copyFrom(VERIFICATION_CODE_BYTES))
+            .setSenderData(ByteString.copyFrom(VERIFICATION_CODE_BYTES))
             .setExpirationEpochMillis(CURRENT_TIME.toEpochMilli() - 1)
             .build())
         .build();
@@ -429,8 +437,10 @@ class RegistrationServiceTest {
 
   @Test
   void legacyCheckVerificationCode() {
+    final AttemptData attemptData = new AttemptData(Optional.of("test"), VERIFICATION_CODE_BYTES);
+
     when(sender.sendVerificationCode(MessageTransport.SMS, PHONE_NUMBER, LANGUAGE_RANGES, CLIENT_TYPE))
-        .thenReturn(CompletableFuture.completedFuture(VERIFICATION_CODE_BYTES));
+        .thenReturn(CompletableFuture.completedFuture(attemptData));
 
     final UUID sessionId;
     {
@@ -456,8 +466,10 @@ class RegistrationServiceTest {
 
   @Test
   void legacyCheckVerificationCodeIncorrectCodeAfterCorrectCode() {
+    final AttemptData attemptData = new AttemptData(Optional.of("test"), VERIFICATION_CODE_BYTES);
+
     when(sender.sendVerificationCode(MessageTransport.SMS, PHONE_NUMBER, LANGUAGE_RANGES, CLIENT_TYPE))
-        .thenReturn(CompletableFuture.completedFuture(VERIFICATION_CODE_BYTES));
+        .thenReturn(CompletableFuture.completedFuture(attemptData));
 
     final UUID sessionId;
     {
@@ -688,8 +700,10 @@ class RegistrationServiceTest {
 
   @Test
   void checkVerificationCodeSenderException() {
+    final AttemptData attemptData = new AttemptData(Optional.of("test"), VERIFICATION_CODE_BYTES);
+
     when(sender.sendVerificationCode(any(), any(), any(), any()))
-        .thenReturn(CompletableFuture.completedFuture(VERIFICATION_CODE_BYTES));
+        .thenReturn(CompletableFuture.completedFuture(attemptData));
 
     final UUID sessionId;
     {

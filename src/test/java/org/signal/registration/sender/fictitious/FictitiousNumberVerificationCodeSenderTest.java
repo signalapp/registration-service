@@ -66,7 +66,7 @@ class FictitiousNumberVerificationCodeSenderTest {
     when(repository.storeVerificationCode(any(), any(), any())).thenReturn(CompletableFuture.completedFuture(null));
 
     final byte[] sessionDataBytes =
-        sender.sendVerificationCode(MessageTransport.SMS, phoneNumber, Collections.emptyList(), ClientType.UNKNOWN).join();
+        sender.sendVerificationCode(MessageTransport.SMS, phoneNumber, Collections.emptyList(), ClientType.UNKNOWN).join().senderData();
 
     verify(repository).storeVerificationCode(phoneNumber, verificationCode, sender.getAttemptTtl());
 
@@ -80,12 +80,12 @@ class FictitiousNumberVerificationCodeSenderTest {
   void checkVerificationCode() {
     final String verificationCode = "456789";
 
-    final FictitiousNumberVerificationCodeSessionData sessionData =
+    final FictitiousNumberVerificationCodeSessionData senderData =
         FictitiousNumberVerificationCodeSessionData.newBuilder()
             .setVerificationCode(verificationCode)
             .build();
 
-    assertTrue(sender.checkVerificationCode(verificationCode, sessionData.toByteArray()).join());
-    assertFalse(sender.checkVerificationCode(verificationCode + "-incorrect", sessionData.toByteArray()).join());
+    assertTrue(sender.checkVerificationCode(verificationCode, senderData.toByteArray()).join());
+    assertFalse(sender.checkVerificationCode(verificationCode + "-incorrect", senderData.toByteArray()).join());
   }
 }

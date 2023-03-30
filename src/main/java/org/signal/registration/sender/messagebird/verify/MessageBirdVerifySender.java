@@ -33,6 +33,7 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 import org.signal.registration.metrics.MetricsUtil;
 import org.signal.registration.sender.ApiClientInstrumenter;
+import org.signal.registration.sender.AttemptData;
 import org.signal.registration.sender.ClientType;
 import org.signal.registration.sender.MessageTransport;
 import org.signal.registration.sender.SenderRejectedRequestException;
@@ -102,7 +103,7 @@ public class MessageBirdVerifySender implements VerificationCodeSender {
   }
 
   @Override
-  public CompletableFuture<byte[]> sendVerificationCode(
+  public CompletableFuture<AttemptData> sendVerificationCode(
       final MessageTransport messageTransport,
       final Phonenumber.PhoneNumber phoneNumber,
       final List<Locale.LanguageRange> languageRanges,
@@ -135,11 +136,11 @@ public class MessageBirdVerifySender implements VerificationCodeSender {
           try {
             final Verify verify = this.client.sendVerifyToken(request);
             return switch (CreateVerifyStatus.fromName(verify.getStatus())) {
-              case SENT -> MessageBirdVerifySessionData
+              case SENT -> new AttemptData(Optional.of(verify.getId()), MessageBirdVerifySessionData
                   .newBuilder()
                   .setVerificationId(verify.getId())
                   .build()
-                  .toByteArray();
+                  .toByteArray());
               case FAILED -> throw CompletionExceptions.wrap(new SenderRejectedRequestException("Failed to send"));
             };
           } catch (MessageBirdException e) {
@@ -156,10 +157,10 @@ public class MessageBirdVerifySender implements VerificationCodeSender {
   }
 
   @Override
-  public CompletableFuture<Boolean> checkVerificationCode(final String verificationCode, final byte[] sessionData) {
+  public CompletableFuture<Boolean> checkVerificationCode(final String verificationCode, final byte[] senderData) {
     final String verificationId;
     try {
-      verificationId = MessageBirdVerifySessionData.parseFrom(sessionData).getVerificationId();
+      verificationId = MessageBirdVerifySessionData.parseFrom(senderData).getVerificationId();
     } catch (final InvalidProtocolBufferException e) {
       logger.error("Failed to parse stored session data", e);
       return CompletableFuture.failedFuture(e);
@@ -196,9 +197,12 @@ public class MessageBirdVerifySender implements VerificationCodeSender {
    * MessageBird API doesn't provide a direct way to check if we're simply dealing with an incorrect code. As a
    * heuristic, though, we can be pretty confident we're looking at an incorrect code if:
    *
-   * <li> There's only one error reported in this exception AND
-   * <li> That error is code 10 ("invalid params") AND
-   * <li> That error affects the "token" parameter
+   * <ol>
+   *   <li> There's only one error reported in this exception AND
+   *   <li> That error is code 10 ("invalid params") AND
+   *   <li> That error affects the "token" parameter
+   * </ol>
+   *
    * <p>
    * This may inadvertently ALSO pick up missing or malformed tokens, but it's okay to treat those as simply incorrect,
    * too.

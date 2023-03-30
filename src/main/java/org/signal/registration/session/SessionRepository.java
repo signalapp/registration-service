@@ -46,7 +46,7 @@ public interface SessionRepository {
    * Updates the session with the given identifier with the given session update function. Updates may fail if the
    * session is not found or if multiple processes try to apply conflicting updates to the same session at the same
    * time. In the case of a conflicting update, callers should generally retry the update operation.
-   * <p/>
+   * <p>
    * Note that changes to the registration's expiration timestamp should change the time when the session repository
    * evicts the session from storage.
    *

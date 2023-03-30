@@ -11,16 +11,14 @@ import com.google.i18n.phonenumbers.PhoneNumberUtil;
 import com.google.i18n.phonenumbers.Phonenumber;
 import com.messagebird.MessageBirdClient;
 import com.messagebird.exceptions.GeneralException;
-import com.messagebird.exceptions.MessageBirdException;
 import com.messagebird.exceptions.UnauthorizedException;
 import com.messagebird.objects.ErrorReport;
 import com.messagebird.objects.Message;
 import com.messagebird.objects.MessageResponse;
-import java.io.IOException;
 import java.time.Duration;
 import java.util.List;
 import java.util.Locale;
-import java.util.concurrent.CompletionException;
+import org.apache.commons.lang3.RandomStringUtils;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.function.Executable;
@@ -71,6 +69,7 @@ public class MessageBirdSmsSenderTest {
     when(recipients.getTotalDeliveryFailedCount()).thenReturn(failedDeliveryCount);
     final MessageResponse response = mock(MessageResponse.class);
     when(response.getRecipients()).thenReturn(recipients);
+    when(response.getId()).thenReturn(RandomStringUtils.randomAlphabetic(16));
     return response;
   }
 
@@ -132,11 +131,13 @@ public class MessageBirdSmsSenderTest {
         message.getBody().equals("body") && message.getRecipients().equals(E164))))
         .thenReturn(response);
 
-    byte[] result = sender
+    final byte[] senderData = sender
         .sendVerificationCode(MessageTransport.SMS, NUMBER, Locale.LanguageRange.parse("en"), ClientType.IOS)
-        .join();
-    assertFalse(sender.checkVerificationCode("123456", result).join());
-    assertTrue(sender.checkVerificationCode("12345", result).join());
+        .join()
+        .senderData();
+
+    assertFalse(sender.checkVerificationCode("123456", senderData).join());
+    assertTrue(sender.checkVerificationCode("12345", senderData).join());
   }
 
 }

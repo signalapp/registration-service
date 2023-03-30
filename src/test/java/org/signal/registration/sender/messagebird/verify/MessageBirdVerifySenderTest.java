@@ -37,6 +37,7 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 import org.signal.registration.sender.ApiClientInstrumenter;
+import org.signal.registration.sender.AttemptData;
 import org.signal.registration.sender.ClientType;
 import org.signal.registration.sender.MessageTransport;
 import org.signal.registration.sender.VerificationSmsBodyProvider;
@@ -125,17 +126,18 @@ public class MessageBirdVerifySenderTest {
     when(client.sendVerifyToken(argThat((VerifyRequest req) -> E164.equals(req.getRecipient()))))
         .thenReturn(createResponse);
 
-    final byte[] result = sender.sendVerificationCode(
+    final byte[] senderData = sender.sendVerificationCode(
         MessageTransport.SMS,
         NUMBER,
         Collections.emptyList(),
-        ClientType.IOS).join();
+        ClientType.IOS).join()
+        .senderData();
 
     Verify verifyResponse = new Verify();
     verifyResponse.setStatus("verified");
 
     when(client.verifyToken("myid", "12345")).thenReturn(verifyResponse);
-    assertTrue(sender.checkVerificationCode("12345", result).join());
+    assertTrue(sender.checkVerificationCode("12345", senderData).join());
   }
 
   enum Outcome {CREATE_ERROR, VERIFY_ERROR, NOT_VERIFIED}
@@ -161,23 +163,23 @@ public class MessageBirdVerifySenderTest {
     when(client.sendVerifyToken(argThat((VerifyRequest req) -> E164.equals(req.getRecipient()))))
         .thenReturn(createResponse);
 
-    final CompletableFuture<byte[]> fut = sender.sendVerificationCode(
+    final CompletableFuture<AttemptData> sendFuture = sender.sendVerificationCode(
         MessageTransport.SMS,
         NUMBER,
         Collections.emptyList(),
         ClientType.IOS);
 
     if (outcome == Outcome.CREATE_ERROR) {
-      assertThrows(CompletionException.class, fut::join);
+      assertThrows(CompletionException.class, sendFuture::join);
       return;
     }
 
-    byte[] result = fut.join();
+    byte[] senderData = sendFuture.join().senderData();
     Verify verifyResponse = new Verify();
     verifyResponse.setStatus(verifyStatus);
 
     when(client.verifyToken("myid", "12345")).thenReturn(verifyResponse);
-    final CompletableFuture<Boolean> verifyFut = sender.checkVerificationCode("12345", result);
+    final CompletableFuture<Boolean> verifyFut = sender.checkVerificationCode("12345", senderData);
     if (outcome == Outcome.VERIFY_ERROR) {
       assertThrows(CompletionException.class, verifyFut::join);
     } else {

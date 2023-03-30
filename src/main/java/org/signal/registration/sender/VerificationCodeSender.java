@@ -13,15 +13,15 @@ import java.util.concurrent.CompletableFuture;
 
 /**
  * A verification code sender is responsible for sending verification codes to phone numbers and later verifying codes
- * provided by clients. A verification code sender sends verification codes via exactly one transport mechanism.
- * <p/>
+ * provided by clients. A verification code sender sends verification codes via at least one transport mechanism.
+ * <p>
  * Verification code senders may generate their own verification codes or may rely on an external service to manage
  * verification codes. Either way, senders generally need to preserve some state associated with a registration session
  * (either the generated verification code or a reference to a session or object managed by an external service). To do
- * so, senders should return a byte array containing any data that needs to be preserved from the
- * {@link #sendVerificationCode(MessageTransport, Phonenumber.PhoneNumber, List, ClientType)} method; those bytes will
- * be provided later to the {@link #checkVerificationCode(String, byte[])} method when a client provides a verification
- * code in the context of the same registration session.
+ * so, senders return a {@link AttemptData} object containing any data that needs to be preserved from the
+ * {@link #sendVerificationCode(MessageTransport, Phonenumber.PhoneNumber, List, ClientType)} method; those data will
+ * be provided later to the {@link #checkVerificationCode(String, byte[])} method when a client provides a
+ * verification code in the context of the same registration session.
  */
 public interface VerificationCodeSender {
 
@@ -61,34 +61,35 @@ public interface VerificationCodeSender {
    * Asynchronously sends a verification code to the given phone number with the given preferred languages. The future
    * returned by this method yields an opaque string to be stored as part of the registration session that triggered
    * this request to send a verification code; later, the same string will be provided to the
-   * {@link #checkVerificationCode(String, byte[])} method when called in the context of the same registration session.
+   * {@link #checkVerificationCode(String, byte[])} method when called in the context of the same registration
+   * session.
    *
    * @param messageTransport the transport via which to send a verification code
    * @param phoneNumber      the phone number to which to send a verification code
    * @param languageRanges   the preferred languages in which to send verification codes
    * @param clientType       the type of client receiving the verification code
    *
-   * @return a future that yields an opaque sequence of bytes containing session data (to be provided to the
-   * {@link #checkVerificationCode(String, byte[])} method later) once the verification code has been sent
+   * @return a future that yields attempt data (to be provided to the {@link #checkVerificationCode(String, byte[])}
+   * method later) once the verification code has been sent
    *
    * @throws UnsupportedMessageTransportException if the sender does not support the given message transport
    */
-  CompletableFuture<byte[]> sendVerificationCode(MessageTransport messageTransport,
-      Phonenumber.PhoneNumber phoneNumber,
-      List<Locale.LanguageRange> languageRanges,
-      ClientType clientType) throws UnsupportedMessageTransportException;
+  CompletableFuture<AttemptData> sendVerificationCode(MessageTransport messageTransport,
+                                                      Phonenumber.PhoneNumber phoneNumber,
+                                                      List<Locale.LanguageRange> languageRanges,
+                                                      ClientType clientType) throws UnsupportedMessageTransportException;
 
   /**
    * Checks whether the verification code provided by a client matches the verification code sent via an earlier call to
    * {@link #sendVerificationCode(MessageTransport, Phonenumber.PhoneNumber, List, ClientType)}.
    *
    * @param verificationCode the verification code provided by a client
-   * @param sessionData      the data returned by
-   *                         {@link #sendVerificationCode(MessageTransport, Phonenumber.PhoneNumber, List, ClientType)}
-   *                         earlier in this registration session
+   * @param senderData the sender data returned by
+   *                   {@link #sendVerificationCode(MessageTransport, Phonenumber.PhoneNumber, List, ClientType)}
+   *                   earlier in this registration session
    *
    * @return a future that yields {@code true} if the provided {@code verificationCode} matches the expected
    * verification code associated with this session
    */
-  CompletableFuture<Boolean> checkVerificationCode(String verificationCode, byte[] sessionData);
+  CompletableFuture<Boolean> checkVerificationCode(String verificationCode, byte[] senderData);
 }

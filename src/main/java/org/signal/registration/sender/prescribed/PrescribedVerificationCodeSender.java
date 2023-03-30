@@ -16,9 +16,11 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicReference;
 import org.apache.commons.lang3.StringUtils;
+import org.signal.registration.sender.AttemptData;
 import org.signal.registration.sender.ClientType;
 import org.signal.registration.sender.MessageTransport;
 import org.signal.registration.sender.SenderRejectedRequestException;
@@ -71,28 +73,29 @@ public class PrescribedVerificationCodeSender implements VerificationCodeSender 
   }
 
   @Override
-  public CompletableFuture<byte[]> sendVerificationCode(final MessageTransport messageTransport,
-      final Phonenumber.PhoneNumber phoneNumber,
-      final List<Locale.LanguageRange> languageRanges,
-      final ClientType clientType) {
+  public CompletableFuture<AttemptData> sendVerificationCode(final MessageTransport messageTransport,
+                                                             final Phonenumber.PhoneNumber phoneNumber,
+                                                             final List<Locale.LanguageRange> languageRanges,
+                                                             final ClientType clientType) {
 
     final String verificationCode = prescribedVerificationCodes.get().get(phoneNumber);
 
     return StringUtils.isNotBlank(verificationCode) ?
-        CompletableFuture.completedFuture(PrescribedVerificationCodeSessionData.newBuilder()
-            .setVerificationCode(verificationCode)
-            .build()
-            .toByteArray()) :
+        CompletableFuture.completedFuture(new AttemptData(Optional.empty(),
+            PrescribedVerificationCodeSessionData.newBuilder()
+                .setVerificationCode(verificationCode)
+                .build()
+                .toByteArray())) :
         CompletableFuture.failedFuture(new SenderRejectedRequestException("Unsupported phone number"));
   }
 
   @Override
-  public CompletableFuture<Boolean> checkVerificationCode(final String verificationCode, final byte[] sessionDataBytes) {
+  public CompletableFuture<Boolean> checkVerificationCode(final String verificationCode, final byte[] senderData) {
     try {
-      final PrescribedVerificationCodeSessionData sessionData =
-          PrescribedVerificationCodeSessionData.parseFrom(sessionDataBytes);
+      final String expectedVerificationCode =
+          PrescribedVerificationCodeSessionData.parseFrom(senderData).getVerificationCode();
 
-      return CompletableFuture.completedFuture(StringUtils.equals(verificationCode, sessionData.getVerificationCode()));
+      return CompletableFuture.completedFuture(StringUtils.equals(verificationCode, expectedVerificationCode));
     } catch (final InvalidProtocolBufferException e) {
       logger.error("Failed to parse stored session data", e);
       return CompletableFuture.failedFuture(e);
