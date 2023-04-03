@@ -42,6 +42,8 @@ public class TwilioVerifySender implements VerificationCodeSender {
   private final TwilioVerifyConfiguration configuration;
   private final ApiClientInstrumenter apiClientInstrumenter;
 
+  public static final String SENDER_NAME = "twilio-verify";
+
   private static final Map<MessageTransport, Verification.Channel> CHANNELS_BY_TRANSPORT = new EnumMap<>(Map.of(
       MessageTransport.SMS, Verification.Channel.SMS,
       MessageTransport.VOICE, Verification.Channel.CALL
@@ -69,7 +71,7 @@ public class TwilioVerifySender implements VerificationCodeSender {
 
   @Override
   public String getName() {
-    return "twilio-verify";
+    return SENDER_NAME;
   }
 
   @Override

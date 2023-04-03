@@ -47,6 +47,8 @@ public class TwilioVoiceSender extends AbstractTwilioProvidedCodeSender implemen
   private final MessageSource twimlMessageSource =
       new ResourceBundleMessageSource("org.signal.registration.twilio.voice.twiml");
 
+  public static final String SENDER_NAME = "twilio-programmable-voice";
+
   private static final String DEFAULT_LANGUAGE = "en-US";
 
   public TwilioVoiceSender(final TwilioRestClient twilioRestClient,
@@ -62,7 +64,7 @@ public class TwilioVoiceSender extends AbstractTwilioProvidedCodeSender implemen
 
   @Override
   public String getName() {
-    return "twilio-programmable-voice";
+    return SENDER_NAME;
   }
 
   @Override

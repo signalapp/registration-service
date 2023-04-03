@@ -39,6 +39,8 @@ public class TwilioMessagingServiceSmsSender extends AbstractTwilioProvidedCodeS
   private final TwilioMessagingConfiguration configuration;
   private final ApiClientInstrumenter apiClientInstrumenter;
 
+  public static final String SENDER_NAME = "twilio-programmable-messaging";
+
   public TwilioMessagingServiceSmsSender(final TwilioRestClient twilioRestClient,
       final VerificationCodeGenerator verificationCodeGenerator,
       final VerificationSmsBodyProvider verificationSmsBodyProvider,
@@ -53,7 +55,7 @@ public class TwilioMessagingServiceSmsSender extends AbstractTwilioProvidedCodeS
 
   @Override
   public String getName() {
-    return "twilio-programmable-messaging";
+    return SENDER_NAME;
   }
 
   @Override
