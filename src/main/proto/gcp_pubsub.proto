@@ -1,0 +1,86 @@
+syntax = "proto3";
+
+option java_multiple_files = true;
+
+package org.signal.registration.analytics.gcp.pubsub;
+
+/**
+ * A message that contains details about an analyzed verification attempt and
+ * is destined for a GCP Pub/Sub queue with a BigQuery subscription. For
+ * additional details, please see https://cloud.google.com/pubsub/docs/bigquery.
+ */
+message AttemptAnalyzedPubSubMessage {
+
+  /**
+   * The unique identifier for the session in which this attempt took place.
+   */
+  string session_id = 1;
+
+  /**
+   * The ordinal identifier for this attempt within a session.
+   */
+  uint32 attempt_id = 2;
+
+  /**
+   * The name of the `VerificationCodeSender` used in this attempt.
+   */
+  string sender_name = 3;
+
+  /**
+   * The message transport via which this attempt took place.
+   */
+  string message_transport = 4;
+
+  /**
+   * The type of client that initiated this attempt.
+   */
+  string client_type = 5;
+
+  /**
+   * The ISO 3166-1 identifier for the region of the phone number associated
+   * with this attempt.
+   */
+  string region = 6;
+
+  /**
+   * The instant at which this attempt took place, formatted as a string that
+   * BigQuery will accept as a timestamp (see
+   * https://cloud.google.com/bigquery/docs/reference/standard-sql/data-types#timestamp_type).
+   */
+  string timestamp = 7;
+
+  /**
+   * Indicates whether an account already exists with the given e164 (i.e. this
+   * is a "re-registration" attempt).
+   */
+  bool account_exists_with_e164 = 8;
+
+  /**
+   * Indicates whether this attempt to verify a phone number ultimately
+   * succeeded.
+   */
+  bool verified = 9;
+
+  /**
+   * The price to send the message associated with this attempt as reported by
+   * the sender.
+   */
+  string price = 10;
+
+  /**
+   * The currency in which the price was reported by the sender.
+   */
+  string currency = 11;
+
+  /**
+   * If non-zero, the MCC to which the message associated with this attempt was
+   * sent as reported by the sender.
+   */
+  uint32 sender_mcc = 12;
+
+  /**
+   * If non-zero, the MNC to which the message associated with this attempt was
+   * sent as reported by the sender.
+   */
+  uint32 sender_mnc = 13;
+}

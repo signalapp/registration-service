@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: AGPL-3.0-only
  */
 
-package org.signal.registration.analytics.bigtable;
+package org.signal.registration.analytics.gcp.bigtable;
 
 import com.google.api.gax.rpc.ResponseObserver;
 import com.google.api.gax.rpc.StreamController;

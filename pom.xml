@@ -121,6 +121,14 @@
     </dependency>
 
     <dependency>
+      <groupId>io.micronaut.gcp</groupId>
+      <artifactId>micronaut-gcp-common</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>io.micronaut.gcp</groupId>
+      <artifactId>micronaut-gcp-pubsub</artifactId>
+    </dependency>
+    <dependency>
       <groupId>io.micronaut.grpc</groupId>
       <artifactId>micronaut-grpc-runtime</artifactId>
 

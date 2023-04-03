@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: AGPL-3.0-only
  */
 
-package org.signal.registration.analytics.bigtable;
+package org.signal.registration.analytics.gcp.bigtable;
 
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -14,6 +14,7 @@ import com.google.cloud.bigtable.admin.v2.models.CreateTableRequest;
 import com.google.cloud.bigtable.data.v2.BigtableDataClient;
 import com.google.cloud.bigtable.data.v2.BigtableDataSettings;
 import com.google.cloud.bigtable.emulator.v2.Emulator;
+import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import java.io.IOException;
 import java.util.HashSet;
 import java.util.Optional;
@@ -25,7 +26,6 @@ import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.stream.Collectors;
-import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import org.apache.commons.lang3.RandomStringUtils;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
