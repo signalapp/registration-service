@@ -7,6 +7,7 @@ package org.signal.registration.analytics;
 
 import com.google.i18n.phonenumbers.PhoneNumberUtil;
 import com.google.i18n.phonenumbers.Phonenumber;
+import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import org.apache.commons.lang3.RandomStringUtils;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -41,7 +42,7 @@ class AttemptPendingAnalysisEventListenerTest {
     repository = mock(AttemptPendingAnalysisRepository.class);
     when(repository.store(any())).thenReturn(CompletableFuture.completedFuture(null));
 
-    listener = new AttemptPendingAnalysisEventListener(repository);
+    listener = new AttemptPendingAnalysisEventListener(repository, new SimpleMeterRegistry());
   }
 
   @Test

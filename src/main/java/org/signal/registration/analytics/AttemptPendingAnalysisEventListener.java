@@ -8,12 +8,14 @@ package org.signal.registration.analytics;
 import com.google.i18n.phonenumbers.NumberParseException;
 import com.google.i18n.phonenumbers.PhoneNumberUtil;
 import com.google.i18n.phonenumbers.Phonenumber;
+import io.micrometer.core.instrument.MeterRegistry;
 import io.micronaut.context.annotation.Requires;
 import io.micronaut.context.event.ApplicationEventListener;
 import jakarta.inject.Singleton;
 import java.util.ArrayList;
 import java.util.List;
 import org.apache.commons.lang3.StringUtils;
+import org.signal.registration.metrics.MetricsUtil;
 import org.signal.registration.session.RegistrationAttempt;
 import org.signal.registration.session.RegistrationSession;
 import org.signal.registration.session.SessionCompletedEvent;
@@ -27,16 +29,26 @@ import org.signal.registration.session.SessionCompletedEvent;
 public class AttemptPendingAnalysisEventListener implements ApplicationEventListener<SessionCompletedEvent> {
 
   private final AttemptPendingAnalysisRepository repository;
+  private final MeterRegistry meterRegistry;
 
-  public AttemptPendingAnalysisEventListener(final AttemptPendingAnalysisRepository repository) {
+  private static final String EVENT_PROCESSED_COUNTER_NAME =
+      MetricsUtil.name(AttemptPendingAnalysisEventListener.class, "eventProcessed");
+
+  public AttemptPendingAnalysisEventListener(final AttemptPendingAnalysisRepository repository,
+      final MeterRegistry meterRegistry) {
+
     this.repository = repository;
+    this.meterRegistry = meterRegistry;
   }
 
   @Override
   public void onApplicationEvent(final SessionCompletedEvent event) {
     getAttemptsFromSession(event.session()).stream()
         .filter(attemptPendingAnalysis -> StringUtils.isNotBlank(attemptPendingAnalysis.getRemoteId()))
-        .forEach(repository::store);
+        .forEach(attemptPendingAnalysis -> {
+          meterRegistry.counter(EVENT_PROCESSED_COUNTER_NAME).increment();
+          repository.store(attemptPendingAnalysis);
+        });
   }
 
   private static List<AttemptPendingAnalysis> getAttemptsFromSession(final RegistrationSession session) {
