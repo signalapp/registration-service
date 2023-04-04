@@ -25,6 +25,7 @@ import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.stream.Collectors;
+import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import org.apache.commons.lang3.RandomStringUtils;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -72,7 +73,7 @@ class BigtableAttemptPendingAnalysisRepositoryTest {
 
     repository = new BigtableAttemptPendingAnalysisRepository(bigtableDataClient,
         executorService,
-        new BigtableAttemptPendingAnalysisRepositoryConfiguration(PROJECT_ID, INSTANCE_ID, TABLE_ID, COLUMN_FAMILY_NAME));
+        new BigtableAttemptPendingAnalysisRepositoryConfiguration(PROJECT_ID, INSTANCE_ID, TABLE_ID, COLUMN_FAMILY_NAME), new SimpleMeterRegistry());
   }
 
   @AfterEach
