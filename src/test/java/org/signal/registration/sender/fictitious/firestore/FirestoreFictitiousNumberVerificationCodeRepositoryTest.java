@@ -23,7 +23,7 @@ import java.util.concurrent.ExecutionException;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.signal.registration.util.FirestoreUtil;
+import org.signal.registration.util.GoogleApiUtil;
 import org.testcontainers.containers.FirestoreEmulatorContainer;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
@@ -87,7 +87,7 @@ class FirestoreFictitiousNumberVerificationCodeRepositoryTest {
     assertEquals(verificationCode,
         documentSnapshot.get(FirestoreFictitiousNumberVerificationCodeRepository.VERIFICATION_CODE_KEY));
 
-    assertEquals(FirestoreUtil.timestampFromInstant(CURRENT_TIME.plus(ttl)),
+    assertEquals(GoogleApiUtil.timestampFromInstant(CURRENT_TIME.plus(ttl)),
         documentSnapshot.get(EXPIRATION_FIELD_NAME));
   }
 }

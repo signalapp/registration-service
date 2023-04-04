@@ -23,7 +23,7 @@ import java.util.concurrent.CompletionException;
 import java.util.concurrent.Executor;
 import org.signal.registration.ratelimit.RateLimitExceededException;
 import org.signal.registration.ratelimit.RateLimiter;
-import org.signal.registration.util.FirestoreUtil;
+import org.signal.registration.util.GoogleApiUtil;
 
 /**
  * A Firestore token bucket rate limiter controls the rate at which actions may be taken using a
@@ -81,7 +81,7 @@ public abstract class FirestoreLeakyBucketRateLimiter<K> implements RateLimiter<
     final DocumentReference documentReference =
         firestore.collection(collectionName).document(getDocumentId(key));
 
-    return FirestoreUtil.toCompletableFuture(
+    return GoogleApiUtil.toCompletableFuture(
         ApiFutures.transform(documentReference.get(),
             documentSnapshot -> Optional.of(getTimeOfNextAction(documentSnapshot)),
             executor),
@@ -122,7 +122,7 @@ public abstract class FirestoreLeakyBucketRateLimiter<K> implements RateLimiter<
 
   @VisibleForTesting
   CompletableFuture<Instant> takePermit(final K key) {
-    return FirestoreUtil.toCompletableFuture(firestore.runAsyncTransaction(transaction -> {
+    return GoogleApiUtil.toCompletableFuture(firestore.runAsyncTransaction(transaction -> {
       final DocumentReference documentReference =
           firestore.collection(collectionName).document(getDocumentId(key));
 
@@ -140,7 +140,7 @@ public abstract class FirestoreLeakyBucketRateLimiter<K> implements RateLimiter<
 
             transaction.update(documentReference, Map.of(
                 AVAILABLE_PERMITS_FIELD_NAME, currentAvailablePermits - 1,
-                LAST_PERMIT_GRANTED_FIELD_NAME, FirestoreUtil.timestampFromInstant(currentTime),
+                LAST_PERMIT_GRANTED_FIELD_NAME, GoogleApiUtil.timestampFromInstant(currentTime),
                 expirationFieldName,
                 getBucketExpirationTimestamp(currentAvailablePermits - 1, lastPermitGranted)));
           }
@@ -150,7 +150,7 @@ public abstract class FirestoreLeakyBucketRateLimiter<K> implements RateLimiter<
 
           transaction.create(documentReference, Map.of(
               AVAILABLE_PERMITS_FIELD_NAME, maxCapacity - 1,
-              LAST_PERMIT_GRANTED_FIELD_NAME, FirestoreUtil.timestampFromInstant(currentTime),
+              LAST_PERMIT_GRANTED_FIELD_NAME, GoogleApiUtil.timestampFromInstant(currentTime),
               expirationFieldName,
               getBucketExpirationTimestamp(maxCapacity - 1, currentTime)));
         }
@@ -164,7 +164,7 @@ public abstract class FirestoreLeakyBucketRateLimiter<K> implements RateLimiter<
     final Timestamp lastPermitGrantedTimestamp = documentSnapshot.getTimestamp(LAST_PERMIT_GRANTED_FIELD_NAME);
 
     return lastPermitGrantedTimestamp != null ?
-        FirestoreUtil.instantFromTimestamp(lastPermitGrantedTimestamp) : currentTime;
+        GoogleApiUtil.instantFromTimestamp(lastPermitGrantedTimestamp) : currentTime;
   }
 
   private double getCurrentPermitsAvailable(final DocumentSnapshot documentSnapshot, final Instant lastPermitGranted) {
@@ -222,7 +222,7 @@ public abstract class FirestoreLeakyBucketRateLimiter<K> implements RateLimiter<
    */
   @VisibleForTesting
   Timestamp getBucketExpirationTimestamp(final double currentPermitsAvailable, final Instant lastPermitGranted) {
-    return FirestoreUtil.timestampFromInstant(latestOf(
+    return GoogleApiUtil.timestampFromInstant(latestOf(
         getPermitAvailabilityTime(currentPermitsAvailable, maxCapacity),
         lastPermitGranted.plus(minDelay)));
   }

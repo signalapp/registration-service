@@ -5,7 +5,6 @@
 
 package org.signal.registration.sender.fictitious.firestore;
 
-import com.google.cloud.Timestamp;
 import com.google.cloud.firestore.Firestore;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.i18n.phonenumbers.PhoneNumberUtil;
@@ -18,13 +17,12 @@ import jakarta.inject.Named;
 import jakarta.inject.Singleton;
 import java.time.Clock;
 import java.time.Duration;
-import java.time.Instant;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
 import org.signal.registration.metrics.MetricsUtil;
 import org.signal.registration.sender.fictitious.FictitiousNumberVerificationCodeRepository;
-import org.signal.registration.util.FirestoreUtil;
+import org.signal.registration.util.GoogleApiUtil;
 
 @Requires(bean = Firestore.class)
 @Singleton
@@ -62,10 +60,10 @@ class FirestoreFictitiousNumberVerificationCodeRepository implements FictitiousN
 
     final Timer.Sample sample = Timer.start();
 
-    return FirestoreUtil.toCompletableFuture(firestore.collection(configuration.getCollectionName())
+    return GoogleApiUtil.toCompletableFuture(firestore.collection(configuration.getCollectionName())
             .document(PhoneNumberUtil.getInstance().format(phoneNumber, PhoneNumberUtil.PhoneNumberFormat.E164))
             .set(Map.of(VERIFICATION_CODE_KEY, verificationCode,
-                configuration.getExpirationFieldName(), FirestoreUtil.timestampFromInstant(clock.instant().plus(ttl)))),
+                configuration.getExpirationFieldName(), GoogleApiUtil.timestampFromInstant(clock.instant().plus(ttl)))),
             executor)
         .thenAccept(ignored -> {})
         .whenComplete((ignored, throwable) -> sample.stop(storeVerificationCodeTimer));

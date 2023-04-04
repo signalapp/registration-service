@@ -45,7 +45,7 @@ import org.signal.registration.session.SessionMetadata;
 import org.signal.registration.session.SessionNotFoundException;
 import org.signal.registration.session.SessionRepository;
 import org.signal.registration.util.CompletionExceptions;
-import org.signal.registration.util.FirestoreUtil;
+import org.signal.registration.util.GoogleApiUtil;
 import org.signal.registration.util.UUIDUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -102,9 +102,9 @@ public class FirestoreSessionRepository implements SessionRepository {
     final CollectionReference sessionCollection = firestore.collection(configuration.collectionName());
 
     final Query query = sessionCollection.whereLessThan(configuration.expirationFieldName(),
-        FirestoreUtil.timestampFromInstant(clock.instant()));
+        GoogleApiUtil.timestampFromInstant(clock.instant()));
 
-    return FirestoreUtil.toCompletableFuture(query.get(), executor)
+    return GoogleApiUtil.toCompletableFuture(query.get(), executor)
         .thenCompose(querySnapshot -> CompletableFuture.allOf(querySnapshot.getDocuments().stream()
             .map(this::deleteExpiredSession)
             .toList()
@@ -115,7 +115,7 @@ public class FirestoreSessionRepository implements SessionRepository {
 
     final Timer.Sample sample = Timer.start();
 
-    return FirestoreUtil.toCompletableFuture(firestore.runAsyncTransaction(transaction -> {
+    return GoogleApiUtil.toCompletableFuture(firestore.runAsyncTransaction(transaction -> {
           final DocumentReference documentReference =
               firestore.collection(configuration.collectionName()).document(queryDocumentSnapshot.getId());
 
@@ -158,11 +158,11 @@ public class FirestoreSessionRepository implements SessionRepository {
         .setSessionMetadata(sessionMetadata)
         .build();
 
-    return FirestoreUtil.toCompletableFuture(firestore.collection(configuration.collectionName())
+    return GoogleApiUtil.toCompletableFuture(firestore.collection(configuration.collectionName())
         .document(sessionId.toString())
         .set(Map.of(SESSION_FIELD_NAME, Blob.fromBytes(session.toByteArray()),
-            configuration.expirationFieldName(), FirestoreUtil.timestampFromInstant(expiration),
-            configuration.removalFieldName(), FirestoreUtil.timestampFromInstant(expiration.plus(REMOVAL_TTL_PADDING)))),
+            configuration.expirationFieldName(), GoogleApiUtil.timestampFromInstant(expiration),
+            configuration.removalFieldName(), GoogleApiUtil.timestampFromInstant(expiration.plus(REMOVAL_TTL_PADDING)))),
             executor)
         .thenApply(ignored -> session)
         .whenComplete((id, throwable) -> sample.stop(createSessionTimer));
@@ -172,7 +172,7 @@ public class FirestoreSessionRepository implements SessionRepository {
   public CompletableFuture<RegistrationSession> getSession(final UUID sessionId) {
     final Timer.Sample sample = Timer.start();
 
-    return FirestoreUtil.toCompletableFuture(firestore.collection(configuration.collectionName()).document(sessionId.toString()).get(), executor)
+    return GoogleApiUtil.toCompletableFuture(firestore.collection(configuration.collectionName()).document(sessionId.toString()).get(), executor)
         .thenApply(documentSnapshot -> {
           try {
             return extractSession(documentSnapshot);
@@ -195,7 +195,7 @@ public class FirestoreSessionRepository implements SessionRepository {
 
     final Timer.Sample sample = Timer.start();
 
-    return FirestoreUtil.toCompletableFuture(firestore.runAsyncTransaction(transaction -> {
+    return GoogleApiUtil.toCompletableFuture(firestore.runAsyncTransaction(transaction -> {
           final DocumentReference documentReference =
               firestore.collection(configuration.collectionName()).document(sessionId.toString());
 
@@ -212,8 +212,8 @@ public class FirestoreSessionRepository implements SessionRepository {
 
             transaction.update(documentReference, Map.of(
                 SESSION_FIELD_NAME, Blob.fromBytes(updatedSession.toByteArray()),
-                configuration.expirationFieldName(), FirestoreUtil.timestampFromInstant(expiration),
-                configuration.removalFieldName(), FirestoreUtil.timestampFromInstant(expiration.plus(REMOVAL_TTL_PADDING))
+                configuration.expirationFieldName(), GoogleApiUtil.timestampFromInstant(expiration),
+                configuration.removalFieldName(), GoogleApiUtil.timestampFromInstant(expiration.plus(REMOVAL_TTL_PADDING))
             ));
 
             return updatedSession;
@@ -227,7 +227,7 @@ public class FirestoreSessionRepository implements SessionRepository {
 
       // It's possible that a stored session has expired, but hasn't been deleted yet
       if (documentSnapshot.get(configuration.expirationFieldName()) instanceof Timestamp sessionClosureTimestamp) {
-        if (FirestoreUtil.instantFromTimestamp(sessionClosureTimestamp).isBefore(clock.instant())) {
+        if (GoogleApiUtil.instantFromTimestamp(sessionClosureTimestamp).isBefore(clock.instant())) {
           throw new SessionNotFoundException();
         }
       }

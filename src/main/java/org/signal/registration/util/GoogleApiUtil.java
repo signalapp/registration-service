@@ -9,13 +9,11 @@ import com.google.api.core.ApiFuture;
 import com.google.api.core.ApiFutureCallback;
 import com.google.api.core.ApiFutures;
 import com.google.cloud.Timestamp;
-import java.time.Clock;
-import java.time.Duration;
 import java.time.Instant;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
 
-public class FirestoreUtil {
+public class GoogleApiUtil {
 
   public static <T> CompletableFuture<T> toCompletableFuture(final ApiFuture<T> apiFuture, final Executor executor) {
     final CompletableFuture<T> completableFuture = new CompletableFuture<>();

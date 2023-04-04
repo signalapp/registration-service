@@ -35,7 +35,7 @@ import org.junit.jupiter.params.provider.MethodSource;
 import org.signal.registration.ratelimit.RateLimitExceededException;
 import org.signal.registration.util.CompletionExceptions;
 import org.signal.registration.util.FirestoreTestUtil;
-import org.signal.registration.util.FirestoreUtil;
+import org.signal.registration.util.GoogleApiUtil;
 import org.testcontainers.containers.FirestoreEmulatorContainer;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
@@ -284,19 +284,19 @@ class FirestoreLeakyBucketRateLimiterTest {
     return Stream.of(
         // Bucket is empty and min delay is zero
         Arguments.of(0, 1, Duration.ZERO, currentTime, currentTime, Duration.ofMinutes(1),
-            FirestoreUtil.timestampFromInstant(currentTime.plusSeconds(60))),
+            GoogleApiUtil.timestampFromInstant(currentTime.plusSeconds(60))),
 
         // Bucket is partially full and min delay is zero
         Arguments.of(0.5, 1, Duration.ZERO, currentTime, currentTime, Duration.ofMinutes(1),
-            FirestoreUtil.timestampFromInstant(currentTime.plusSeconds(30))),
+            GoogleApiUtil.timestampFromInstant(currentTime.plusSeconds(30))),
 
         // Bucket is full and min delay is zero
         Arguments.of(1, 1, Duration.ZERO, currentTime, currentTime, Duration.ofMinutes(1),
-            FirestoreUtil.timestampFromInstant(currentTime)),
+            GoogleApiUtil.timestampFromInstant(currentTime)),
 
         // Bucket is full and min delay is non-zero
         Arguments.of(1, 1, Duration.ofSeconds(79), currentTime, currentTime, Duration.ofMinutes(1),
-            FirestoreUtil.timestampFromInstant(currentTime.plusSeconds(79)))
+            GoogleApiUtil.timestampFromInstant(currentTime.plusSeconds(79)))
     );
   }
 

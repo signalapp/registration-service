@@ -24,7 +24,7 @@ import java.util.concurrent.Executor;
 import org.apache.commons.lang3.StringUtils;
 import org.signal.registration.metrics.MetricsUtil;
 import org.signal.registration.sender.prescribed.PrescribedVerificationCodeRepository;
-import org.signal.registration.util.FirestoreUtil;
+import org.signal.registration.util.GoogleApiUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -63,7 +63,7 @@ class FirestorePrescribedVerificationCodeRepository implements PrescribedVerific
   public CompletableFuture<Map<Phonenumber.PhoneNumber, String>> getVerificationCodes() {
     final Timer.Sample sample = Timer.start();
 
-    return FirestoreUtil.toCompletableFuture(firestore.collection(configuration.getCollectionName()).get(), executor)
+    return GoogleApiUtil.toCompletableFuture(firestore.collection(configuration.getCollectionName()).get(), executor)
         .thenApply(querySnapshot -> {
           final Map<Phonenumber.PhoneNumber, String> verificationCodes =
               new HashMap<>(querySnapshot.getDocuments().size());
