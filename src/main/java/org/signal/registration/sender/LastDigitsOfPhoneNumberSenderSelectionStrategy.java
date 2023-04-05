@@ -8,6 +8,7 @@ package org.signal.registration.sender;
 import com.google.i18n.phonenumbers.Phonenumber;
 import io.micronaut.context.annotation.Requires;
 import jakarta.inject.Singleton;
+import org.signal.registration.Environments;
 import javax.annotation.Nullable;
 import java.util.List;
 import java.util.Locale;
@@ -19,7 +20,7 @@ import java.util.Optional;
  * never be used in a production environment.
  */
 @Singleton
-@Requires(env = {"dev"})
+@Requires(env = Environments.DEVELOPMENT)
 @Requires(missingBeans = SenderSelectionStrategy.class)
 public class LastDigitsOfPhoneNumberSenderSelectionStrategy implements SenderSelectionStrategy {
 

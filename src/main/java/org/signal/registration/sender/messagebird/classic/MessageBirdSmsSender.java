@@ -55,6 +55,8 @@ public class MessageBirdSmsSender implements VerificationCodeSender {
   private final ApiClientInstrumenter apiClientInstrumenter;
   private final SenderIdSelector senderIdSelector;
 
+  public static final String SENDER_NAME = "messagebird-sms";
+
   public MessageBirdSmsSender(
       final @Named(TaskExecutors.IO) Executor executor,
       final MessageBirdSmsConfiguration configuration,
@@ -74,7 +76,7 @@ public class MessageBirdSmsSender implements VerificationCodeSender {
 
   @Override
   public String getName() {
-    return "messagebird-sms";
+    return SENDER_NAME;
   }
 
   @Override

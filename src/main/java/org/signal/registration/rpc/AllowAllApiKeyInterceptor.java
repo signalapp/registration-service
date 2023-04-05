@@ -13,8 +13,10 @@ import io.grpc.ServerCallHandler;
 import io.grpc.ServerInterceptor;
 import io.micronaut.context.annotation.Replaces;
 import io.micronaut.context.annotation.Requires;
+import io.micronaut.context.env.Environment;
 import io.micronaut.core.order.Ordered;
 import jakarta.inject.Singleton;
+import org.signal.registration.Environments;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -25,7 +27,7 @@ import org.slf4j.LoggerFactory;
  */
 @Singleton
 @Replaces(ApiKeyInterceptor.class)
-@Requires(env = {"dev", "test"})
+@Requires(env = {Environments.DEVELOPMENT, Environment.TEST})
 @Requires(missingProperty = "authentication.api-keys")
 class AllowAllApiKeyInterceptor implements ServerInterceptor, Ordered {
 

@@ -4,10 +4,9 @@
  */
 
 @Configuration
-@Requires(property = "twilio.account-sid")
-@Requires(property = "twilio.api-key-sid")
-@Requires(property = "twilio.api-key-secret")
-package org.signal.registration.sender.twilio;
+@Requires(notEnv = Environments.ANALYTICS)
+package org.signal.registration.sender;
 
 import io.micronaut.context.annotation.Configuration;
 import io.micronaut.context.annotation.Requires;
+import org.signal.registration.Environments;

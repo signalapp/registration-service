@@ -5,9 +5,10 @@ import io.micronaut.context.annotation.Requires;
 import jakarta.inject.Singleton;
 import java.time.Duration;
 import java.util.concurrent.CompletableFuture;
+import org.signal.registration.Environments;
 import org.signal.registration.sender.fictitious.FictitiousNumberVerificationCodeRepository;
 
-@Requires(env = "dev")
+@Requires(env = Environments.DEVELOPMENT)
 @Requires(missingBeans = FictitiousNumberVerificationCodeRepository.class)
 @Singleton
 public class NoopFictitiousNumberVerificationCodeRepository implements FictitiousNumberVerificationCodeRepository {

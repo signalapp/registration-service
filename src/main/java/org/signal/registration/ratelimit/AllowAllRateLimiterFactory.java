@@ -10,10 +10,11 @@ import io.micronaut.context.annotation.Factory;
 import io.micronaut.context.annotation.Requires;
 import jakarta.inject.Named;
 import jakarta.inject.Singleton;
+import org.signal.registration.Environments;
 import java.time.Clock;
 
 @Factory
-@Requires(env = "dev")
+@Requires(env = Environments.DEVELOPMENT)
 class AllowAllRateLimiterFactory {
 
   private final Clock clock;

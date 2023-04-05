@@ -12,7 +12,7 @@ public class SenderIdSelector {
   private final Map<String, String> regionSenderIds;
   private String defaultSenderId;
 
-  public SenderIdSelector(final MessageBirdConfiguration configuration) {
+  public SenderIdSelector(final MessageBirdSenderConfiguration configuration) {
     this.regionSenderIds = configuration.regionSenderIds()
         .entrySet()
         .stream()

@@ -67,6 +67,8 @@ public class MessageBirdVerifySender implements VerificationCodeSender {
   private final SenderIdSelector senderIdSelector;
   private static final String VERIFY_COUNTER_NAME = MetricsUtil.name(MessageBirdVerifySender.class, "verify");
 
+  public static final String SENDER_NAME = "messagebird-verify";
+
 
   public MessageBirdVerifySender(
       final MessageBirdVerifyConfiguration configuration,
@@ -85,7 +87,7 @@ public class MessageBirdVerifySender implements VerificationCodeSender {
 
   @Override
   public String getName() {
-    return "messagebird-verify";
+    return SENDER_NAME;
   }
 
   @Override

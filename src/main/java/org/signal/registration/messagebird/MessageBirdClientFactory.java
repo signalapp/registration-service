@@ -1,8 +1,9 @@
 /*
- * Copyright 2022 Signal Messenger, LLC
+ * Copyright 2023 Signal Messenger, LLC
  * SPDX-License-Identifier: AGPL-3.0-only
  */
-package org.signal.registration.sender.messagebird;
+
+package org.signal.registration.messagebird;
 
 import com.messagebird.MessageBirdClient;
 import com.messagebird.MessageBirdServiceImpl;
@@ -11,8 +12,9 @@ import jakarta.inject.Singleton;
 
 @Factory
 public class MessageBirdClientFactory {
+
   @Singleton
-  MessageBirdClient messageBirdClient(final MessageBirdConfiguration configuration) {
+  MessageBirdClient messageBirdClient(final MessageBirdClientConfiguration configuration) {
     return new MessageBirdClient(new MessageBirdServiceImpl(configuration.accessKey()));
   }
 }

@@ -8,7 +8,9 @@ package org.signal.registration.sender;
 import com.google.i18n.phonenumbers.PhoneNumberUtil;
 import com.google.i18n.phonenumbers.Phonenumber;
 import io.micronaut.context.annotation.Requires;
+import io.micronaut.context.env.Environment;
 import jakarta.inject.Singleton;
+import org.signal.registration.Environments;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.List;
@@ -22,7 +24,7 @@ import java.util.concurrent.CompletableFuture;
  * be used in a production environment.
  */
 @Singleton
-@Requires(env = {"dev", "test"})
+@Requires(env = {Environments.DEVELOPMENT, Environment.TEST})
 public class LastDigitsOfPhoneNumberVerificationCodeSender implements VerificationCodeSender {
 
   @Override

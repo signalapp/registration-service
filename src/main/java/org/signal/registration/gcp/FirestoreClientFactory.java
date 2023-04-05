@@ -5,16 +5,15 @@
 
 package org.signal.registration.gcp;
 
-import com.google.auth.oauth2.GoogleCredentials;
 import com.google.cloud.firestore.Firestore;
 import com.google.cloud.firestore.FirestoreOptions;
 import io.micronaut.context.annotation.Factory;
 import io.micronaut.context.annotation.Requires;
+import io.micronaut.context.env.Environment;
 import jakarta.inject.Singleton;
 
-import java.io.IOException;
 
-@Requires(env = "gcp")
+@Requires(env = Environment.GOOGLE_COMPUTE)
 @Factory
 class FirestoreClientFactory {
 

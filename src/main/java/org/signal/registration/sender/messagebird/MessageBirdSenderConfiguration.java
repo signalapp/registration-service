@@ -13,7 +13,6 @@ import java.util.Map;
 
 @Context
 @ConfigurationProperties("messagebird")
-public record MessageBirdConfiguration(
-    @NotBlank String accessKey,
+public record MessageBirdSenderConfiguration(
     @NotBlank @NotNull String defaultSenderId,
     Map<@NotBlank String, @NotBlank String> regionSenderIds) {}

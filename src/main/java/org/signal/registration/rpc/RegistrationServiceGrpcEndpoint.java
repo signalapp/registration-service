@@ -12,6 +12,7 @@ import com.google.i18n.phonenumbers.Phonenumber;
 import io.grpc.Status;
 import io.grpc.StatusException;
 import io.grpc.stub.StreamObserver;
+import io.micronaut.context.annotation.Requires;
 import jakarta.inject.Singleton;
 import java.util.Collections;
 import java.util.List;

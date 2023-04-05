@@ -9,6 +9,7 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.i18n.phonenumbers.PhoneNumberUtil;
 import com.google.i18n.phonenumbers.Phonenumber;
 import io.micronaut.context.annotation.Requires;
+import io.micronaut.context.env.Environment;
 import io.micronaut.context.event.ApplicationEventPublisher;
 import io.micronaut.scheduling.annotation.Scheduled;
 import jakarta.inject.Singleton;
@@ -20,10 +21,11 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Function;
+import org.signal.registration.Environments;
 import org.signal.registration.util.UUIDUtil;
 
 @Singleton
-@Requires(env = {"dev", "test"})
+@Requires(env = {Environments.DEVELOPMENT, Environment.TEST})
 @Requires(missingBeans = SessionRepository.class)
 public class MemorySessionRepository implements SessionRepository {
 
