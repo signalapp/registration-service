@@ -84,7 +84,7 @@ class MessageBirdVerifyAttemptAnalyzer extends AbstractAttemptAnalyzer {
               throw new IllegalArgumentException("Unexpected transport: " + attemptPendingAnalysis.getMessageTransport());
         })
         .whenComplete((ignored, throwable) -> {
-          if (throwable != null && !(throwable instanceof NotFoundException)) {
+          if (!(CompletionExceptions.unwrap(throwable) instanceof NotFoundException)) {
             logger.warn("Unexpected exception while analyzing attempt", throwable);
           }
         });
