@@ -78,8 +78,8 @@ class MessageBirdVerifyAttemptAnalyzer extends AbstractAttemptAnalyzer {
         }, executor)
         .thenApply(verify -> getMessageId(verify.getMessages().getHref()))
         .thenCompose(messageId -> switch (attemptPendingAnalysis.getMessageTransport()) {
-          case MESSAGE_TRANSPORT_SMS -> smsAttemptAnalyzer.analyzeAttempt(attemptPendingAnalysis);
-          case MESSAGE_TRANSPORT_VOICE -> voiceAttemptAnalyzer.analyzeAttempt(attemptPendingAnalysis);
+          case MESSAGE_TRANSPORT_SMS -> smsAttemptAnalyzer.analyzeAttempt(messageId);
+          case MESSAGE_TRANSPORT_VOICE -> voiceAttemptAnalyzer.analyzeAttempt(messageId);
           case MESSAGE_TRANSPORT_UNSPECIFIED, UNRECOGNIZED ->
               throw new IllegalArgumentException("Unexpected transport: " + attemptPendingAnalysis.getMessageTransport());
         })

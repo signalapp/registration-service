@@ -61,10 +61,14 @@ class MessageBirdVoiceAttemptAnalyzer extends AbstractAttemptAnalyzer {
 
   @Override
   protected CompletableFuture<Optional<AttemptAnalysis>> analyzeAttempt(final AttemptPendingAnalysis attemptPendingAnalysis) {
+    return analyzeAttempt(attemptPendingAnalysis.getRemoteId());
+  }
+
+  CompletableFuture<Optional<AttemptAnalysis>> analyzeAttempt(final String messageId) {
     return CompletableFuture.supplyAsync(() -> {
           try {
             return MessageBirdApiUtil.extractAttemptAnalysis(
-                messageBirdClient.viewVoiceMessage(attemptPendingAnalysis.getRemoteId()).getRecipients());
+                messageBirdClient.viewVoiceMessage(messageId).getRecipients());
           } catch (final MessageBirdException e) {
             throw CompletionExceptions.wrap(e);
           }
