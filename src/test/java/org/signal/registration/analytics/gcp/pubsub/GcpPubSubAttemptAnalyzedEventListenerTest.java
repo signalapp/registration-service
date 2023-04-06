@@ -16,6 +16,7 @@ import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.UUID;
 import java.util.stream.Stream;
+import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -37,7 +38,7 @@ class GcpPubSubAttemptAnalyzedEventListenerTest {
   @BeforeEach
   void setUp() {
     pubSubClient = mock(AttemptAnalyzedPubSubMessageClient.class);
-    listener = new GcpPubSubAttemptAnalyzedEventListener(pubSubClient);
+    listener = new GcpPubSubAttemptAnalyzedEventListener(pubSubClient, new SimpleMeterRegistry());
   }
 
   @Test

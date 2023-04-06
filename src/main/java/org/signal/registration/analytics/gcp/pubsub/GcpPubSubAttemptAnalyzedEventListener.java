@@ -6,9 +6,12 @@
 package org.signal.registration.analytics.gcp.pubsub;
 
 import com.google.common.annotations.VisibleForTesting;
+import io.micrometer.core.instrument.Counter;
+import io.micrometer.core.instrument.MeterRegistry;
 import io.micronaut.context.event.ApplicationEventListener;
 import jakarta.inject.Singleton;
 import org.signal.registration.analytics.AttemptAnalyzedEvent;
+import org.signal.registration.metrics.MetricsUtil;
 import org.signal.registration.util.UUIDUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -23,18 +26,30 @@ public class GcpPubSubAttemptAnalyzedEventListener implements ApplicationEventLi
 
   private final AttemptAnalyzedPubSubMessageClient pubSubClient;
 
+  private final Counter messageSentCounter;
+  private final Counter messageFailedCounter;
+
   private static final Logger logger = LoggerFactory.getLogger(GcpPubSubAttemptAnalyzedEventListener.class);
 
-  public GcpPubSubAttemptAnalyzedEventListener(final AttemptAnalyzedPubSubMessageClient pubSubClient) {
+  public GcpPubSubAttemptAnalyzedEventListener(final AttemptAnalyzedPubSubMessageClient pubSubClient,
+      final MeterRegistry meterRegistry) {
+
     this.pubSubClient = pubSubClient;
+
+    final String counterName = MetricsUtil.name(getClass(), "messageSent");
+
+    messageSentCounter = meterRegistry.counter(counterName, "success", "true");
+    messageFailedCounter = meterRegistry.counter(counterName, "success", "false");
   }
 
   @Override
   public void onApplicationEvent(final AttemptAnalyzedEvent event) {
     try {
       pubSubClient.send(buildPubSubMessage(event).toByteArray());
+      messageSentCounter.increment();
     } catch (final Exception e) {
       logger.warn("Failed to send pub/sub message", e);
+      messageFailedCounter.increment();
     }
   }
 
