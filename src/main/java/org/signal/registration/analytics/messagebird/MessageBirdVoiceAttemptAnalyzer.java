@@ -74,7 +74,7 @@ class MessageBirdVoiceAttemptAnalyzer extends AbstractAttemptAnalyzer {
           }
         }, executor)
         .whenComplete((ignored, throwable) -> {
-          if (!(CompletionExceptions.unwrap(throwable) instanceof NotFoundException)) {
+          if (throwable != null && !(CompletionExceptions.unwrap(throwable) instanceof NotFoundException)) {
             logger.warn("Unexpected exception while analyzing attempt", throwable);
           }
         });
