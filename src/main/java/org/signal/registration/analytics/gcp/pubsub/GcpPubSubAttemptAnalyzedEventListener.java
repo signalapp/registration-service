@@ -10,6 +10,8 @@ import io.micronaut.context.event.ApplicationEventListener;
 import jakarta.inject.Singleton;
 import org.signal.registration.analytics.AttemptAnalyzedEvent;
 import org.signal.registration.util.UUIDUtil;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import java.time.Instant;
 
 /**
@@ -21,13 +23,19 @@ public class GcpPubSubAttemptAnalyzedEventListener implements ApplicationEventLi
 
   private final AttemptAnalyzedPubSubMessageClient pubSubClient;
 
+  private static final Logger logger = LoggerFactory.getLogger(GcpPubSubAttemptAnalyzedEventListener.class);
+
   public GcpPubSubAttemptAnalyzedEventListener(final AttemptAnalyzedPubSubMessageClient pubSubClient) {
     this.pubSubClient = pubSubClient;
   }
 
   @Override
   public void onApplicationEvent(final AttemptAnalyzedEvent event) {
-    pubSubClient.send(buildPubSubMessage(event).toByteArray());
+    try {
+      pubSubClient.send(buildPubSubMessage(event).toByteArray());
+    } catch (final Exception e) {
+      logger.warn("Failed to send pub/sub message", e);
+    }
   }
 
   @VisibleForTesting
