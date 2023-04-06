@@ -15,6 +15,7 @@ import org.signal.registration.metrics.MetricsUtil;
 import org.signal.registration.util.UUIDUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import java.math.BigDecimal;
 import java.time.Instant;
 
 /**
@@ -28,6 +29,8 @@ public class GcpPubSubAttemptAnalyzedEventListener implements ApplicationEventLi
 
   private final Counter messageSentCounter;
   private final Counter messageFailedCounter;
+
+  private static final BigDecimal ONE_MILLION = new BigDecimal("1e6");
 
   private static final Logger logger = LoggerFactory.getLogger(GcpPubSubAttemptAnalyzedEventListener.class);
 
@@ -80,7 +83,7 @@ public class GcpPubSubAttemptAnalyzedEventListener implements ApplicationEventLi
         .setVerified(event.attemptPendingAnalysis().getVerified());
 
     event.attemptAnalysis().price().ifPresent(price -> {
-      pubSubMessageBuilder.setPrice(price.amount().toString());
+      pubSubMessageBuilder.setPriceMicros(price.amount().multiply(ONE_MILLION).longValue());
       pubSubMessageBuilder.setCurrency(price.currency().getCurrencyCode());
     });
 

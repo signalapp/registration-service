@@ -35,6 +35,8 @@ class GcpPubSubAttemptAnalyzedEventListenerTest {
   private AttemptAnalyzedPubSubMessageClient pubSubClient;
   private GcpPubSubAttemptAnalyzedEventListener listener;
 
+  private static final BigDecimal ONE_MILLION = new BigDecimal("1e6");
+
   @BeforeEach
   void setUp() {
     pubSubClient = mock(AttemptAnalyzedPubSubMessageClient.class);
@@ -84,7 +86,7 @@ class GcpPubSubAttemptAnalyzedEventListenerTest {
         .setTimestamp(Instant.ofEpochMilli(timestamp).toString())
         .setAccountExistsWithE164(accountExistsWithE164)
         .setVerified(verified)
-        .setPrice(price.amount().toString())
+        .setPriceMicros(price.amount().multiply(ONE_MILLION).longValueExact())
         .setCurrency(price.currency().getCurrencyCode())
         .setSenderMcc(mcc)
         .setSenderMnc(mnc)
@@ -143,7 +145,7 @@ class GcpPubSubAttemptAnalyzedEventListenerTest {
         .setTimestamp(Instant.ofEpochMilli(timestamp).toString())
         .setAccountExistsWithE164(accountExistsWithE164)
         .setVerified(verified)
-        .setPrice(price.amount().toString())
+        .setPriceMicros(price.amount().multiply(ONE_MILLION).longValueExact())
         .setCurrency(price.currency().getCurrencyCode())
         .setSenderMcc(mcc)
         .setSenderMnc(mnc)

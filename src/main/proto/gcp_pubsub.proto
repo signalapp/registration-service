@@ -68,9 +68,11 @@ message AttemptAnalyzedPubSubMessage {
 
   /**
    * The price to send the message associated with this attempt as reported by
-   * the sender.
+   * the sender. Prices are reported in "micros," or one millionth of the base
+   * unit of their currency. For example, a value of 100,000 with a currency of
+   * "USD" would represent a quantity of $0.10.
    */
-  optional string price = 10;
+  optional int64 price_micros = 10;
 
   /**
    * The currency in which the price was reported by the sender.
