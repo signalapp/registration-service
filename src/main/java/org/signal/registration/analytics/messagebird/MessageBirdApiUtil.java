@@ -1,7 +1,6 @@
 package org.signal.registration.analytics.messagebird;
 
 import com.messagebird.objects.MessageResponse;
-import java.math.BigDecimal;
 import java.util.Currency;
 import java.util.Locale;
 import java.util.Optional;
@@ -18,7 +17,7 @@ class MessageBirdApiUtil {
     final Optional<Money> maybePrice = recipients.getItems().stream()
         .map(MessageResponse.Items::getPrice)
         .filter(price -> price != null && StringUtils.isNotBlank(price.getCurrency()))
-        .map(price -> new Money(new BigDecimal(String.valueOf(price.getAmount())), Currency.getInstance(price.getCurrency().toUpperCase(Locale.ROOT))))
+        .map(price -> new Money(price.getAmountDecimal(), Currency.getInstance(price.getCurrency().toUpperCase(Locale.ROOT))))
         .reduce(Money::add);
 
     final Optional<String> maybeMcc =

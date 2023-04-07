@@ -45,7 +45,7 @@ class MessageBirdApiUtilTest {
     final String mnc = "017";
 
     final MessageResponse.Price price = mock(MessageResponse.Price.class);
-    when(price.getAmount()).thenReturn(amount.floatValue());
+    when(price.getAmountDecimal()).thenReturn(amount);
     when(price.getCurrency()).thenReturn(Currency.getInstance("USD").getCurrencyCode());
 
     return Stream.of(
