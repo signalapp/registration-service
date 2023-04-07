@@ -82,34 +82,34 @@ message AttemptAnalyzedPubSubMessage {
   /**
    * The MCC of the receiving device for this attempt as reported by the sender.
    */
-  optional uint32 sender_mcc = 12;
+  optional string sender_mcc = 12;
 
   /**
    * The MNC of the receiving device for this attempt as reported by the sender.
    */
-  optional uint32 sender_mnc = 13;
+  optional string sender_mnc = 13;
 
   /**
    * The MCC associated with the SIM of the receiving device for this attempt as
    * reported by the client.
    */
-  optional uint32 client_sim_mcc = 14;
+  optional string client_sim_mcc = 14;
 
   /**
    * The MNC associated with the SIM of the receiving device for this attempt as
    * reported by the client.
    */
-  optional uint32 client_sim_mnc = 15;
+  optional string client_sim_mnc = 15;
 
   /**
    * The MCC associated with the radio of the receiving device for this attempt
    * as reported by the client.
    */
-  optional uint32 client_radio_mcc = 16;
+  optional string client_radio_mcc = 16;
 
   /**
    * The MCC associated with the radio of the receiving device for this attempt
    * as reported by the client.
    */
-  optional uint32 client_radio_mnc = 17;
+  optional string client_radio_mnc = 17;
 }

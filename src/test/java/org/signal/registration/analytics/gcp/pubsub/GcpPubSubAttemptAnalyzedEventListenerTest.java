@@ -9,14 +9,13 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 
+import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.Currency;
 import java.util.Optional;
-import java.util.OptionalInt;
 import java.util.UUID;
 import java.util.stream.Stream;
-import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -68,13 +67,13 @@ class GcpPubSubAttemptAnalyzedEventListenerTest {
         .build();
 
     final Money price = new Money(new BigDecimal("0.04"), Currency.getInstance("USD"));
-    final int mcc = 17;
-    final int mnc = 29;
+    final String mcc = "017";
+    final String mnc = "029";
 
     final AttemptAnalysis attemptAnalysis = new AttemptAnalysis(
         Optional.of(price),
-        OptionalInt.of(mcc),
-        OptionalInt.of(mnc));
+        Optional.of(mcc),
+        Optional.of(mnc));
 
     final AttemptAnalyzedPubSubMessage expectedPubSubMessage = AttemptAnalyzedPubSubMessage.newBuilder()
         .setSessionId(sessionId.toString())
@@ -127,13 +126,13 @@ class GcpPubSubAttemptAnalyzedEventListenerTest {
         .build();
 
     final Money price = new Money(new BigDecimal("0.04"), Currency.getInstance("USD"));
-    final int mcc = 17;
-    final int mnc = 29;
+    final String mcc = "017";
+    final String mnc = "029";
 
     final AttemptAnalysis attemptAnalysis = new AttemptAnalysis(
         Optional.of(price),
-        OptionalInt.of(mcc),
-        OptionalInt.of(mnc));
+        Optional.of(mcc),
+        Optional.of(mnc));
 
     final AttemptAnalyzedPubSubMessage expectedPubSubMessage = AttemptAnalyzedPubSubMessage.newBuilder()
         .setSessionId(sessionId.toString())

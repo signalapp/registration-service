@@ -17,7 +17,6 @@ import java.io.IOException;
 import java.math.BigDecimal;
 import java.util.Currency;
 import java.util.Optional;
-import java.util.OptionalInt;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ScheduledFuture;
 import org.apache.commons.lang3.RandomStringUtils;
@@ -85,8 +84,8 @@ class AbstractAttemptAnalyzerTest {
 
     final AttemptAnalysis attemptAnalysis = new AttemptAnalysis(
         Optional.of(new Money(new BigDecimal("0.1"), Currency.getInstance("USD"))),
-        OptionalInt.of(1),
-        OptionalInt.of(2));
+        Optional.of("001"),
+        Optional.of("002"));
 
     when(repository.getBySender(TEST_SENDER_NAME)).thenReturn(Mono.just(attemptPendingAnalysis));
     attemptAnalyzer.setMockAnalysis(CompletableFuture.completedFuture(Optional.of(attemptAnalysis)));

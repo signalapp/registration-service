@@ -14,10 +14,8 @@ import java.math.BigDecimal;
 import java.util.Currency;
 import java.util.List;
 import java.util.Optional;
-import java.util.OptionalInt;
 import java.util.stream.Stream;
 import javax.annotation.Nullable;
-import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
@@ -25,13 +23,6 @@ import org.signal.registration.analytics.AttemptAnalysis;
 import org.signal.registration.analytics.Money;
 
 class MessageBirdApiUtilTest {
-
-  @Test
-  void extractFirstInteger() {
-    assertEquals(OptionalInt.of(12), MessageBirdApiUtil.extractFirstInteger(Stream.of("", "12", "Nope")));
-    assertEquals(OptionalInt.empty(), MessageBirdApiUtil.extractFirstInteger(Stream.of()));
-    assertEquals(OptionalInt.empty(), MessageBirdApiUtil.extractFirstInteger(Stream.of("Nope")));
-  }
 
   @SuppressWarnings("OptionalUsedAsFieldOrParameterType")
   @ParameterizedTest
@@ -50,8 +41,8 @@ class MessageBirdApiUtilTest {
 
   private static Stream<Arguments> extractAttemptAnalysis() {
     final BigDecimal amount = new BigDecimal("0.25");
-    final int mcc = 12;
-    final int mnc = 17;
+    final String mcc = "012";
+    final String mnc = "017";
 
     final MessageResponse.Price price = mock(MessageResponse.Price.class);
     when(price.getAmount()).thenReturn(amount.floatValue());
@@ -60,11 +51,11 @@ class MessageBirdApiUtilTest {
     return Stream.of(
         // Populated price, but no MCC/MNC
         Arguments.of(price, null, null,
-            Optional.of(new AttemptAnalysis(Optional.of(new Money(amount, Currency.getInstance("USD"))), OptionalInt.empty(), OptionalInt.empty()))),
+            Optional.of(new AttemptAnalysis(Optional.of(new Money(amount, Currency.getInstance("USD"))), Optional.empty(), Optional.empty()))),
 
         // Populated price with MCC/MNC
         Arguments.of(price, String.valueOf(mcc), String.valueOf(mnc),
-            Optional.of(new AttemptAnalysis(Optional.of(new Money(amount, Currency.getInstance("USD"))), OptionalInt.of(mcc), OptionalInt.of(mnc)))),
+            Optional.of(new AttemptAnalysis(Optional.of(new Money(amount, Currency.getInstance("USD"))), Optional.of(mcc), Optional.of(mnc)))),
 
         // MCC/MNC present, but empty price
         Arguments.of(mock(MessageResponse.Price.class), String.valueOf(mcc), String.valueOf(mnc),

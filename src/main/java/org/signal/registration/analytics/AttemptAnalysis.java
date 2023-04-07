@@ -18,7 +18,7 @@ import java.util.OptionalInt;
  * @param mnc the mobile network code (MNC), if available, associated with the destination phone number
  */
 public record AttemptAnalysis(Optional<Money> price,
-                              OptionalInt mcc,
-                              OptionalInt mnc) {
+                              Optional<String> mcc,
+                              Optional<String> mnc) {
 
 }
