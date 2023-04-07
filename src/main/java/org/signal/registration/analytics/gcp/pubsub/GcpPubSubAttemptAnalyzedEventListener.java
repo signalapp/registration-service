@@ -6,7 +6,6 @@
 package org.signal.registration.analytics.gcp.pubsub;
 
 import com.google.common.annotations.VisibleForTesting;
-import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micronaut.context.event.ApplicationEventListener;
 import jakarta.inject.Singleton;
@@ -26,9 +25,10 @@ import java.time.Instant;
 public class GcpPubSubAttemptAnalyzedEventListener implements ApplicationEventListener<AttemptAnalyzedEvent> {
 
   private final AttemptAnalyzedPubSubMessageClient pubSubClient;
+  private final MeterRegistry meterRegistry;
 
-  private final Counter messageSentCounter;
-  private final Counter messageFailedCounter;
+  private static final String COUNTER_NAME =
+      MetricsUtil.name(GcpPubSubAttemptAnalyzedEventListener.class, "messageSent");
 
   private static final BigDecimal ONE_MILLION = new BigDecimal("1e6");
 
@@ -38,21 +38,23 @@ public class GcpPubSubAttemptAnalyzedEventListener implements ApplicationEventLi
       final MeterRegistry meterRegistry) {
 
     this.pubSubClient = pubSubClient;
-
-    final String counterName = MetricsUtil.name(getClass(), "messageSent");
-
-    messageSentCounter = meterRegistry.counter(counterName, "success", "true");
-    messageFailedCounter = meterRegistry.counter(counterName, "success", "false");
+    this.meterRegistry = meterRegistry;
   }
 
   @Override
   public void onApplicationEvent(final AttemptAnalyzedEvent event) {
+    boolean success = false;
+
     try {
       pubSubClient.send(buildPubSubMessage(event).toByteArray());
-      messageSentCounter.increment();
+      success = true;
     } catch (final Exception e) {
       logger.warn("Failed to send pub/sub message", e);
-      messageFailedCounter.increment();
+    } finally {
+      meterRegistry.counter(COUNTER_NAME,
+              "success", String.valueOf(success),
+              "sender", event.attemptPendingAnalysis().getSenderName())
+          .increment();
     }
   }
 
