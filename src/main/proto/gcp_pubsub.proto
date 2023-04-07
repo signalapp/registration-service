@@ -80,14 +80,36 @@ message AttemptAnalyzedPubSubMessage {
   optional string currency = 11;
 
   /**
-   * The MCC to which the message associated with this attempt was sent as
-   * reported by the sender.
+   * The MCC of the receiving device for this attempt as reported by the sender.
    */
   optional uint32 sender_mcc = 12;
 
   /**
-   * The MNC to which the message associated with this attempt was sent as
-   * reported by the sender.
+   * The MNC of the receiving device for this attempt as reported by the sender.
    */
   optional uint32 sender_mnc = 13;
+
+  /**
+   * The MCC associated with the SIM of the receiving device for this attempt as
+   * reported by the client.
+   */
+  optional uint32 client_sim_mcc = 14;
+
+  /**
+   * The MNC associated with the SIM of the receiving device for this attempt as
+   * reported by the client.
+   */
+  optional uint32 client_sim_mnc = 15;
+
+  /**
+   * The MCC associated with the radio of the receiving device for this attempt
+   * as reported by the client.
+   */
+  optional uint32 client_radio_mcc = 16;
+
+  /**
+   * The MCC associated with the radio of the receiving device for this attempt
+   * as reported by the client.
+   */
+  optional uint32 client_radio_mnc = 17;
 }
