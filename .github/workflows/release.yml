@@ -1,0 +1,26 @@
+name: Release
+
+on:
+  release:
+    types: [published]
+
+jobs:
+  push-to-staging:
+    permissions:
+      contents: read
+      id-token: write
+    uses: ./.github/workflows/gcr-push.yml
+    with:
+      registry_login_server: ${{ vars.REGISTRY_LOGIN_SERVER_STAGING }}
+      workload_identity_provider: ${{ vars.WORKLOAD_IDENTITY_PROVIDER_STAGING }}
+      service_account: ${{ vars.SERVICE_ACCOUNT_STAGING }}
+
+  push-to-production:
+    permissions:
+      contents: read
+      id-token: write
+    uses: ./.github/workflows/gcr-push.yml
+    with:
+      registry_login_server: ${{ vars.REGISTRY_LOGIN_SERVER_PRODUCTION }}
+      workload_identity_provider: ${{ vars.WORKLOAD_IDENTITY_PROVIDER_PRODUCTION }}
+      service_account: ${{ vars.SERVICE_ACCOUNT_PRODUCTION }}
