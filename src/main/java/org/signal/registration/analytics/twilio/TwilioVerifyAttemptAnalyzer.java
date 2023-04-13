@@ -59,8 +59,7 @@ class TwilioVerifyAttemptAnalyzer {
     this.attemptAnalyzedEventPublisher = attemptAnalyzedEventPublisher;
   }
 
-  // Temporarily disabled pending upstream configuration
-  // @Scheduled(fixedDelay = "${analytics.twilio.sms.analysis-interval:4h}")
+  @Scheduled(fixedDelay = "${analytics.twilio.verify.analysis-interval:4h}")
   void analyzeAttempts() {
     // While most attempt analyzers fetch a stream of attempts pending analysis from our own repository and resolve them
     // one by one, the rate limits for the Twilio Verifications Attempt API (see
