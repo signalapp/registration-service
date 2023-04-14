@@ -15,6 +15,7 @@ import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micronaut.context.annotation.Value;
 import io.micronaut.context.event.ApplicationEventPublisher;
+import io.micronaut.scheduling.annotation.Scheduled;
 import io.micronaut.scheduling.TaskExecutors;
 import jakarta.inject.Named;
 import jakarta.inject.Singleton;
@@ -89,7 +90,7 @@ class TwilioVerifyAttemptAnalyzer {
     this.attemptAnalyzedCounter = meterRegistry.counter(MetricsUtil.name(getClass(), "attemptAnalyzed"));
   }
 
-  // @Scheduled(fixedDelay = "${analytics.twilio.verify.analysis-interval:4h}")
+  @Scheduled(fixedDelay = "${analytics.twilio.verify.analysis-interval:4h}")
   void analyzeAttempts() {
     // While most attempt analyzers fetch a stream of attempts pending analysis from our own repository and resolve them
     // one by one, the rate limits for the Twilio Verifications Attempt API (see
