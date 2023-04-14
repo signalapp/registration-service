@@ -6,12 +6,16 @@
 package org.signal.registration.analytics.twilio;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.twilio.base.Page;
 import com.twilio.exception.ApiException;
 import com.twilio.http.TwilioRestClient;
 import com.twilio.rest.verify.v2.VerificationAttempt;
-import io.micronaut.context.annotation.Requires;
+import com.twilio.rest.verify.v2.VerificationAttemptReader;
+import io.micrometer.core.instrument.Counter;
+import io.micrometer.core.instrument.MeterRegistry;
 import io.micronaut.context.event.ApplicationEventPublisher;
-import io.micronaut.scheduling.annotation.Scheduled;
+import io.micronaut.scheduling.TaskExecutors;
+import jakarta.inject.Named;
 import jakarta.inject.Singleton;
 import java.math.BigDecimal;
 import java.time.Duration;
@@ -20,14 +24,22 @@ import java.util.Currency;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.function.Supplier;
 import org.apache.commons.lang3.StringUtils;
 import org.signal.registration.analytics.AttemptAnalysis;
 import org.signal.registration.analytics.AttemptAnalyzedEvent;
 import org.signal.registration.analytics.AttemptPendingAnalysisRepository;
 import org.signal.registration.analytics.Money;
+import org.signal.registration.metrics.MetricsUtil;
 import org.signal.registration.sender.twilio.verify.TwilioVerifySender;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import reactor.core.publisher.Flux;
+import reactor.core.publisher.Mono;
+import reactor.core.scheduler.Scheduler;
+import reactor.core.scheduler.Schedulers;
+import reactor.util.retry.Retry;
 
 /**
  * Analyzes verification attempts from {@link TwilioVerifySender}.
@@ -40,6 +52,11 @@ class TwilioVerifyAttemptAnalyzer {
 
   private final ApplicationEventPublisher<AttemptAnalyzedEvent> attemptAnalyzedEventPublisher;
 
+  private final Scheduler retryScheduler;
+
+  private final Counter attemptReadCounter;
+  private final Counter attemptAnalyzedCounter;
+
   private static final String CURRENCY_KEY = "currency";
   private static final String VALUE_KEY = "value";
   private static final String MCC_KEY = "mcc";
@@ -47,16 +64,23 @@ class TwilioVerifyAttemptAnalyzer {
 
   private static final Duration MAX_ATTEMPT_AGE = Duration.ofDays(2);
   private static final int PAGE_SIZE = 1_000;
+  private static final int TOO_MANY_REQUESTS_CODE = 20429;
 
   private static final Logger logger = LoggerFactory.getLogger(TwilioVerifyAttemptAnalyzer.class);
 
   public TwilioVerifyAttemptAnalyzer(final TwilioRestClient twilioRestClient,
       final AttemptPendingAnalysisRepository repository,
-      final ApplicationEventPublisher<AttemptAnalyzedEvent> attemptAnalyzedEventPublisher) {
+      final ApplicationEventPublisher<AttemptAnalyzedEvent> attemptAnalyzedEventPublisher,
+      @Named(TaskExecutors.SCHEDULED) final ScheduledExecutorService scheduledExecutorService,
+      final MeterRegistry meterRegistry) {
 
     this.twilioRestClient = twilioRestClient;
     this.repository = repository;
     this.attemptAnalyzedEventPublisher = attemptAnalyzedEventPublisher;
+    this.retryScheduler = Schedulers.fromExecutor(scheduledExecutorService);
+
+    this.attemptReadCounter = meterRegistry.counter(MetricsUtil.name(getClass(), "attemptRead"));
+    this.attemptAnalyzedCounter = meterRegistry.counter(MetricsUtil.name(getClass(), "attemptAnalyzed"));
   }
 
   // @Scheduled(fixedDelay = "${analytics.twilio.verify.analysis-interval:4h}")
@@ -66,55 +90,73 @@ class TwilioVerifyAttemptAnalyzer {
     // https://www.twilio.com/docs/verify/api/list-verification-attempts#rate-limits) prevent us from doing that here.
     // Instead, we fetch verification attempts from the Twilio API using fewer, larger pages and reconcile those against
     // what we have stored locally.
-    try {
-      VerificationAttempt.reader()
-          .setDateCreatedAfter(ZonedDateTime.now().minus(MAX_ATTEMPT_AGE))
-          .setPageSize(PAGE_SIZE)
-          .read(twilioRestClient)
-          .forEach(this::analyzeAttempt);
-    } catch (final ApiException e) {
-      logger.warn("Failed to retrieve verification attempts", e);
-    }
+    analyzeAttempts(getVerificationAttempts());
   }
 
   @VisibleForTesting
-  void analyzeAttempt(final VerificationAttempt verificationAttempt) {
-    if (verificationAttempt.getPrice() != null
-        && verificationAttempt.getPrice().get(VALUE_KEY) != null
-        && verificationAttempt.getPrice().get(CURRENCY_KEY) != null) {
+  void analyzeAttempts(final Flux<VerificationAttempt> verificationAttempts) {
+    verificationAttempts
+        .doOnNext(ignored -> attemptReadCounter.increment())
+        .filter(verificationAttempt -> verificationAttempt.getPrice() != null
+            && verificationAttempt.getPrice().get(VALUE_KEY) != null
+            && verificationAttempt.getPrice().get(CURRENCY_KEY) != null)
+        .flatMap(verificationAttempt -> Mono.fromFuture(repository.getByRemoteIdentifier(TwilioVerifySender.SENDER_NAME, verificationAttempt.getSid()))
+            .flatMap(Mono::justOrEmpty)
+            .flatMap(attemptPendingAnalysis -> {
+              final Money price;
 
-      repository.getByRemoteIdentifier(TwilioVerifySender.SENDER_NAME, verificationAttempt.getSid())
-          .thenAccept(maybeAttemptPendingAnalysis -> maybeAttemptPendingAnalysis.ifPresent(attemptPendingAnalysis -> {
-            Optional<Money> maybePrice;
+              try {
+                price = new Money(new BigDecimal(verificationAttempt.getPrice().get(VALUE_KEY).toString()),
+                    Currency.getInstance(verificationAttempt.getPrice().get(CURRENCY_KEY).toString().toUpperCase(Locale.ROOT)));
+              } catch (final IllegalArgumentException e) {
+                logger.warn("Failed to parse price: {}", verificationAttempt, e);
+                return Mono.empty();
+              }
 
-            try {
-              maybePrice = Optional.of(
-                  new Money(new BigDecimal(verificationAttempt.getPrice().get(VALUE_KEY).toString()),
-                      Currency.getInstance(verificationAttempt.getPrice().get(CURRENCY_KEY).toString().toUpperCase(Locale.ROOT))));
-            } catch (final IllegalArgumentException e) {
-              logger.warn("Failed to parse price: {}", verificationAttempt, e);
-              maybePrice = Optional.empty();
-            }
+              final Optional<Map<String, Object>> maybeChannelData =
+                  Optional.ofNullable(verificationAttempt.getChannelData());
 
-            final Optional<Map<String, Object>> maybeChannelData =
-                Optional.ofNullable(verificationAttempt.getChannelData());
+              final Optional<String> maybeMcc = maybeChannelData
+                  .map(channelData -> channelData.get(MCC_KEY))
+                  .map(mcc -> StringUtils.stripToNull(mcc.toString()));
 
-            final Optional<String> maybeMcc = maybeChannelData
-                .map(channelData -> channelData.get(MCC_KEY))
-                .map(mcc -> StringUtils.stripToNull(mcc.toString()));
+              final Optional<String> maybeMnc = maybeChannelData
+                  .map(channelData -> channelData.get(MNC_KEY))
+                  .map(mnc -> StringUtils.stripToNull(mnc.toString()));
 
-            final Optional<String> maybeMnc = maybeChannelData
-                .map(channelData -> channelData.get(MNC_KEY))
-                .map(mnc -> StringUtils.stripToNull(mnc.toString()));
+              return Mono.just(new AttemptAnalyzedEvent(attemptPendingAnalysis,
+                  new AttemptAnalysis(Optional.of(price), maybeMcc, maybeMnc)));
+            }))
+        .doOnNext(analyzedAttempt -> {
+          attemptAnalyzedCounter.increment();
 
-            if (maybePrice.isPresent()) {
-              repository.remove(TwilioVerifySender.SENDER_NAME, verificationAttempt.getSid());
+          repository.remove(TwilioVerifySender.SENDER_NAME, analyzedAttempt.attemptPendingAnalysis().getRemoteId());
+          attemptAnalyzedEventPublisher.publishEvent(analyzedAttempt);
+        })
+        .blockLast();
+  }
 
-              attemptAnalyzedEventPublisher.publishEvent(
-                  new AttemptAnalyzedEvent(attemptPendingAnalysis,
-                      new AttemptAnalysis(maybePrice, maybeMcc, maybeMnc)));
-            }
-          }));
-    }
+  private Flux<VerificationAttempt> getVerificationAttempts() {
+    final VerificationAttemptReader reader = VerificationAttempt.reader()
+        .setDateCreatedAfter(ZonedDateTime.now().minus(MAX_ATTEMPT_AGE))
+        .setPageSize(PAGE_SIZE);
+
+    return Flux.from(fetchPageWithBackoff(() -> reader.firstPage(twilioRestClient)))
+        .expand(page -> {
+          if (page.hasNextPage()) {
+            return fetchPageWithBackoff(() -> reader.nextPage(page, twilioRestClient));
+          } else {
+            return Mono.empty();
+          }
+        })
+        .flatMapIterable(Page::getRecords);
+  }
+
+  private Mono<Page<VerificationAttempt>> fetchPageWithBackoff(final Supplier<Page<VerificationAttempt>> pageSupplier) {
+    return Mono.fromSupplier(pageSupplier)
+        .retryWhen(Retry.backoff(10, Duration.ofMillis(500))
+            .scheduler(retryScheduler)
+            .filter(throwable -> throwable instanceof ApiException apiException && apiException.getCode() == TOO_MANY_REQUESTS_CODE)
+            .maxBackoff(Duration.ofSeconds(8)));
   }
 }

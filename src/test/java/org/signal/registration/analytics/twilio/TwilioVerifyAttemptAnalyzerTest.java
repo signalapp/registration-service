@@ -14,13 +14,18 @@ import static org.mockito.Mockito.when;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.twilio.http.TwilioRestClient;
 import com.twilio.rest.verify.v2.VerificationAttempt;
+import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import io.micronaut.context.event.ApplicationEventPublisher;
 import java.math.BigDecimal;
 import java.util.Currency;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
 import java.util.stream.Stream;
 import javax.annotation.Nullable;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
@@ -31,11 +36,13 @@ import org.signal.registration.analytics.AttemptPendingAnalysis;
 import org.signal.registration.analytics.AttemptPendingAnalysisRepository;
 import org.signal.registration.analytics.Money;
 import org.signal.registration.sender.twilio.verify.TwilioVerifySender;
+import reactor.core.publisher.Flux;
 
 class TwilioVerifyAttemptAnalyzerTest {
 
   private AttemptPendingAnalysisRepository repository;
   private ApplicationEventPublisher<AttemptAnalyzedEvent> attemptAnalyzedEventPublisher;
+  private ScheduledExecutorService scheduledExecutorService;
 
   private TwilioVerifyAttemptAnalyzer twilioVerifyAttemptAnalyzer;
 
@@ -57,20 +64,20 @@ class TwilioVerifyAttemptAnalyzerTest {
 
   private static final String MISSING_MCC_MNC_VERIFICATION_ATTEMPT_JSON = """
       {
-        "sid": "missing-price",
+        "sid": "missing-mcc-mnc",
         "price": {
           "value": "0.005",
-          "currency": "USD"
+          "currency": "usd"
         }
       }
       """;
 
   private static final String COMPLETE_VERIFICATION_ATTEMPT_JSON = """
       {
-        "sid": "missing-price",
+        "sid": "complete-attempt",
         "price": {
           "value": "0.005",
-          "currency": "USD"
+          "currency": "usd"
         },
         "channel_data": {
           "mcc": "123",
@@ -86,8 +93,21 @@ class TwilioVerifyAttemptAnalyzerTest {
     //noinspection unchecked
     attemptAnalyzedEventPublisher = mock(ApplicationEventPublisher.class);
 
-    twilioVerifyAttemptAnalyzer =
-        new TwilioVerifyAttemptAnalyzer(mock(TwilioRestClient.class), repository, attemptAnalyzedEventPublisher);
+    scheduledExecutorService = Executors.newSingleThreadScheduledExecutor();
+
+    twilioVerifyAttemptAnalyzer = new TwilioVerifyAttemptAnalyzer(mock(TwilioRestClient.class),
+        repository,
+        attemptAnalyzedEventPublisher,
+        scheduledExecutorService,
+        new SimpleMeterRegistry());
+  }
+
+  @AfterEach
+  void tearDown() throws InterruptedException {
+    scheduledExecutorService.shutdown();
+
+    //noinspection ResultOfMethodCallIgnored
+    scheduledExecutorService.awaitTermination(1, TimeUnit.SECONDS);
   }
 
   @ParameterizedTest
@@ -96,13 +116,17 @@ class TwilioVerifyAttemptAnalyzerTest {
       final boolean hasAttemptPendingAnalysis,
       @Nullable final AttemptAnalysis expectedAnalysis) {
 
-    final AttemptPendingAnalysis attemptPendingAnalysis = AttemptPendingAnalysis.newBuilder().build();
+    final AttemptPendingAnalysis attemptPendingAnalysis = AttemptPendingAnalysis.newBuilder()
+        .setRemoteId(verificationAttempt.getSid())
+        .build();
 
     when(repository.getByRemoteIdentifier(TwilioVerifySender.SENDER_NAME, verificationAttempt.getSid()))
         .thenReturn(CompletableFuture.completedFuture(
             hasAttemptPendingAnalysis ? Optional.of(attemptPendingAnalysis) : Optional.empty()));
 
-    twilioVerifyAttemptAnalyzer.analyzeAttempt(verificationAttempt);
+    when(repository.remove(any(), any())).thenReturn(CompletableFuture.completedFuture(null));
+
+    twilioVerifyAttemptAnalyzer.analyzeAttempts(Flux.just(verificationAttempt));
 
     if (expectedAnalysis != null) {
       verify(repository).remove(TwilioVerifySender.SENDER_NAME, verificationAttempt.getSid());
