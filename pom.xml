@@ -110,7 +110,7 @@
     <dependency>
       <groupId>com.twilio.sdk</groupId>
       <artifactId>twilio</artifactId>
-      <version>9.1.0</version>
+      <version>9.4.0</version>
 
       <exclusions>
         <exclusion>
