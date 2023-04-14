@@ -13,6 +13,7 @@ import com.twilio.rest.verify.v2.VerificationAttempt;
 import com.twilio.rest.verify.v2.VerificationAttemptReader;
 import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.MeterRegistry;
+import io.micronaut.context.annotation.Value;
 import io.micronaut.context.event.ApplicationEventPublisher;
 import io.micronaut.scheduling.TaskExecutors;
 import jakarta.inject.Named;
@@ -54,6 +55,8 @@ class TwilioVerifyAttemptAnalyzer {
 
   private final Scheduler retryScheduler;
 
+  private final String verifyServiceSid;
+
   private final Counter attemptReadCounter;
   private final Counter attemptAnalyzedCounter;
 
@@ -72,12 +75,15 @@ class TwilioVerifyAttemptAnalyzer {
       final AttemptPendingAnalysisRepository repository,
       final ApplicationEventPublisher<AttemptAnalyzedEvent> attemptAnalyzedEventPublisher,
       @Named(TaskExecutors.SCHEDULED) final ScheduledExecutorService scheduledExecutorService,
+      @Value("twilio.verify.service-sid") final String verifyServiceSid,
       final MeterRegistry meterRegistry) {
 
     this.twilioRestClient = twilioRestClient;
     this.repository = repository;
     this.attemptAnalyzedEventPublisher = attemptAnalyzedEventPublisher;
     this.retryScheduler = Schedulers.fromExecutor(scheduledExecutorService);
+
+    this.verifyServiceSid = verifyServiceSid;
 
     this.attemptReadCounter = meterRegistry.counter(MetricsUtil.name(getClass(), "attemptRead"));
     this.attemptAnalyzedCounter = meterRegistry.counter(MetricsUtil.name(getClass(), "attemptAnalyzed"));
@@ -100,14 +106,16 @@ class TwilioVerifyAttemptAnalyzer {
         .filter(verificationAttempt -> verificationAttempt.getPrice() != null
             && verificationAttempt.getPrice().get(VALUE_KEY) != null
             && verificationAttempt.getPrice().get(CURRENCY_KEY) != null)
-        .flatMap(verificationAttempt -> Mono.fromFuture(repository.getByRemoteIdentifier(TwilioVerifySender.SENDER_NAME, verificationAttempt.getSid()))
+        .flatMap(verificationAttempt -> Mono.fromFuture(
+                repository.getByRemoteIdentifier(TwilioVerifySender.SENDER_NAME, verificationAttempt.getSid()))
             .flatMap(Mono::justOrEmpty)
             .flatMap(attemptPendingAnalysis -> {
               final Money price;
 
               try {
                 price = new Money(new BigDecimal(verificationAttempt.getPrice().get(VALUE_KEY).toString()),
-                    Currency.getInstance(verificationAttempt.getPrice().get(CURRENCY_KEY).toString().toUpperCase(Locale.ROOT)));
+                    Currency.getInstance(
+                        verificationAttempt.getPrice().get(CURRENCY_KEY).toString().toUpperCase(Locale.ROOT)));
               } catch (final IllegalArgumentException e) {
                 logger.warn("Failed to parse price: {}", verificationAttempt, e);
                 return Mono.empty();
@@ -138,6 +146,7 @@ class TwilioVerifyAttemptAnalyzer {
 
   private Flux<VerificationAttempt> getVerificationAttempts() {
     final VerificationAttemptReader reader = VerificationAttempt.reader()
+        .setVerifyServiceSid(verifyServiceSid)
         .setDateCreatedAfter(ZonedDateTime.now().minus(MAX_ATTEMPT_AGE))
         .setPageSize(PAGE_SIZE);
 

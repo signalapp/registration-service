@@ -99,6 +99,7 @@ class TwilioVerifyAttemptAnalyzerTest {
         repository,
         attemptAnalyzedEventPublisher,
         scheduledExecutorService,
+        "verify-service-sid",
         new SimpleMeterRegistry());
   }
 
