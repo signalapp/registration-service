@@ -68,7 +68,7 @@ class TwilioVerifyAttemptAnalyzer {
   public TwilioVerifyAttemptAnalyzer(final TwilioRestClient twilioRestClient,
       final AttemptPendingAnalysisRepository repository,
       final ApplicationEventPublisher<AttemptAnalyzedEvent> attemptAnalyzedEventPublisher,
-      @Value("twilio.verify.service-sid") final String verifyServiceSid,
+      @Value("${twilio.verify.service-sid}") final String verifyServiceSid,
       final MeterRegistry meterRegistry) {
 
     this.twilioRestClient = twilioRestClient;
