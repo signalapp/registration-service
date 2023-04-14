@@ -16,8 +16,6 @@ import io.micrometer.core.instrument.MeterRegistry;
 import io.micronaut.context.annotation.Value;
 import io.micronaut.context.event.ApplicationEventPublisher;
 import io.micronaut.scheduling.annotation.Scheduled;
-import io.micronaut.scheduling.TaskExecutors;
-import jakarta.inject.Named;
 import jakarta.inject.Singleton;
 import java.math.BigDecimal;
 import java.time.Duration;
@@ -26,7 +24,6 @@ import java.util.Currency;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
-import java.util.concurrent.ScheduledExecutorService;
 import java.util.function.Supplier;
 import org.apache.commons.lang3.StringUtils;
 import org.signal.registration.analytics.AttemptAnalysis;
@@ -39,8 +36,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
-import reactor.core.scheduler.Scheduler;
-import reactor.core.scheduler.Schedulers;
 import reactor.util.retry.Retry;
 
 /**
@@ -53,8 +48,6 @@ class TwilioVerifyAttemptAnalyzer {
   private final AttemptPendingAnalysisRepository repository;
 
   private final ApplicationEventPublisher<AttemptAnalyzedEvent> attemptAnalyzedEventPublisher;
-
-  private final Scheduler retryScheduler;
 
   private final String verifyServiceSid;
 
@@ -75,14 +68,12 @@ class TwilioVerifyAttemptAnalyzer {
   public TwilioVerifyAttemptAnalyzer(final TwilioRestClient twilioRestClient,
       final AttemptPendingAnalysisRepository repository,
       final ApplicationEventPublisher<AttemptAnalyzedEvent> attemptAnalyzedEventPublisher,
-      @Named(TaskExecutors.SCHEDULED) final ScheduledExecutorService scheduledExecutorService,
       @Value("twilio.verify.service-sid") final String verifyServiceSid,
       final MeterRegistry meterRegistry) {
 
     this.twilioRestClient = twilioRestClient;
     this.repository = repository;
     this.attemptAnalyzedEventPublisher = attemptAnalyzedEventPublisher;
-    this.retryScheduler = Schedulers.fromExecutor(scheduledExecutorService);
 
     this.verifyServiceSid = verifyServiceSid;
 
@@ -165,7 +156,6 @@ class TwilioVerifyAttemptAnalyzer {
   private Mono<Page<VerificationAttempt>> fetchPageWithBackoff(final Supplier<Page<VerificationAttempt>> pageSupplier) {
     return Mono.fromSupplier(pageSupplier)
         .retryWhen(Retry.backoff(10, Duration.ofMillis(500))
-            .scheduler(retryScheduler)
             .filter(throwable -> throwable instanceof ApiException apiException && apiException.getCode() == TOO_MANY_REQUESTS_CODE)
             .maxBackoff(Duration.ofSeconds(8)));
   }

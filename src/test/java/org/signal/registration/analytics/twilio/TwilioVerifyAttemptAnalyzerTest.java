@@ -20,12 +20,8 @@ import java.math.BigDecimal;
 import java.util.Currency;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.Executors;
-import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.TimeUnit;
 import java.util.stream.Stream;
 import javax.annotation.Nullable;
-import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
@@ -42,7 +38,6 @@ class TwilioVerifyAttemptAnalyzerTest {
 
   private AttemptPendingAnalysisRepository repository;
   private ApplicationEventPublisher<AttemptAnalyzedEvent> attemptAnalyzedEventPublisher;
-  private ScheduledExecutorService scheduledExecutorService;
 
   private TwilioVerifyAttemptAnalyzer twilioVerifyAttemptAnalyzer;
 
@@ -93,22 +88,11 @@ class TwilioVerifyAttemptAnalyzerTest {
     //noinspection unchecked
     attemptAnalyzedEventPublisher = mock(ApplicationEventPublisher.class);
 
-    scheduledExecutorService = Executors.newSingleThreadScheduledExecutor();
-
     twilioVerifyAttemptAnalyzer = new TwilioVerifyAttemptAnalyzer(mock(TwilioRestClient.class),
         repository,
         attemptAnalyzedEventPublisher,
-        scheduledExecutorService,
         "verify-service-sid",
         new SimpleMeterRegistry());
-  }
-
-  @AfterEach
-  void tearDown() throws InterruptedException {
-    scheduledExecutorService.shutdown();
-
-    //noinspection ResultOfMethodCallIgnored
-    scheduledExecutorService.awaitTermination(1, TimeUnit.SECONDS);
   }
 
   @ParameterizedTest
