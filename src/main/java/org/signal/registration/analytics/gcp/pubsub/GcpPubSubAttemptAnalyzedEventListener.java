@@ -52,33 +52,20 @@ public class GcpPubSubAttemptAnalyzedEventListener implements ApplicationEventLi
       logger.warn("Failed to send pub/sub message", e);
     } finally {
       meterRegistry.counter(COUNTER_NAME,
-              "success", String.valueOf(success),
-              "sender", event.attemptPendingAnalysis().getSenderName())
+              MetricsUtil.SUCCESS_TAG_NAME, String.valueOf(success),
+              MetricsUtil.SENDER_TAG_NAME, event.attemptPendingAnalysis().getSenderName())
           .increment();
     }
   }
 
   @VisibleForTesting
   static AttemptAnalyzedPubSubMessage buildPubSubMessage(final AttemptAnalyzedEvent event) {
-    final String messageTransport = switch (event.attemptPendingAnalysis().getMessageTransport()) {
-      case MESSAGE_TRANSPORT_SMS -> "sms";
-      case MESSAGE_TRANSPORT_VOICE -> "voice";
-      case MESSAGE_TRANSPORT_UNSPECIFIED, UNRECOGNIZED -> "unrecognized";
-    };
-
-    final String clientType = switch (event.attemptPendingAnalysis().getClientType()) {
-      case CLIENT_TYPE_IOS -> "ios";
-      case CLIENT_TYPE_ANDROID_WITH_FCM -> "android-with-fcm";
-      case CLIENT_TYPE_ANDROID_WITHOUT_FCM -> "android-without-fcm";
-      case CLIENT_TYPE_UNSPECIFIED, UNRECOGNIZED -> "unrecognized";
-    };
-
     final AttemptAnalyzedPubSubMessage.Builder pubSubMessageBuilder = AttemptAnalyzedPubSubMessage.newBuilder()
         .setSessionId(UUIDUtil.uuidFromByteString(event.attemptPendingAnalysis().getSessionId()).toString())
         .setAttemptId(event.attemptPendingAnalysis().getAttemptId())
         .setSenderName(event.attemptPendingAnalysis().getSenderName())
-        .setMessageTransport(messageTransport)
-        .setClientType(clientType)
+        .setMessageTransport(MetricsUtil.getMessageTransportTagValue(event.attemptPendingAnalysis().getMessageTransport()))
+        .setClientType(MetricsUtil.getClientTypeTagValue(event.attemptPendingAnalysis().getClientType()))
         .setRegion(event.attemptPendingAnalysis().getRegion())
         .setTimestamp(Instant.ofEpochMilli(event.attemptPendingAnalysis().getTimestampEpochMillis()).toString())
         .setAccountExistsWithE164(event.attemptPendingAnalysis().getAccountExistsWithE164())

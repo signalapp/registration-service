@@ -5,6 +5,7 @@
 
 package org.signal.registration.analytics;
 
+import com.google.i18n.phonenumbers.PhoneNumberUtil;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micronaut.configuration.metrics.annotation.RequiresMetrics;
 import io.micronaut.context.annotation.Requires;
@@ -43,25 +44,13 @@ class AttemptPriceMetricsListener implements ApplicationEventListener<AttemptAna
   public void onApplicationEvent(final AttemptAnalyzedEvent event) {
     event.attemptAnalysis().price().ifPresent(price -> {
       if (USD.equals(price.currency())) {
-        final String messageTransport = switch (event.attemptPendingAnalysis().getMessageTransport()) {
-          case MESSAGE_TRANSPORT_SMS -> "sms";
-          case MESSAGE_TRANSPORT_VOICE -> "voice";
-          case MESSAGE_TRANSPORT_UNSPECIFIED, UNRECOGNIZED -> "unrecognized";
-        };
-
-        final String clientType = switch (event.attemptPendingAnalysis().getClientType()) {
-          case CLIENT_TYPE_IOS -> "ios";
-          case CLIENT_TYPE_ANDROID_WITH_FCM -> "android-with-fcm";
-          case CLIENT_TYPE_ANDROID_WITHOUT_FCM -> "android-without-fcm";
-          case CLIENT_TYPE_UNSPECIFIED, UNRECOGNIZED -> "unrecognized";
-        };
-
         meterRegistry.counter(COUNTER_NAME,
-                "sender", event.attemptPendingAnalysis().getSenderName(),
-                "client", clientType,
-                "transport", messageTransport,
-                "verified", String.valueOf(event.attemptPendingAnalysis().getVerified()),
-                "regionCode", event.attemptPendingAnalysis().getRegion())
+                MetricsUtil.SENDER_TAG_NAME, event.attemptPendingAnalysis().getSenderName(),
+                MetricsUtil.CLIENT_TYPE_TAG_NAME, MetricsUtil.getClientTypeTagValue(event.attemptPendingAnalysis().getClientType()),
+                MetricsUtil.TRANSPORT_TAG_NAME, MetricsUtil.getMessageTransportTagValue(event.attemptPendingAnalysis().getMessageTransport()),
+                MetricsUtil.VERIFIED_TAG_NAME, String.valueOf(event.attemptPendingAnalysis().getVerified()),
+                MetricsUtil.REGION_CODE_TAG_NAME, event.attemptPendingAnalysis().getRegion(),
+                MetricsUtil.COUNTRY_CODE_TAG_NAME, String.valueOf(PhoneNumberUtil.getInstance().getCountryCodeForRegion(event.attemptPendingAnalysis().getRegion())))
             .increment(price.amount().multiply(ONE_MILLION).longValue());
       } else {
         logger.warn("Price provided in non-USD currency ({}) by {}", price.currency(), event.attemptPendingAnalysis().getSenderName());

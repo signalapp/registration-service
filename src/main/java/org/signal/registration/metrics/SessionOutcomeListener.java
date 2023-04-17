@@ -50,18 +50,12 @@ public class SessionOutcomeListener implements ApplicationEventListener<SessionC
         final boolean attemptVerified = StringUtils.isNotBlank(session.getVerifiedCode()) &&
             i == session.getRegistrationAttemptsCount() - 1;
 
-        final String transport = switch (session.getRegistrationAttempts(i).getMessageTransport()) {
-          case MESSAGE_TRANSPORT_SMS -> "sms";
-          case MESSAGE_TRANSPORT_VOICE -> "voice";
-          default -> "unknown";
-        };
-
         meterRegistry.counter(COUNTER_NAME,
-                "sender", session.getRegistrationAttempts(i).getSenderName(),
-                "transport", transport,
-                "verified", String.valueOf(attemptVerified),
-                "countryCode", String.valueOf(phoneNumber.getCountryCode()),
-                "regionCode", Optional.ofNullable(PhoneNumberUtil.getInstance().getRegionCodeForNumber(phoneNumber))
+                MetricsUtil.SENDER_TAG_NAME, session.getRegistrationAttempts(i).getSenderName(),
+                MetricsUtil.TRANSPORT_TAG_NAME, MetricsUtil.getMessageTransportTagValue(session.getRegistrationAttempts(i).getMessageTransport()),
+                MetricsUtil.VERIFIED_TAG_NAME, String.valueOf(attemptVerified),
+                MetricsUtil.COUNTRY_CODE_TAG_NAME, String.valueOf(phoneNumber.getCountryCode()),
+                MetricsUtil.REGION_CODE_TAG_NAME, Optional.ofNullable(PhoneNumberUtil.getInstance().getRegionCodeForNumber(phoneNumber))
                     .orElse("XX"))
             .increment();
       }
