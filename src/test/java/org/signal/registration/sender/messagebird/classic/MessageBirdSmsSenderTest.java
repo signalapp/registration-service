@@ -57,7 +57,7 @@ public class MessageBirdSmsSenderTest {
     final SenderIdSelector senderId = mock(SenderIdSelector.class);
 
     when(codeGenerator.generateVerificationCode()).thenReturn(CODE);
-    when(bodyProvider.getVerificationSmsBody(NUMBER, ClientType.IOS, CODE, EN)).thenReturn(BODY);
+    when(bodyProvider.getVerificationBody(NUMBER, ClientType.IOS, CODE, EN)).thenReturn(BODY);
     when(senderId.getSenderId(NUMBER)).thenReturn("test");
 
     sender = new MessageBirdSmsSender(Runnable::run, config, codeGenerator, bodyProvider, client, mock(
@@ -123,8 +123,7 @@ public class MessageBirdSmsSenderTest {
   @Test
   public void sendAndVerify() throws GeneralException, UnauthorizedException {
     when(codeGenerator.generateVerificationCode()).thenReturn("12345");
-    when(bodyProvider.getVerificationSmsBody(NUMBER, ClientType.IOS, "12345", EN))
-        .thenReturn("body");
+    when(bodyProvider.getVerificationBody(NUMBER, ClientType.IOS, "12345", EN)).thenReturn("body");
 
     final MessageResponse response = response(0);
     when(client.sendMessage(argThat((Message message) ->

@@ -51,7 +51,7 @@ class VerificationSmsBodyProviderTest {
     final String verificationCode = new VerificationCodeGenerator().generateVerificationCode();
 
     final String messageBody =
-        assertDoesNotThrow(() -> bodyProvider.getVerificationSmsBody(phoneNumber, clientType, verificationCode, languageRanges));
+        assertDoesNotThrow(() -> bodyProvider.getVerificationBody(phoneNumber, clientType, verificationCode, languageRanges));
 
     assertTrue(messageBody.contains(verificationCode));
   }
@@ -75,8 +75,8 @@ class VerificationSmsBodyProviderTest {
   void getMessageBodyChina() {
     final VerificationSmsBodyProvider bodyProvider = new VerificationSmsBodyProvider(configuration, new SimpleMeterRegistry());
 
-    assertFalse(bodyProvider.getVerificationSmsBody(US_NUMBER, ClientType.UNKNOWN, "123456", Locale.LanguageRange.parse("fr")).contains("\u2008"));
-    assertTrue(bodyProvider.getVerificationSmsBody(CN_NUMBER, ClientType.UNKNOWN, "123456", Locale.LanguageRange.parse("fr")).contains("\u2008"));
+    assertFalse(bodyProvider.getVerificationBody(US_NUMBER, ClientType.UNKNOWN, "123456", Locale.LanguageRange.parse("fr")).contains("\u2008"));
+    assertTrue(bodyProvider.getVerificationBody(CN_NUMBER, ClientType.UNKNOWN, "123456", Locale.LanguageRange.parse("fr")).contains("\u2008"));
   }
 
   @Test
@@ -110,13 +110,13 @@ class VerificationSmsBodyProviderTest {
     final Phonenumber.PhoneNumber phoneNumberWithUnrecognizedVariant = PhoneNumberUtil.getInstance().getExampleNumber("FR");
 
     assertEquals(boringVerificationMessage,
-        bodyProvider.getVerificationSmsBody(phoneNumberWithoutVariant, ClientType.UNKNOWN, "123456", Locale.LanguageRange.parse("en")));
+        bodyProvider.getVerificationBody(phoneNumberWithoutVariant, ClientType.UNKNOWN, "123456", Locale.LanguageRange.parse("en")));
 
     assertEquals(fancyVerificationMessage,
-        bodyProvider.getVerificationSmsBody(phoneNumberWithVariant, ClientType.UNKNOWN, "123456", Locale.LanguageRange.parse("en")));
+        bodyProvider.getVerificationBody(phoneNumberWithVariant, ClientType.UNKNOWN, "123456", Locale.LanguageRange.parse("en")));
 
     assertEquals(boringVerificationMessage,
-        bodyProvider.getVerificationSmsBody(phoneNumberWithUnrecognizedVariant, ClientType.UNKNOWN, "123456", Locale.LanguageRange.parse("en")));
+        bodyProvider.getVerificationBody(phoneNumberWithUnrecognizedVariant, ClientType.UNKNOWN, "123456", Locale.LanguageRange.parse("en")));
   }
 
   @Test

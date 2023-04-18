@@ -122,7 +122,7 @@ public class MessageBirdVerifySender implements VerificationCodeSender {
       case VOICE ->
         // for voice, MessageBird verify does translation as long as the language is set
           lookupMessageBirdLanguage(languageRanges).ifPresent(request::setLanguage);
-      case SMS -> request.setTemplate(verificationSmsBodyProvider.getVerificationSmsBody(
+      case SMS -> request.setTemplate(verificationSmsBodyProvider.getVerificationBody(
           phoneNumber,
           clientType,
           // our "code" is `%token` which messagebird will replace with an actual code

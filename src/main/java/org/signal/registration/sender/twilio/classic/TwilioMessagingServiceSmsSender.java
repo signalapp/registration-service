@@ -90,7 +90,7 @@ public class TwilioMessagingServiceSmsSender extends AbstractTwilioProvidedCodeS
     final Timer.Sample sample = Timer.start();
 
     return Message.creator(twilioNumberFromPhoneNumber(phoneNumber), messagingServiceSid,
-            verificationSmsBodyProvider.getVerificationSmsBody(phoneNumber, clientType, verificationCode, languageRanges))
+            verificationSmsBodyProvider.getVerificationBody(phoneNumber, clientType, verificationCode, languageRanges))
         .createAsync(twilioRestClient)
         .whenComplete((message, throwable) ->
             apiClientInstrumenter.recordApiCallMetrics(

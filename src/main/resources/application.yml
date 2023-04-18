@@ -115,6 +115,76 @@ verification:
       - zh-CN
       - zh-HK
       - zh-TW
+  voice:
+    supported-languages:
+      - af
+      - ar
+      - az
+      - bg
+      - bn
+      - bs
+      - ca
+      - cs
+      - da
+      - de
+      - el
+      - en
+      - es
+      - et
+      - eu
+      - fa
+      - fi
+      - fr
+      - ga
+      - gl
+      - gu
+      - he
+      - hi
+      - hr
+      - hu
+      - id
+      - it
+      - ja
+      - ka
+      - kk
+      - km
+      - kn
+      - ko
+      - ky
+      - lt
+      - lv
+      - mk
+      - ml
+      - mr
+      - ms
+      - my
+      - nb
+      - nl
+      - pa
+      - pl
+      - pt
+      - pt-BR
+      - pt-PT
+      - ro
+      - ru
+      - sk
+      - sl
+      - sq
+      - sr
+      - sv
+      - sw
+      - ta
+      - te
+      - th
+      - tl
+      - tr
+      - uk
+      - ur
+      - vi
+      - zh
+      - zh-CN
+      - zh-HK
+      - zh-TW
 
 twilio:
   verify:
@@ -236,3 +306,41 @@ twilio:
       - zh
       - zh-HK
       - zh-TW
+
+messagebird:
+  voice:
+    supported-languages:
+      - cy-gb
+      - da-dk
+      - de-de
+      - el-gr
+      - en-au
+      - en-gb
+      - en-gb-wls
+      - en-in
+      - en-us
+      - es-es
+      - es-mx
+      - es-us
+      - fr-ca
+      - fr-fr
+      - id-id
+      - is-is
+      - it-it
+      - ja-jp
+      - ko-kr
+      - ms-my
+      - nb-no
+      - nl-nl
+      - pl-pl
+      - pt-br
+      - pt-pt
+      - ro-ro
+      - ru-ru
+      - sv-se
+      - ta-in
+      - th-th
+      - tr-tr
+      - vi-vn
+      - zh-cn
+      - zh-hk

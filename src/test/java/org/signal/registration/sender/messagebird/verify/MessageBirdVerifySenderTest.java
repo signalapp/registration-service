@@ -60,8 +60,7 @@ public class MessageBirdVerifySenderTest {
     final MessageBirdVerifyConfiguration config = new MessageBirdVerifyConfiguration(Duration.ofSeconds(1));
     client = mock(MessageBirdClient.class);
     bodyProvider = mock(VerificationSmsBodyProvider.class);
-    when(bodyProvider.getVerificationSmsBody(any(), any(), any(), any()))
-        .thenReturn("test sms");
+    when(bodyProvider.getVerificationBody(any(), any(), any(), any())).thenReturn("test sms");
     sender = new MessageBirdVerifySender(config, Runnable::run, client, bodyProvider,
         mock(ApiClientInstrumenter.class), mock(SenderIdSelector.class));
   }
