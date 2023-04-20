@@ -8,7 +8,6 @@ package org.signal.registration.cli;
 import com.google.protobuf.ByteString;
 import org.apache.commons.codec.DecoderException;
 import org.apache.commons.codec.binary.Hex;
-import org.apache.commons.lang3.StringUtils;
 import org.signal.registration.rpc.CheckVerificationCodeRequest;
 import org.signal.registration.rpc.CheckVerificationCodeResponse;
 import picocli.CommandLine;

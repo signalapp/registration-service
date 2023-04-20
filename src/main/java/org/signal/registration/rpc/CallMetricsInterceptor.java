@@ -18,7 +18,6 @@ import io.micrometer.core.instrument.Tags;
 import io.micrometer.core.instrument.Timer;
 import io.micronaut.core.order.Ordered;
 import jakarta.inject.Singleton;
-import org.apache.commons.lang3.StringUtils;
 import org.signal.registration.metrics.MetricsUtil;
 
 @Singleton
@@ -31,7 +30,6 @@ public class CallMetricsInterceptor implements ServerInterceptor, Ordered {
 
   private static final String METHOD_TAG_NAME = "method";
   private static final String STATUS_TAG_NAME = "status";
-  private static final String USER_TAG_NAME = "user";
 
   private static final Context.Key<Timer.Sample> CONTEXT_TIMER_SAMPLE_KEY = Context.key("timerSample");
 
@@ -55,12 +53,6 @@ public class CallMetricsInterceptor implements ServerInterceptor, Ordered {
         Tags tags = Tags.of(
             METHOD_TAG_NAME, getMethodDescriptor().getBareMethodName(),
             STATUS_TAG_NAME, status.getCode().name());
-
-        final String username = ApiKeyInterceptor.CONTEXT_USERNAME_KEY.get();
-
-        if (StringUtils.isNotBlank(username)) {
-          tags = tags.and(USER_TAG_NAME, username);
-        }
 
         meterRegistry.counter(RPC_CALL_COUNTER_NAME, tags).increment();
 

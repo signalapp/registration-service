@@ -34,7 +34,7 @@ public class CloseableRegistrationServiceGrpcBlockingStubSupplier implements Clo
       final int port,
       final boolean usePlaintext,
       @Nullable final File trustedServerCertificate,
-      @Nullable final String apiKey) {
+      @Nullable final String identityToken) {
 
     final ManagedChannelBuilder<?> managedChannelBuilder;
 
@@ -73,8 +73,8 @@ public class CloseableRegistrationServiceGrpcBlockingStubSupplier implements Clo
 
     RegistrationServiceGrpc.RegistrationServiceBlockingStub stub = RegistrationServiceGrpc.newBlockingStub(channel);
 
-    if (StringUtils.isNotBlank(apiKey)) {
-      stub = stub.withCallCredentials(new ApiKeyCallCredentials(apiKey));
+    if (StringUtils.isNotBlank(identityToken)) {
+      stub = stub.withCallCredentials(new IdentityTokenCallCredentials(identityToken));
     }
 
     this.blockingStub = stub;

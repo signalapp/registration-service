@@ -28,10 +28,10 @@ public class RegistrationClient {
       scope = CommandLine.ScopeType.INHERIT)
   private int port;
 
-  @CommandLine.Option(names = {"--api-key"},
-      description = "API key for this call",
+  @CommandLine.Option(names = {"--identity-token"},
+      description = "OIDC identity token for this call",
       scope = CommandLine.ScopeType.INHERIT)
-  private String apiKey;
+  private String identityToken;
 
   @CommandLine.ArgGroup
   private TlsOptions tlsOptions;
@@ -53,7 +53,8 @@ public class RegistrationClient {
     final boolean usePlaintext = tlsOptions != null && tlsOptions.usePlaintext;
     final File trustedServerCertificate = tlsOptions != null ? tlsOptions.trustedServerCertificate : null;
 
-    return new CloseableRegistrationServiceGrpcBlockingStubSupplier(host, port, usePlaintext, trustedServerCertificate, apiKey);
+    return new CloseableRegistrationServiceGrpcBlockingStubSupplier(host, port, usePlaintext, trustedServerCertificate,
+        identityToken);
   }
 
   public static void main(final String... args) {
