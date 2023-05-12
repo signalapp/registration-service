@@ -12,7 +12,6 @@ import com.google.i18n.phonenumbers.Phonenumber;
 import io.grpc.Status;
 import io.grpc.StatusException;
 import io.grpc.stub.StreamObserver;
-import io.micronaut.context.annotation.Requires;
 import jakarta.inject.Singleton;
 import java.util.Collections;
 import java.util.List;
@@ -39,9 +38,6 @@ import org.slf4j.LoggerFactory;
 public class RegistrationServiceGrpcEndpoint extends RegistrationServiceGrpc.RegistrationServiceImplBase {
 
   final RegistrationService registrationService;
-
-  static int ORDER_METRICS = 1;
-  static int ORDER_AUTHENTICATION = 2;
 
   private static final Logger logger = LoggerFactory.getLogger(RegistrationServiceGrpcEndpoint.class);
 

@@ -61,9 +61,4 @@ public class CallMetricsInterceptor implements ServerInterceptor, Ordered {
       }
     }, headers, next);
   }
-
-  @Override
-  public int getOrder() {
-    return RegistrationServiceGrpcEndpoint.ORDER_METRICS;
-  }
 }
