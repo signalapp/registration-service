@@ -289,15 +289,12 @@ enum SendVerificationCodeErrorType {
 
   /**
    * The sender received and understood the request to send a verification code,
-   * but declined to do so (i.e. due to rate limits or suspected fraud).
+   * but declined to do so (e.g. due to rate limits, an invalid argument,
+   * or suspected fraud).
    */
   SEND_VERIFICATION_CODE_ERROR_TYPE_SENDER_REJECTED = 1;
 
-  /**
-   * The sender could not process or would not accept some part of a request
-   * (e.g. a valid phone number that cannot receive SMS messages).
-   */
-  SEND_VERIFICATION_CODE_ERROR_TYPE_SENDER_ILLEGAL_ARGUMENT = 2;
+  reserved 2;
 
   /**
    * A verification could could not be sent via the requested channel due to
@@ -312,10 +309,17 @@ enum SendVerificationCodeErrorType {
   SEND_VERIFICATION_CODE_ERROR_TYPE_SESSION_NOT_FOUND = 4;
 
   /**
-   * A new verification could could not be sent because the session has already
+   * A new verification code could not be sent because the session has already
    * been verified.
    */
   SEND_VERIFICATION_CODE_ERROR_TYPE_SESSION_ALREADY_VERIFIED = 5;
+
+  /**
+   * A verification code could not be sent via the requested transport because
+   * the destination phone number (or the sender) does not support the requested
+   * transport.
+   */
+  SEND_VERIFICATION_CODE_ERROR_TYPE_TRANSPORT_NOT_ALLOWED = 6;
 }
 
 message CheckVerificationCodeRequest {

@@ -46,6 +46,7 @@ import org.signal.registration.sender.AttemptData;
 import org.signal.registration.sender.ClientType;
 import org.signal.registration.sender.MessageTransport;
 import org.signal.registration.sender.SenderRejectedRequestException;
+import org.signal.registration.sender.SenderRejectedTransportException;
 import org.signal.registration.sender.SenderSelectionStrategy;
 import org.signal.registration.sender.VerificationCodeSender;
 import org.signal.registration.session.MemorySessionRepository;
@@ -221,6 +222,38 @@ class RegistrationServiceTest {
     verify(sendSmsVerificationCodeRateLimiter, never()).checkRateLimit(any());
     verify(sendVoiceVerificationCodeRateLimiter).checkRateLimit(any());
     verify(sessionRepository, never()).updateSession(any(), any());
+  }
+
+  @Test
+  void sendVerificationCodeTransportNotAllowed() {
+    final UUID sessionId;
+    {
+      final RegistrationSession session = registrationService.createRegistrationSession(PHONE_NUMBER, SESSION_METADATA).join();
+      sessionId = UUIDUtil.uuidFromByteString(session.getId());
+    }
+
+    when(sender.sendVerificationCode(MessageTransport.SMS, PHONE_NUMBER, LANGUAGE_RANGES, CLIENT_TYPE))
+        .thenReturn(CompletableFuture.failedFuture(new SenderRejectedTransportException(new RuntimeException())));
+
+    final CompletionException completionException = assertThrows(CompletionException.class, () -> {
+      registrationService.sendVerificationCode(MessageTransport.SMS, sessionId, SENDER_NAME, LANGUAGE_RANGES, CLIENT_TYPE).join();
+    });
+
+    assertTrue(completionException.getCause() instanceof TransportNotAllowedException);
+
+    final TransportNotAllowedException transportNotAllowedException =
+        (TransportNotAllowedException) completionException.getCause();
+
+    verify(sender).sendVerificationCode(MessageTransport.SMS, PHONE_NUMBER, LANGUAGE_RANGES, CLIENT_TYPE);
+    verify(sendSmsVerificationCodeRateLimiter).checkRateLimit(any());
+    verify(sendVoiceVerificationCodeRateLimiter, never()).checkRateLimit(any());
+    verify(sessionRepository).updateSession(eq(sessionId), any());
+
+    final RegistrationSession session = transportNotAllowedException.getRegistrationSession();
+
+    assertEquals(0, session.getRegistrationAttemptsCount());
+    assertEquals(List.of(org.signal.registration.rpc.MessageTransport.MESSAGE_TRANSPORT_SMS),
+        session.getRejectedTransportsList());
   }
 
   @Test

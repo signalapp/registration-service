@@ -30,6 +30,12 @@ public class SendSmsVerificationCodeRateLimiter extends FixedDelayRegistrationSe
 
   @Override
   protected int getPriorAttemptCount(final RegistrationSession session) {
+    if (session.getRejectedTransportsList().contains(MessageTransport.MESSAGE_TRANSPORT_SMS)) {
+      // If a sender has affirmatively indicated that it cannot or will not deliver messages via SMS, return a value
+      // that guarantees that SMS attempts will appear to have been exhausted
+      return Integer.MAX_VALUE;
+    }
+
     return (int) session.getRegistrationAttemptsList().stream()
         .filter(attempt -> attempt.getMessageTransport() == MessageTransport.MESSAGE_TRANSPORT_SMS)
         .count();

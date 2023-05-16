@@ -113,4 +113,15 @@ class SendSmsVerificationCodeRateLimiterTest {
                 .build())
             .build()));
   }
+
+  @Test
+  void getTimeOfNextAttemptSmsNotAllowed() {
+    final SendSmsVerificationCodeRateLimiter rateLimiter =
+        new SendSmsVerificationCodeRateLimiter(List.of(Duration.ZERO), Clock.systemUTC());
+
+    assertEquals(Optional.empty(), rateLimiter.getTimeOfNextAction(RegistrationSession.newBuilder()
+        .addRejectedTransports(MessageTransport.MESSAGE_TRANSPORT_SMS)
+        .build())
+        .join());
+  }
 }

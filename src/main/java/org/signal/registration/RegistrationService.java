@@ -34,6 +34,7 @@ import org.signal.registration.sender.AttemptData;
 import org.signal.registration.sender.ClientType;
 import org.signal.registration.sender.MessageTransport;
 import org.signal.registration.sender.SenderRejectedRequestException;
+import org.signal.registration.sender.SenderRejectedTransportException;
 import org.signal.registration.sender.SenderSelectionStrategy;
 import org.signal.registration.sender.VerificationCodeSender;
 import org.signal.registration.session.RegistrationAttempt;
@@ -202,7 +203,26 @@ public class RegistrationService {
           builder.setExpirationEpochMillis(getSessionExpiration(builder.build()).toEpochMilli());
 
           return builder.build();
-        }));
+        }))
+        .exceptionallyCompose(throwable -> {
+          if (CompletionExceptions.unwrap(throwable) instanceof SenderRejectedTransportException) {
+            return sessionRepository.updateSession(sessionId, session -> {
+                  final RegistrationSession.Builder builder = session.toBuilder()
+                      .setCheckCodeAttempts(0)
+                      .setLastCheckCodeAttemptEpochMillis(0)
+                      .addRejectedTransports(MessageTransports.getRpcMessageTransportFromSenderTransport(messageTransport));
+
+                  builder.setExpirationEpochMillis(getSessionExpiration(builder.build()).toEpochMilli());
+
+                  return builder.build();
+                })
+                .thenApply(session -> {
+                  throw CompletionExceptions.wrap(new TransportNotAllowedException(throwable, session));
+                });
+          } else {
+            throw CompletionExceptions.wrap(throwable);
+          }
+        });
   }
 
   private RegistrationAttempt buildRegistrationAttempt(final VerificationCodeSender sender,

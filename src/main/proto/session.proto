@@ -64,6 +64,12 @@ message RegistrationSession {
   uint64 created_epoch_millis = 10;
 
   SessionMetadata session_metadata = 11;
+
+  /**
+   * A list of transports that have been rejected by senders when attempting to
+   * send verification codes in the scope of this session.
+   */
+  repeated org.signal.registration.rpc.MessageTransport rejected_transports = 12;
 }
 
 message RegistrationAttempt {

@@ -32,6 +32,7 @@ import org.signal.registration.AttemptExpiredException;
 import org.signal.registration.NoVerificationCodeSentException;
 import org.signal.registration.RegistrationService;
 import org.signal.registration.SessionAlreadyVerifiedException;
+import org.signal.registration.TransportNotAllowedException;
 import org.signal.registration.ratelimit.RateLimitExceededException;
 import org.signal.registration.sender.ClientType;
 import org.signal.registration.sender.MessageTransport;
@@ -255,6 +256,27 @@ class RegistrationServiceGrpcEndpointTest {
     assertTrue(response.hasSessionMetadata());
     assertTrue(response.hasError());
     assertEquals(SendVerificationCodeErrorType.SEND_VERIFICATION_CODE_ERROR_TYPE_SESSION_ALREADY_VERIFIED,
+        response.getError().getErrorType());
+
+    assertFalse(response.getError().getMayRetry());
+  }
+
+  @Test
+  void sendVerificationCodeTransportNotAllowed() {
+    when(registrationService.sendVerificationCode(any(), any(), any(), any(), any()))
+        .thenReturn(CompletableFuture.failedFuture(
+            new TransportNotAllowedException(new RuntimeException(), RegistrationSession.newBuilder().build())));
+
+    final SendVerificationCodeResponse response =
+        blockingStub.sendVerificationCode(SendVerificationCodeRequest.newBuilder()
+            .setSessionId(UUIDUtil.uuidToByteString(UUID.randomUUID()))
+            .setTransport(org.signal.registration.rpc.MessageTransport.MESSAGE_TRANSPORT_SMS)
+            .setAcceptLanguage("en")
+            .build());
+
+    assertTrue(response.hasSessionMetadata());
+    assertTrue(response.hasError());
+    assertEquals(SendVerificationCodeErrorType.SEND_VERIFICATION_CODE_ERROR_TYPE_TRANSPORT_NOT_ALLOWED,
         response.getError().getErrorType());
 
     assertFalse(response.getError().getMayRetry());

@@ -21,6 +21,7 @@ import org.signal.registration.AttemptExpiredException;
 import org.signal.registration.NoVerificationCodeSentException;
 import org.signal.registration.RegistrationService;
 import org.signal.registration.SessionAlreadyVerifiedException;
+import org.signal.registration.TransportNotAllowedException;
 import org.signal.registration.ratelimit.RateLimitExceededException;
 import org.signal.registration.sender.ClientType;
 import org.signal.registration.sender.MessageTransport;
@@ -149,6 +150,14 @@ public class RegistrationServiceGrpcEndpoint extends ReactorRegistrationServiceG
                     .setMayRetry(false)
                     .build())
                 .build())
+        .onErrorResume(TransportNotAllowedException.class, transportNotAllowedException -> Mono.fromSupplier(() ->
+            SendVerificationCodeResponse.newBuilder()
+                .setSessionMetadata(registrationService.buildSessionMetadata(transportNotAllowedException.getRegistrationSession()))
+                .setError(SendVerificationCodeError.newBuilder()
+                    .setErrorType(SendVerificationCodeErrorType.SEND_VERIFICATION_CODE_ERROR_TYPE_TRANSPORT_NOT_ALLOWED)
+                    .setMayRetry(false)
+                    .build())
+                .build()))
         .doOnError(throwable -> !(throwable instanceof IllegalArgumentException),
             throwable -> logger.warn("Failed to send verification code", throwable))
         .onErrorMap(IllegalArgumentException.class, ignored -> new StatusException(Status.INVALID_ARGUMENT));

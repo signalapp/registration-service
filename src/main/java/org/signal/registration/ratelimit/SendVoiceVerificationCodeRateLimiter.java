@@ -36,11 +36,19 @@ public class SendVoiceVerificationCodeRateLimiter extends FixedDelayRegistration
 
   @Override
   public CompletableFuture<Optional<Instant>> getTimeOfNextAction(final RegistrationSession session) {
-    final Optional<Instant> maybeFirstAllowableVoiceCall =
-        session.getRegistrationAttemptsList().stream()
-            .filter(attempt -> attempt.getMessageTransport() == MessageTransport.MESSAGE_TRANSPORT_SMS)
-            .findFirst()
-            .map(firstSmsAttempt -> Instant.ofEpochMilli(firstSmsAttempt.getTimestampEpochMillis()).plus(delayAfterFirstSms));
+    final Optional<Instant> maybeFirstAllowableVoiceCall;
+
+    if (session.getRejectedTransportsList().contains(MessageTransport.MESSAGE_TRANSPORT_SMS)) {
+      // The caller has previously tried to send an SMS, but the attempt was rejected by the sender. In these cases,
+      // allow the caller to attempt a voice call immediately.
+      maybeFirstAllowableVoiceCall = Optional.of(getClock().instant());
+    } else {
+      // Only allow a voice call attempt if the caller has previously attempted to get a verification code via SMS
+      maybeFirstAllowableVoiceCall = session.getRegistrationAttemptsList().stream()
+              .filter(attempt -> attempt.getMessageTransport() == MessageTransport.MESSAGE_TRANSPORT_SMS)
+              .findFirst()
+              .map(firstSmsAttempt -> Instant.ofEpochMilli(firstSmsAttempt.getTimestampEpochMillis()).plus(delayAfterFirstSms));
+    }
 
     return CompletableFuture.completedFuture(maybeFirstAllowableVoiceCall.flatMap(firstAllowableVoiceCall -> {
       final Instant currentTime = getClock().instant();
@@ -57,6 +65,12 @@ public class SendVoiceVerificationCodeRateLimiter extends FixedDelayRegistration
 
   @Override
   protected int getPriorAttemptCount(final RegistrationSession session) {
+    if (session.getRejectedTransportsList().contains(MessageTransport.MESSAGE_TRANSPORT_VOICE)) {
+      // If a sender has affirmatively indicated that it cannot or will not deliver messages via voice call, return a
+      // value that guarantees that voice call attempts will appear to have been exhausted
+      return Integer.MAX_VALUE;
+    }
+
     return (int) session.getRegistrationAttemptsList().stream()
         .filter(attempt -> attempt.getMessageTransport() == MessageTransport.MESSAGE_TRANSPORT_VOICE)
         .count();

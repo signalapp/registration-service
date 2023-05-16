@@ -23,7 +23,7 @@ import static org.junit.jupiter.api.Assertions.*;
 class SendVoiceVerificationCodeRateLimiterTest {
 
   @Test
-  void getDurationUntilActionAllowed() {
+  void getTimeOfNextAction() {
     final Instant currentTime = Instant.now().truncatedTo(ChronoUnit.MILLIS);
     final Duration delayAfterFirstSms = Duration.ofMinutes(13);
     final List<Duration> delays = List.of(Duration.ofMinutes(3), Duration.ofMinutes(5));
@@ -55,6 +55,24 @@ class SendVoiceVerificationCodeRateLimiterTest {
         .join()
         .map(timeOfNextAction -> timeOfNextAction.equals(currentTime) || timeOfNextAction.isBefore(currentTime))
         .orElse(false));
+
+    // No prior SMS, but SMS not allowed
+    assertTrue(rateLimiter.getTimeOfNextAction(RegistrationSession.newBuilder()
+            .addRejectedTransports(MessageTransport.MESSAGE_TRANSPORT_SMS)
+            .build())
+        .join()
+        .map(timeOfNextAction -> timeOfNextAction.equals(currentTime) || timeOfNextAction.isBefore(currentTime))
+        .orElse(false));
+
+    // Correct timing for a voice attempt, but voice attempts not allowed
+    assertEquals(Optional.empty(), rateLimiter.getTimeOfNextAction(RegistrationSession.newBuilder()
+            .addRegistrationAttempts(RegistrationAttempt.newBuilder()
+                .setMessageTransport(MessageTransport.MESSAGE_TRANSPORT_SMS)
+                .setTimestampEpochMillis(currentTime.minus(delayAfterFirstSms).toEpochMilli())
+                .build())
+            .addRejectedTransports(MessageTransport.MESSAGE_TRANSPORT_VOICE)
+            .build())
+        .join());
 
     // After first voice verification code
     assertEquals(Optional.of(currentTime.plus(delays.get(0))),
