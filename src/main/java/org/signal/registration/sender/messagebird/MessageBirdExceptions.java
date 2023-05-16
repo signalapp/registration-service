@@ -13,8 +13,6 @@ import javax.annotation.Nullable;
 import javax.validation.constraints.NotNull;
 import com.messagebird.objects.ErrorReport;
 import io.micronaut.http.HttpStatus;
-import org.signal.registration.sender.IllegalSenderArgumentException;
-import org.signal.registration.sender.SenderException;
 import org.signal.registration.sender.SenderRejectedRequestException;
 import org.signal.registration.util.CompletionExceptions;
 import java.util.Collections;
@@ -26,14 +24,11 @@ public class MessageBirdExceptions {
 
   private static final Set<Integer> REJECTED_REQUEST_ERROR_CODES = Set.of(
       2,  // Request not allowed
-      20, // Not found
-      101 // Duplicate entry
-  );
-
-  private static final Set<Integer> ILLEGAL_ARGUMENT_ERROR_CODES = Set.of(
       9,  // Missing params
       10, // Invalid params
-      21  // Bad request
+      20, // Not found
+      21, // Bad request
+      101 // Duplicate entry
   );
 
   private static final Set<HttpStatus> REJECTED_REQUEST_HTTP_CODES = Set.of(
@@ -52,9 +47,6 @@ public class MessageBirdExceptions {
   public static Throwable toSenderException(final MessageBirdException e) {
     // First check for any messagebird specific api errors we are interested in
     final List<ErrorReport> errorsReports = errorReports(e);
-    if (errorsReports.stream().map(ErrorReport::getCode).anyMatch(ILLEGAL_ARGUMENT_ERROR_CODES::contains)) {
-      return new IllegalSenderArgumentException(e);
-    }
     if (errorsReports.stream().map(ErrorReport::getCode).anyMatch(REJECTED_REQUEST_ERROR_CODES::contains)) {
       return new SenderRejectedRequestException(e);
     }
@@ -92,10 +84,10 @@ public class MessageBirdExceptions {
   }
 
   /**
-   * If throwable is a SenderException, unwrap and get the cause
+   * If throwable is a {@link SenderRejectedRequestException}, unwrap and get the cause
    */
   private static Throwable unwrap(Throwable throwable) {
-    while (throwable instanceof SenderException e && throwable.getCause() != null) {
+    while (throwable instanceof SenderRejectedRequestException e && throwable.getCause() != null) {
       throwable = e.getCause();
     }
     return throwable;

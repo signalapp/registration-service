@@ -10,7 +10,7 @@ package org.signal.registration.sender;
  * request (e.g. due to exhausted attempts or suspected fraud). Rejected request exceptions are generally permanent and
  * should not be retried by callers.
  */
-public class SenderRejectedRequestException extends SenderException {
+public class SenderRejectedRequestException extends Exception {
 
   public SenderRejectedRequestException(final String message) {
     super(message);

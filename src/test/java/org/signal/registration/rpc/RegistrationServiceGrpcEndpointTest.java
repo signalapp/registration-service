@@ -34,7 +34,6 @@ import org.signal.registration.RegistrationService;
 import org.signal.registration.SessionAlreadyVerifiedException;
 import org.signal.registration.ratelimit.RateLimitExceededException;
 import org.signal.registration.sender.ClientType;
-import org.signal.registration.sender.IllegalSenderArgumentException;
 import org.signal.registration.sender.MessageTransport;
 import org.signal.registration.sender.SenderRejectedRequestException;
 import org.signal.registration.session.RegistrationSession;
@@ -191,26 +190,6 @@ class RegistrationServiceGrpcEndpointTest {
     assertFalse(response.hasSessionMetadata());
     assertTrue(response.hasError());
     assertEquals(SendVerificationCodeErrorType.SEND_VERIFICATION_CODE_ERROR_TYPE_SENDER_REJECTED,
-        response.getError().getErrorType());
-
-    assertFalse(response.getError().getMayRetry());
-  }
-
-  @Test
-  void sendVerificationCodeIllegalSenderArgument() {
-    when(registrationService.sendVerificationCode(any(), any(), any(), any(), any()))
-        .thenReturn(CompletableFuture.failedFuture(new IllegalSenderArgumentException(new RuntimeException())));
-
-    final SendVerificationCodeResponse response =
-        blockingStub.sendVerificationCode(SendVerificationCodeRequest.newBuilder()
-            .setSessionId(UUIDUtil.uuidToByteString(UUID.randomUUID()))
-            .setTransport(org.signal.registration.rpc.MessageTransport.MESSAGE_TRANSPORT_SMS)
-            .setAcceptLanguage("en")
-            .build());
-
-    assertFalse(response.hasSessionMetadata());
-    assertTrue(response.hasError());
-    assertEquals(SendVerificationCodeErrorType.SEND_VERIFICATION_CODE_ERROR_TYPE_SENDER_ILLEGAL_ARGUMENT,
         response.getError().getErrorType());
 
     assertFalse(response.getError().getMayRetry());

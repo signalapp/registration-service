@@ -24,7 +24,6 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.function.Executable;
 import org.signal.registration.sender.ApiClientInstrumenter;
 import org.signal.registration.sender.ClientType;
-import org.signal.registration.sender.IllegalSenderArgumentException;
 import org.signal.registration.sender.MessageTransport;
 import org.signal.registration.sender.SenderRejectedRequestException;
 import org.signal.registration.sender.VerificationCodeGenerator;
@@ -101,21 +100,6 @@ public class MessageBirdSmsSenderTest {
         message.getBody().equals(BODY) && message.getRecipients().equals(E164))))
         .thenThrow(new GeneralException("test"));
     assertThrowsUnwrapped(GeneralException.class, () -> sender
-        .sendVerificationCode(MessageTransport.SMS, NUMBER, EN, ClientType.IOS)
-        .join());
-  }
-
-  @Test
-  public void illegalArgumentSend() throws GeneralException, UnauthorizedException {
-    final GeneralException ex = mock(GeneralException.class);
-
-    // messagebird bad request
-    when(ex.getErrors()).thenReturn(List.of(new ErrorReport(21, "", "", "")));
-
-    when(client.sendMessage(argThat((Message message) ->
-        message.getBody().equals(BODY) && message.getRecipients().equals(E164))))
-        .thenThrow(ex);
-    assertThrowsUnwrapped(IllegalSenderArgumentException.class, () -> sender
         .sendVerificationCode(MessageTransport.SMS, NUMBER, EN, ClientType.IOS)
         .join());
   }

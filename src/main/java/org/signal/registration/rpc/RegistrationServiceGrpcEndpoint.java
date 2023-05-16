@@ -23,7 +23,6 @@ import org.signal.registration.RegistrationService;
 import org.signal.registration.SessionAlreadyVerifiedException;
 import org.signal.registration.ratelimit.RateLimitExceededException;
 import org.signal.registration.sender.ClientType;
-import org.signal.registration.sender.IllegalSenderArgumentException;
 import org.signal.registration.sender.MessageTransport;
 import org.signal.registration.sender.SenderRejectedRequestException;
 import org.signal.registration.session.SessionMetadata;
@@ -147,12 +146,6 @@ public class RegistrationServiceGrpcEndpoint extends ReactorRegistrationServiceG
         .onErrorReturn(SenderRejectedRequestException.class, SendVerificationCodeResponse.newBuilder()
                 .setError(SendVerificationCodeError.newBuilder()
                     .setErrorType(SendVerificationCodeErrorType.SEND_VERIFICATION_CODE_ERROR_TYPE_SENDER_REJECTED)
-                    .setMayRetry(false)
-                    .build())
-                .build())
-        .onErrorReturn(IllegalSenderArgumentException.class, SendVerificationCodeResponse.newBuilder()
-                .setError(SendVerificationCodeError.newBuilder()
-                    .setErrorType(SendVerificationCodeErrorType.SEND_VERIFICATION_CODE_ERROR_TYPE_SENDER_ILLEGAL_ARGUMENT)
                     .setMayRetry(false)
                     .build())
                 .build())
