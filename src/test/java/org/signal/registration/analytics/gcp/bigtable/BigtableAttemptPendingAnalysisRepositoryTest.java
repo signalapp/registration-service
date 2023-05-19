@@ -73,7 +73,7 @@ class BigtableAttemptPendingAnalysisRepositoryTest {
 
     repository = new BigtableAttemptPendingAnalysisRepository(bigtableDataClient,
         executorService,
-        new BigtableAttemptPendingAnalysisRepositoryConfiguration(PROJECT_ID, INSTANCE_ID, TABLE_ID, COLUMN_FAMILY_NAME), new SimpleMeterRegistry());
+        new BigtableAttemptPendingAnalysisRepositoryConfiguration(TABLE_ID, COLUMN_FAMILY_NAME), new SimpleMeterRegistry());
   }
 
   @AfterEach

@@ -11,9 +11,7 @@ import javax.validation.constraints.NotBlank;
 
 @Context
 @ConfigurationProperties("analytics.bigtable")
-public record BigtableAttemptPendingAnalysisRepositoryConfiguration(@NotBlank String projectId,
-                                                                    @NotBlank String instanceId,
-                                                                    @NotBlank String tableId,
+public record BigtableAttemptPendingAnalysisRepositoryConfiguration(@NotBlank String tableId,
                                                                     @NotBlank String columnFamilyName) {
 
 }
