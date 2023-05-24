@@ -59,7 +59,7 @@ import org.slf4j.LoggerFactory;
 @Requires(bean = Firestore.class)
 @Primary
 @Singleton
-public class FirestoreSessionRepository implements SessionRepository {
+class FirestoreSessionRepository implements SessionRepository {
 
   private final Firestore firestore;
   private final Executor executor;
