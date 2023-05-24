@@ -46,6 +46,8 @@ import org.signal.registration.util.CompletionExceptions;
 import org.signal.registration.util.GoogleApiUtil;
 import org.signal.registration.util.ReactiveResponseObserver;
 import org.signal.registration.util.UUIDUtil;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
@@ -82,6 +84,8 @@ class BigtableSessionRepository implements SessionRepository {
 
   private static final ByteString EPOCH_BYTE_STRING = instantToByteString(Instant.EPOCH);
 
+  private static final Logger logger = LoggerFactory.getLogger(BigtableSessionRepository.class);
+
   public BigtableSessionRepository(final BigtableDataClient bigtableDataClient,
       @Named(TaskExecutors.IO) final Executor executor,
       final ApplicationEventPublisher<SessionCompletedEvent> sessionCompletedEventPublisher,
@@ -113,7 +117,9 @@ class BigtableSessionRepository implements SessionRepository {
                 .filter(Filters.FILTERS.family().exactMatch(configuration.columnFamilyName()))
                 .filter(Filters.FILTERS.qualifier().exactMatch(REMOVAL_COLUMN_NAME))
                 .filter(Filters.FILTERS.value().range().of(EPOCH_BYTE_STRING, instantToByteString(clock.instant()))))
-            .then(Filters.FILTERS.pass())),
+            .then(Filters.FILTERS.chain()
+                .filter(Filters.FILTERS.pass())
+                .filter(Filters.FILTERS.limit().cellsPerColumn(1)))),
         responseObserver))
         .map(row -> {
           try {
@@ -159,7 +165,9 @@ class BigtableSessionRepository implements SessionRepository {
   @Override
   public CompletableFuture<RegistrationSession> getSession(final UUID sessionId) {
     return GoogleApiUtil.toCompletableFuture(
-        bigtableDataClient.readRowAsync(configuration.tableName(), UUIDUtil.uuidToByteString(sessionId)), executor)
+        bigtableDataClient.readRowAsync(configuration.tableName(),
+            UUIDUtil.uuidToByteString(sessionId),
+            Filters.FILTERS.limit().cellsPerColumn(1)), executor)
         .thenApply(row -> {
           try {
             final RegistrationSession registrationSession = extractSession(row);
@@ -221,21 +229,19 @@ class BigtableSessionRepository implements SessionRepository {
       throw new SessionNotFoundException();
     }
 
-    return getCurrentValue(row, configuration.columnFamilyName(), DATA_COLUMN_NAME)
-        .map(byteString -> {
-          try {
-            return RegistrationSession.parseFrom(byteString);
-          } catch (final InvalidProtocolBufferException e) {
-            throw new UncheckedIOException(e);
-          }
-        })
-        .orElseThrow(SessionNotFoundException::new);
-  }
+    final List<RowCell> cells = row.getCells(configuration.columnFamilyName(), DATA_COLUMN_NAME);
 
-  private static Optional<ByteString> getCurrentValue(final Row row, final String columnFamilyName, final ByteString columnQualifier) {
-    final List<RowCell> cells = row.getCells(columnFamilyName, columnQualifier);
+    if (cells.isEmpty()) {
+      logger.error("Row did not contain any session data cells");
+      throw new SessionNotFoundException();
+    }
 
-    return cells.isEmpty() ? Optional.empty() : Optional.of(cells.get(0).getValue());
+    try {
+      return RegistrationSession.parseFrom(cells.get(0).getValue());
+    } catch (final InvalidProtocolBufferException e) {
+      logger.error("Failed to parse registration session", e);
+      throw new UncheckedIOException(e);
+    }
   }
 
   @VisibleForTesting

@@ -143,7 +143,7 @@ class BigtableSessionRepositoryTest extends AbstractSessionRepositoryTest {
 
     final Row row = buildRowForSession(session);
 
-    when(mockBigtableClient.readRowAsync(anyString(), any(ByteString.class)))
+    when(mockBigtableClient.readRowAsync(anyString(), any(ByteString.class), any()))
         .thenReturn(ApiFutures.immediateFuture(row));
 
     when(mockBigtableClient.checkAndMutateRowAsync(any()))
@@ -174,7 +174,7 @@ class BigtableSessionRepositoryTest extends AbstractSessionRepositoryTest {
 
     final Row row = buildRowForSession(session);
 
-    when(mockBigtableClient.readRowAsync(anyString(), any(ByteString.class)))
+    when(mockBigtableClient.readRowAsync(anyString(), any(ByteString.class), any()))
         .thenReturn(ApiFutures.immediateFuture(row));
 
     when(mockBigtableClient.checkAndMutateRowAsync(any()))
