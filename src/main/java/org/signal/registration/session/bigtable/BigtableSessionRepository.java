@@ -9,6 +9,7 @@ import com.google.cloud.bigtable.data.v2.BigtableDataClient;
 import com.google.cloud.bigtable.data.v2.models.ConditionalRowMutation;
 import com.google.cloud.bigtable.data.v2.models.Filters;
 import com.google.cloud.bigtable.data.v2.models.Mutation;
+import com.google.cloud.bigtable.data.v2.models.Query;
 import com.google.cloud.bigtable.data.v2.models.Row;
 import com.google.cloud.bigtable.data.v2.models.RowCell;
 import com.google.cloud.bigtable.data.v2.models.RowMutation;
@@ -18,7 +19,9 @@ import com.google.i18n.phonenumbers.Phonenumber;
 import com.google.protobuf.ByteString;
 import com.google.protobuf.InvalidProtocolBufferException;
 import io.micronaut.context.annotation.Requires;
+import io.micronaut.context.event.ApplicationEventPublisher;
 import io.micronaut.scheduling.TaskExecutors;
+import io.micronaut.scheduling.annotation.Scheduled;
 import jakarta.inject.Named;
 import jakarta.inject.Singleton;
 import java.io.UncheckedIOException;
@@ -33,13 +36,18 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
 import java.util.function.Function;
 import javax.annotation.Nullable;
+import org.reactivestreams.Publisher;
 import org.signal.registration.session.RegistrationSession;
+import org.signal.registration.session.SessionCompletedEvent;
 import org.signal.registration.session.SessionMetadata;
 import org.signal.registration.session.SessionNotFoundException;
 import org.signal.registration.session.SessionRepository;
 import org.signal.registration.util.CompletionExceptions;
 import org.signal.registration.util.GoogleApiUtil;
+import org.signal.registration.util.ReactiveResponseObserver;
 import org.signal.registration.util.UUIDUtil;
+import reactor.core.publisher.Flux;
+import reactor.core.publisher.Mono;
 
 /**
  * A Bigtable session repository stores sessions in a <a href="https://cloud.google.com/bigtable">Cloud Bigtable</a>
@@ -57,29 +65,72 @@ class BigtableSessionRepository implements SessionRepository {
 
   private final BigtableDataClient bigtableDataClient;
   private final Executor executor;
+  private final ApplicationEventPublisher<SessionCompletedEvent> sessionCompletedEventPublisher;
   private final BigtableSessionRepositoryConfiguration configuration;
   private final Clock clock;
 
   @VisibleForTesting
   static final ByteString DATA_COLUMN_NAME = ByteString.copyFromUtf8("D");
 
-  @VisibleForTesting
-  static final ByteString REMOVAL_COLUMN_NAME = ByteString.copyFromUtf8("R");
+  private static final ByteString REMOVAL_COLUMN_NAME = ByteString.copyFromUtf8("R");
 
-  private static final Duration REMOVAL_TTL_PADDING = Duration.ofMinutes(5);
+  @VisibleForTesting
+  static final Duration REMOVAL_TTL_PADDING = Duration.ofMinutes(5);
 
   @VisibleForTesting
   static final int MAX_UPDATE_RETRIES = 3;
 
+  private static final ByteString EPOCH_BYTE_STRING = instantToByteString(Instant.EPOCH);
+
   public BigtableSessionRepository(final BigtableDataClient bigtableDataClient,
       @Named(TaskExecutors.IO) final Executor executor,
+      final ApplicationEventPublisher<SessionCompletedEvent> sessionCompletedEventPublisher,
       final BigtableSessionRepositoryConfiguration configuration,
       final Clock clock) {
 
     this.bigtableDataClient = bigtableDataClient;
     this.executor = executor;
+    this.sessionCompletedEventPublisher = sessionCompletedEventPublisher;
     this.configuration = configuration;
     this.clock = clock;
+  }
+
+  @Scheduled(fixedDelay = "${session-repository.bigtable.remove-expired-sessions-interval:10s}")
+  @VisibleForTesting
+  CompletableFuture<Void> deleteExpiredSessions() {
+    return Flux.from(getSessionsPendingRemoval())
+        .flatMap(this::removeExpiredSession)
+        .doOnNext(session -> sessionCompletedEventPublisher.publishEvent(new SessionCompletedEvent(session)))
+        .count()
+        .toFuture()
+        .thenAccept(ignored -> {});
+  }
+
+  private Publisher<RegistrationSession> getSessionsPendingRemoval() {
+    return ReactiveResponseObserver.<Row>asFlux(responseObserver -> bigtableDataClient.readRowsAsync(
+        Query.create(configuration.tableName())
+        .filter(Filters.FILTERS.condition(Filters.FILTERS.chain()
+                .filter(Filters.FILTERS.family().exactMatch(configuration.columnFamilyName()))
+                .filter(Filters.FILTERS.qualifier().exactMatch(REMOVAL_COLUMN_NAME))
+                .filter(Filters.FILTERS.value().range().of(EPOCH_BYTE_STRING, instantToByteString(clock.instant()))))
+            .then(Filters.FILTERS.pass())),
+        responseObserver))
+        .map(row -> {
+          try {
+            return Optional.of(extractSession(row));
+          } catch (final SessionNotFoundException e) {
+            return Optional.<RegistrationSession>empty();
+          }
+        })
+        .filter(Optional::isPresent)
+        .map(Optional::get);
+  }
+
+  Mono<RegistrationSession> removeExpiredSession(final RegistrationSession session) {
+    return Mono.fromFuture(GoogleApiUtil.toCompletableFuture(bigtableDataClient.mutateRowAsync(
+                RowMutation.create(configuration.tableName(), session.getId(), Mutation.create().deleteRow())),
+            executor)
+        .thenApply(ignored -> session));
   }
 
   @Override
