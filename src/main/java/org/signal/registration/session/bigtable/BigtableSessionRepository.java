@@ -20,6 +20,7 @@ import com.google.protobuf.ByteString;
 import com.google.protobuf.InvalidProtocolBufferException;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.Timer;
+import io.micronaut.context.annotation.Primary;
 import io.micronaut.context.annotation.Requires;
 import io.micronaut.context.event.ApplicationEventPublisher;
 import io.micronaut.scheduling.TaskExecutors;
@@ -65,6 +66,7 @@ import reactor.core.publisher.Mono;
  * @see <a href="https://cloud.google.com/bigtable/docs/garbage-collection">About garbage collection</a>
  */
 @Singleton
+@Primary
 @Requires(bean = BigtableDataClient.class)
 class BigtableSessionRepository implements SessionRepository {
 
