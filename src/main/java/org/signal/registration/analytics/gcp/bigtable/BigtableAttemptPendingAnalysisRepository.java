@@ -5,8 +5,6 @@
 
 package org.signal.registration.analytics.gcp.bigtable;
 
-import com.google.api.gax.rpc.ResponseObserver;
-import com.google.api.gax.rpc.StreamController;
 import com.google.cloud.bigtable.data.v2.BigtableDataClient;
 import com.google.cloud.bigtable.data.v2.models.Query;
 import com.google.cloud.bigtable.data.v2.models.Row;
@@ -28,10 +26,9 @@ import org.signal.registration.analytics.AttemptPendingAnalysis;
 import org.signal.registration.analytics.AttemptPendingAnalysisRepository;
 import org.signal.registration.metrics.MetricsUtil;
 import org.signal.registration.util.GoogleApiUtil;
+import org.signal.registration.util.ReactiveResponseObserver;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import reactor.core.publisher.Flux;
-import reactor.core.publisher.FluxSink;
 
 /**
  * An "attempt pending analysis" repository that uses <a href="https://cloud.google.com/bigtable">Cloud Bigtable</a> as
@@ -64,46 +61,6 @@ public class BigtableAttemptPendingAnalysisRepository implements AttemptPendingA
   private static final String SENDER_TAG_NAME = "sender";
 
   private static final Logger logger = LoggerFactory.getLogger(BigtableAttemptPendingAnalysisRepository.class);
-
-  private class ReactiveRowResponseObserver implements ResponseObserver<Row> {
-
-    private final String senderName;
-    private final FluxSink<AttemptPendingAnalysis> sink;
-    private StreamController controller;
-
-    private ReactiveRowResponseObserver(final String senderName, final FluxSink<AttemptPendingAnalysis> sink) {
-      this.senderName = senderName;
-      this.sink = sink;
-    }
-
-    @Override
-    public void onStart(final StreamController controller) {
-      this.controller = controller;
-    }
-
-    @Override
-    public void onResponse(final Row row) {
-      sink.next(fromRow(row));
-      meterRegistry.counter(GET_ATTEMPTS_BY_SENDER_COUNTER_NAME, SENDER_TAG_NAME, senderName).increment();
-    }
-
-    @Override
-    public void onError(final Throwable throwable) {
-      sink.error(throwable);
-      logger.warn("Failed to get attempts pending analysis by sender", throwable);
-    }
-
-    @Override
-    public void onComplete() {
-      sink.complete();
-    }
-
-    public void cancel() {
-      if (controller != null) {
-        controller.cancel();
-      }
-    }
-  }
 
   public BigtableAttemptPendingAnalysisRepository(final BigtableDataClient bigtableDataClient,
       @Named(TaskExecutors.IO) final Executor executor,
@@ -161,12 +118,11 @@ public class BigtableAttemptPendingAnalysisRepository implements AttemptPendingA
 
   @Override
   public Publisher<AttemptPendingAnalysis> getBySender(final String senderName) {
-    return Flux.create(sink -> {
-      final ReactiveRowResponseObserver responseObserver = new ReactiveRowResponseObserver(senderName, sink);
-      bigtableDataClient.readRowsAsync(Query.create(tableId).prefix(getPrefix(senderName)), responseObserver);
-
-      sink.onDispose(responseObserver::cancel);
-    });
+    return ReactiveResponseObserver.<Row>asFlux(responseObserver ->
+            bigtableDataClient.readRowsAsync(Query.create(tableId).prefix(getPrefix(senderName)), responseObserver))
+        .doOnNext(row -> meterRegistry.counter(GET_ATTEMPTS_BY_SENDER_COUNTER_NAME, SENDER_TAG_NAME, senderName).increment())
+        .doOnError(throwable -> logger.warn("Failed to get attempts pending analysis by sender", throwable))
+        .map(this::fromRow);
   }
 
   @Override
