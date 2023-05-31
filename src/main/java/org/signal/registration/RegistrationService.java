@@ -28,7 +28,6 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 import javax.annotation.Nullable;
 import org.apache.commons.lang3.StringUtils;
-import org.apache.commons.lang3.tuple.Pair;
 import org.signal.registration.ratelimit.RateLimiter;
 import org.signal.registration.rpc.RegistrationSessionMetadata;
 import org.signal.registration.sender.AttemptData;
@@ -40,14 +39,11 @@ import org.signal.registration.sender.VerificationCodeSender;
 import org.signal.registration.session.RegistrationAttempt;
 import org.signal.registration.session.RegistrationSession;
 import org.signal.registration.session.SessionMetadata;
-import org.signal.registration.session.SessionNotFoundException;
 import org.signal.registration.session.SessionRepository;
 import org.signal.registration.util.ClientTypes;
 import org.signal.registration.util.CompletionExceptions;
 import org.signal.registration.util.MessageTransports;
 import org.signal.registration.util.UUIDUtil;
-import reactor.core.publisher.Flux;
-import reactor.core.publisher.Mono;
 
 /**
  * The registration service is the core orchestrator of registration business logic and manages registration sessions
@@ -57,8 +53,7 @@ import reactor.core.publisher.Mono;
 public class RegistrationService {
 
   private final SenderSelectionStrategy senderSelectionStrategy;
-  private final SessionRepository primarySessionRepository;
-  private final List<SessionRepository> allSessionRepositories;
+  private final SessionRepository sessionRepository;
   private final RateLimiter<Phonenumber.PhoneNumber> sessionCreationRateLimiter;
   private final RateLimiter<RegistrationSession> sendSmsVerificationCodeRateLimiter;
   private final RateLimiter<RegistrationSession> sendVoiceVerificationCodeRateLimiter;
@@ -70,7 +65,7 @@ public class RegistrationService {
   @VisibleForTesting
   static final Duration SESSION_TTL_AFTER_LAST_ACTION = Duration.ofMinutes(10);
 
-  private record RepositoryAndSenderAndAttemptData(SessionRepository repository, VerificationCodeSender sender, AttemptData attemptData) {}
+  private record SenderAndAttemptData(VerificationCodeSender sender, AttemptData attemptData) {}
 
   @VisibleForTesting
   record NextActionTimes(Optional<Instant> nextSms,
@@ -82,10 +77,7 @@ public class RegistrationService {
    * session data with the given session repository.
    *
    * @param senderSelectionStrategy              the strategy to use to choose verification code senders
-   * @param primarySessionRepository             the repository to use to store session data
-   * @param allSessionRepositories               all active session repositories; sessions may be read from and updated
-   *                                             in any session repository, but new sessions will only be created in the
-   *                                             primary repository
+   * @param sessionRepository                    the repository to use to store session data
    * @param sessionCreationRateLimiter           a rate limiter that controls the rate at which sessions may be created
    *                                             for individual phone numbers
    * @param sendSmsVerificationCodeRateLimiter   a rate limiter that controls the rate at which callers may request
@@ -97,8 +89,7 @@ public class RegistrationService {
    * @param clock                                the time source for this registration service
    */
   public RegistrationService(final SenderSelectionStrategy senderSelectionStrategy,
-      final SessionRepository primarySessionRepository,
-      final List<SessionRepository> allSessionRepositories,
+      final SessionRepository sessionRepository,
       @Named("session-creation") final RateLimiter<Phonenumber.PhoneNumber> sessionCreationRateLimiter,
       @Named("send-sms-verification-code") final RateLimiter<RegistrationSession> sendSmsVerificationCodeRateLimiter,
       @Named("send-voice-verification-code") final RateLimiter<RegistrationSession> sendVoiceVerificationCodeRateLimiter,
@@ -107,8 +98,7 @@ public class RegistrationService {
       final Clock clock) {
 
     this.senderSelectionStrategy = senderSelectionStrategy;
-    this.primarySessionRepository = primarySessionRepository;
-    this.allSessionRepositories = allSessionRepositories;
+    this.sessionRepository = sessionRepository;
     this.sessionCreationRateLimiter = sessionCreationRateLimiter;
     this.sendSmsVerificationCodeRateLimiter = sendSmsVerificationCodeRateLimiter;
     this.sendVoiceVerificationCodeRateLimiter = sendVoiceVerificationCodeRateLimiter;
@@ -133,7 +123,7 @@ public class RegistrationService {
 
     return sessionCreationRateLimiter.checkRateLimit(phoneNumber)
         .thenCompose(ignored ->
-            primarySessionRepository.createSession(phoneNumber, sessionMetadata, clock.instant().plus(SESSION_TTL_AFTER_LAST_ACTION)));
+            sessionRepository.createSession(phoneNumber, sessionMetadata, clock.instant().plus(SESSION_TTL_AFTER_LAST_ACTION)));
   }
 
   /**
@@ -145,23 +135,7 @@ public class RegistrationService {
    * {@link org.signal.registration.session.SessionNotFoundException}
    */
   public CompletableFuture<RegistrationSession> getRegistrationSession(final UUID sessionId) {
-    return findRegistrationSession(sessionId).thenApply(Pair::getRight);
-  }
-
-  private CompletableFuture<Pair<SessionRepository, RegistrationSession>> findRegistrationSession(final UUID sessionId) {
-    return Flux.fromIterable(allSessionRepositories)
-        .flatMap(sessionRepository -> Mono.fromFuture(sessionRepository.getSession(sessionId))
-            .onErrorResume(throwable -> CompletionExceptions.unwrap(throwable) instanceof SessionNotFoundException, throwable -> Mono.empty())
-            .map(session -> Pair.of(sessionRepository, session)))
-        .next()
-        .toFuture()
-        .thenApply(repositoryAndSession -> {
-          if (repositoryAndSession == null) {
-            throw CompletionExceptions.wrap(new SessionNotFoundException());
-          }
-
-          return repositoryAndSession;
-        });
+    return sessionRepository.getSession(sessionId);
   }
 
   /**
@@ -188,11 +162,8 @@ public class RegistrationService {
       case VOICE -> sendVoiceVerificationCodeRateLimiter;
     };
 
-    return findRegistrationSession(sessionId)
-        .thenCompose(repositoryAndSession -> {
-          final SessionRepository repository = repositoryAndSession.getLeft();
-          final RegistrationSession session = repositoryAndSession.getRight();
-
+    return sessionRepository.getSession(sessionId)
+        .thenCompose(session -> {
           if (StringUtils.isNotBlank(session.getVerifiedCode())) {
             return CompletableFuture.failedFuture(new SessionAlreadyVerifiedException(session));
           }
@@ -210,7 +181,7 @@ public class RegistrationService {
                           phoneNumberFromSession,
                           languageRanges,
                           clientType)
-                      .thenApply(sessionData -> new RepositoryAndSenderAndAttemptData(repository, sender, sessionData));
+                      .thenApply(sessionData -> new SenderAndAttemptData(sender, sessionData));
                 } catch (final NumberParseException e) {
                   // This should never happen because we're parsing a phone number from the session, which means we've
                   // parsed it successfully in the past
@@ -218,15 +189,15 @@ public class RegistrationService {
                 }
               });
         })
-        .thenCompose(repositoryAndSenderAndAttemptData -> repositoryAndSenderAndAttemptData.repository().updateSession(sessionId, session -> {
+        .thenCompose(senderAndAttemptData -> sessionRepository.updateSession(sessionId, session -> {
           final RegistrationSession.Builder builder = session.toBuilder()
               .setCheckCodeAttempts(0)
               .setLastCheckCodeAttemptEpochMillis(0)
-              .addRegistrationAttempts(buildRegistrationAttempt(repositoryAndSenderAndAttemptData.sender(),
+              .addRegistrationAttempts(buildRegistrationAttempt(senderAndAttemptData.sender(),
                   messageTransport,
                   clientType,
-                  repositoryAndSenderAndAttemptData.attemptData(),
-                  repositoryAndSenderAndAttemptData.sender().getAttemptTtl()));
+                  senderAndAttemptData.attemptData(),
+                  senderAndAttemptData.sender().getAttemptTtl()));
 
           builder.setExpirationEpochMillis(getSessionExpiration(builder.build()).toEpochMilli());
 
@@ -268,44 +239,38 @@ public class RegistrationService {
    * session has been successfully verified
    */
   public CompletableFuture<RegistrationSession> checkVerificationCode(final UUID sessionId, final String verificationCode) {
-    return findRegistrationSession(sessionId)
-        .thenCompose(repositoryAndSession -> {
-          final SessionRepository repository = repositoryAndSession.getLeft();
-          final RegistrationSession session = repositoryAndSession.getRight();
-
+    return sessionRepository.getSession(sessionId)
+        .thenCompose(session -> {
           // If a connection was interrupted, a caller may repeat a verification request. Check to see if we already
           // have a known verification code for this session and, if so, check the provided code against that code
           // instead of making a call upstream.
           if (StringUtils.isNotBlank(session.getVerifiedCode())) {
             return CompletableFuture.completedFuture(session);
           } else {
-            return checkVerificationCode(session, verificationCode, repository);
+            return checkVerificationCode(session, verificationCode);
           }
         });
   }
 
   @Deprecated
   public CompletableFuture<Boolean> legacyCheckVerificationCode(final UUID sessionId, final String verificationCode) {
-    return findRegistrationSession(sessionId)
-        .thenCompose(repositoryAndSession -> {
-          final SessionRepository repository = repositoryAndSession.getLeft();
-          final RegistrationSession session = repositoryAndSession.getRight();
-
+    return sessionRepository.getSession(sessionId)
+        .thenCompose(session -> {
           if (StringUtils.isNotBlank(session.getVerifiedCode())) {
             if (!verificationCode.equals(session.getVerifiedCode())) {
-              recordCheckVerificationCodeAttempt(session, session.getVerifiedCode(), repository);
+              recordCheckVerificationCodeAttempt(session, session.getVerifiedCode());
             }
 
             return CompletableFuture.completedFuture(verificationCode.equals(session.getVerifiedCode()));
           } else {
-            return checkVerificationCode(session, verificationCode, repository)
+            return checkVerificationCode(session, verificationCode)
                 .thenApply(updatedSession -> StringUtils.isNotBlank(updatedSession.getVerifiedCode()) &&
                     verificationCode.equals(updatedSession.getVerifiedCode()));
           }
         });
   }
 
-  private CompletableFuture<RegistrationSession> checkVerificationCode(final RegistrationSession session, final String verificationCode, final SessionRepository sessionRepository) {
+  private CompletableFuture<RegistrationSession> checkVerificationCode(final RegistrationSession session, final String verificationCode) {
     if (session.getRegistrationAttemptsCount() == 0) {
       return CompletableFuture.failedFuture(new NoVerificationCodeSentException(session));
     } else {
@@ -334,14 +299,13 @@ public class RegistrationService {
 
               throw CompletionExceptions.wrap(throwable);
             })
-            .thenCompose(verified -> recordCheckVerificationCodeAttempt(session, verified ? verificationCode : null, sessionRepository));
+            .thenCompose(verified -> recordCheckVerificationCodeAttempt(session, verified ? verificationCode : null));
       });
     }
   }
 
   private CompletableFuture<RegistrationSession> recordCheckVerificationCodeAttempt(final RegistrationSession session,
-      @Nullable final String verifiedCode,
-      final SessionRepository sessionRepository) {
+      @Nullable final String verifiedCode) {
 
     return sessionRepository.updateSession(UUIDUtil.uuidFromByteString(session.getId()), s -> {
       final RegistrationSession.Builder builder = s.toBuilder()

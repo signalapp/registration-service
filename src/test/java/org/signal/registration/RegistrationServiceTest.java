@@ -5,7 +5,6 @@
 
 package org.signal.registration;
 
-import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -63,7 +62,7 @@ class RegistrationServiceTest {
   private RegistrationService registrationService;
 
   private VerificationCodeSender sender;
-  private SessionRepository primarySessionRepository;
+  private SessionRepository sessionRepository;
   private RateLimiter<Phonenumber.PhoneNumber> sessionCreationRateLimiter;
   private RateLimiter<RegistrationSession> sendSmsVerificationCodeRateLimiter;
   private RateLimiter<RegistrationSession> sendVoiceVerificationCodeRateLimiter;
@@ -91,7 +90,7 @@ class RegistrationServiceTest {
     when(clock.millis()).thenReturn(CURRENT_TIME.toEpochMilli());
 
     //noinspection unchecked
-    primarySessionRepository = spy(new MemorySessionRepository(mock(ApplicationEventPublisher.class), clock));
+    sessionRepository = spy(new MemorySessionRepository(mock(ApplicationEventPublisher.class), clock));
 
     final SenderSelectionStrategy senderSelectionStrategy = mock(SenderSelectionStrategy.class);
     when(senderSelectionStrategy.chooseVerificationCodeSender(any(), any(), any(), any(), any())).thenReturn(sender);
@@ -118,12 +117,8 @@ class RegistrationServiceTest {
     when(checkVerificationCodeRateLimiter.getTimeOfNextAction(any()))
         .thenReturn(CompletableFuture.completedFuture(Optional.of(CURRENT_TIME)));
 
-    final SessionRepository emptyRepository = mock(SessionRepository.class);
-    when(emptyRepository.getSession(any())).thenReturn(CompletableFuture.failedFuture(new SessionNotFoundException()));
-
     registrationService = new RegistrationService(senderSelectionStrategy,
-        primarySessionRepository,
-        List.of(primarySessionRepository, emptyRepository),
+        sessionRepository,
         sessionCreationRateLimiter,
         sendSmsVerificationCodeRateLimiter,
         sendVoiceVerificationCodeRateLimiter,
@@ -154,7 +149,7 @@ class RegistrationServiceTest {
         () -> registrationService.createRegistrationSession(PHONE_NUMBER, SESSION_METADATA).join());
 
     assertEquals(rateLimitExceededException, CompletionExceptions.unwrap(completionException));
-    verify(primarySessionRepository, never()).createSession(any(), any(), any());
+    verify(sessionRepository, never()).createSession(any(), any(), any());
   }
 
   @Test
@@ -176,7 +171,7 @@ class RegistrationServiceTest {
     verify(sender).sendVerificationCode(MessageTransport.SMS, PHONE_NUMBER, LANGUAGE_RANGES, CLIENT_TYPE);
     verify(sendSmsVerificationCodeRateLimiter).checkRateLimit(any());
     verify(sendVoiceVerificationCodeRateLimiter, never()).checkRateLimit(any());
-    verify(primarySessionRepository).updateSession(eq(sessionId), any());
+    verify(sessionRepository).updateSession(eq(sessionId), any());
 
     assertEquals(1, session.getRegistrationAttemptsCount());
     assertEquals(remoteId, session.getRegistrationAttempts(0).getRemoteId());
@@ -203,7 +198,7 @@ class RegistrationServiceTest {
     verify(sender, never()).sendVerificationCode(any(), any(), any(), any());
     verify(sendSmsVerificationCodeRateLimiter).checkRateLimit(any());
     verify(sendVoiceVerificationCodeRateLimiter, never()).checkRateLimit(any());
-    verify(primarySessionRepository, never()).updateSession(any(), any());
+    verify(sessionRepository, never()).updateSession(any(), any());
   }
 
   @Test
@@ -225,7 +220,7 @@ class RegistrationServiceTest {
     verify(sender, never()).sendVerificationCode(any(), any(), any(), any());
     verify(sendSmsVerificationCodeRateLimiter, never()).checkRateLimit(any());
     verify(sendVoiceVerificationCodeRateLimiter).checkRateLimit(any());
-    verify(primarySessionRepository, never()).updateSession(any(), any());
+    verify(sessionRepository, never()).updateSession(any(), any());
   }
 
   @Test
@@ -353,16 +348,16 @@ class RegistrationServiceTest {
 
     assertTrue(CompletionExceptions.unwrap(completionException) instanceof SessionNotFoundException);
 
-    verify(primarySessionRepository).getSession(sessionId);
+    verify(sessionRepository).getSession(sessionId);
     verify(sender, never()).checkVerificationCode(any(), any());
-    verify(primarySessionRepository, never()).updateSession(any(), any());
+    verify(sessionRepository, never()).updateSession(any(), any());
   }
 
   @Test
   void checkVerificationCodePreviouslyVerified() {
     final UUID sessionId = UUID.randomUUID();
 
-    when(primarySessionRepository.getSession(sessionId))
+    when(sessionRepository.getSession(sessionId))
         .thenReturn(CompletableFuture.completedFuture(
             RegistrationSession.newBuilder()
                 .setPhoneNumber(PhoneNumberUtil.getInstance().format(PHONE_NUMBER, PhoneNumberUtil.PhoneNumberFormat.E164))
@@ -371,9 +366,9 @@ class RegistrationServiceTest {
 
     assertEquals(VERIFICATION_CODE, registrationService.checkVerificationCode(sessionId, VERIFICATION_CODE).join().getVerifiedCode());
 
-    verify(primarySessionRepository).getSession(sessionId);
+    verify(sessionRepository).getSession(sessionId);
     verify(sender, never()).checkVerificationCode(any(), any());
-    verify(primarySessionRepository, never()).updateSession(any(), any());
+    verify(sessionRepository, never()).updateSession(any(), any());
   }
 
   @Test
@@ -391,7 +386,7 @@ class RegistrationServiceTest {
             .build())
         .build();
 
-    when(primarySessionRepository.getSession(sessionId))
+    when(sessionRepository.getSession(sessionId))
         .thenReturn(CompletableFuture.completedFuture(session));
 
     final Duration retryAfterDuration = Duration.ofMinutes(17);
@@ -409,7 +404,7 @@ class RegistrationServiceTest {
     assertEquals(Optional.of(retryAfterDuration), rateLimitExceededException.getRetryAfterDuration());
 
     verify(sender, never()).checkVerificationCode(any(), any());
-    verify(primarySessionRepository, never()).updateSession(any(), any());
+    verify(sessionRepository, never()).updateSession(any(), any());
   }
 
   @Test
@@ -427,7 +422,7 @@ class RegistrationServiceTest {
             .build())
         .build();
 
-    when(primarySessionRepository.getSession(sessionId))
+    when(sessionRepository.getSession(sessionId))
         .thenReturn(CompletableFuture.completedFuture(session));
 
     final CompletionException completionException = assertThrows(CompletionException.class,
@@ -435,9 +430,9 @@ class RegistrationServiceTest {
 
     assertTrue(CompletionExceptions.unwrap(completionException) instanceof AttemptExpiredException);
 
-    verify(primarySessionRepository).getSession(sessionId);
+    verify(sessionRepository).getSession(sessionId);
     verify(sender, never()).checkVerificationCode(any(), any());
-    verify(primarySessionRepository, never()).updateSession(any(), any());
+    verify(sessionRepository, never()).updateSession(any(), any());
   }
 
   @Test
@@ -803,43 +798,5 @@ class RegistrationServiceTest {
             List.of(),
             CURRENT_TIME.plus(RegistrationService.SESSION_TTL_AFTER_LAST_ACTION.dividedBy(2)))
     );
-  }
-
-  @Test
-  void getRegistrationSession() {
-    final SessionRepository hasSessionRepository = mock(SessionRepository.class);
-    when(hasSessionRepository.getSession(any()))
-        .thenReturn(CompletableFuture.completedFuture(RegistrationSession.newBuilder().build()));
-
-    final SessionRepository emptyRepository = mock(SessionRepository.class);
-    when(emptyRepository.getSession(any())).thenReturn(CompletableFuture.failedFuture(new SessionNotFoundException()));
-
-    {
-      final RegistrationService registrationService = new RegistrationService(mock(SenderSelectionStrategy.class),
-          primarySessionRepository,
-          List.of(hasSessionRepository, emptyRepository),
-          sessionCreationRateLimiter,
-          sendSmsVerificationCodeRateLimiter,
-          sendVoiceVerificationCodeRateLimiter,
-          checkVerificationCodeRateLimiter,
-          List.of(sender),
-          clock);
-
-      assertDoesNotThrow(() -> registrationService.getRegistrationSession(UUID.randomUUID()).join());
-    }
-
-    {
-      final RegistrationService registrationService = new RegistrationService(mock(SenderSelectionStrategy.class),
-          primarySessionRepository,
-          List.of(emptyRepository, hasSessionRepository),
-          sessionCreationRateLimiter,
-          sendSmsVerificationCodeRateLimiter,
-          sendVoiceVerificationCodeRateLimiter,
-          checkVerificationCodeRateLimiter,
-          List.of(sender),
-          clock);
-
-      assertDoesNotThrow(() -> registrationService.getRegistrationSession(UUID.randomUUID()).join());
-    }
   }
 }
