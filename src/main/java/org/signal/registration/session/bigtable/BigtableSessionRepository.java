@@ -105,7 +105,7 @@ class BigtableSessionRepository implements SessionRepository {
     return Flux.from(getSessionsPendingRemoval())
         .flatMap(this::removeExpiredSession)
         .doOnNext(session -> sessionCompletedEventPublisher.publishEvent(new SessionCompletedEvent(session)))
-        .count()
+        .last()
         .toFuture()
         .thenAccept(ignored -> {});
   }
@@ -132,11 +132,19 @@ class BigtableSessionRepository implements SessionRepository {
         .map(Optional::get);
   }
 
+  @VisibleForTesting
   Mono<RegistrationSession> removeExpiredSession(final RegistrationSession session) {
-    return Mono.fromFuture(GoogleApiUtil.toCompletableFuture(bigtableDataClient.mutateRowAsync(
-                RowMutation.create(configuration.tableName(), session.getId(), Mutation.create().deleteRow())),
-            executor)
-        .thenApply(ignored -> session));
+    return Mono.fromFuture(GoogleApiUtil.toCompletableFuture(
+            bigtableDataClient.checkAndMutateRowAsync(
+                ConditionalRowMutation.create(configuration.tableName(), session.getId())
+                    .condition(Filters.FILTERS.chain()
+                        .filter(Filters.FILTERS.family().exactMatch(configuration.columnFamilyName()))
+                        .filter(Filters.FILTERS.qualifier().exactMatch(DATA_COLUMN_NAME))
+                        .filter(Filters.FILTERS.value().exactMatch(session.toByteString())))
+                    .then(Mutation.create().deleteRow())),
+            executor))
+        .filter(deleted -> deleted)
+        .map(ignored -> session);
   }
 
   @Override

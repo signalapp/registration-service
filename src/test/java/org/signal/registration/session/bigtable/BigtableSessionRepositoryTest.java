@@ -30,6 +30,7 @@ import com.google.protobuf.ByteString;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.ExecutorService;
@@ -228,5 +229,20 @@ class BigtableSessionRepositoryTest extends AbstractSessionRepositoryTest {
     assertTrue(CompletionExceptions.unwrap(completionException) instanceof SessionNotFoundException);
 
     verify(sessionCompletedEventPublisher).publishEvent(new SessionCompletedEvent(expiredSession));
+  }
+
+  @Test
+  void removeExpiredSession() {
+    final RegistrationSession expiredSession = sessionRepository.createSession(
+        PhoneNumberUtil.getInstance().getExampleNumber("US"),
+        SessionMetadata.newBuilder().build(),
+        Instant.now().minus(BigtableSessionRepository.REMOVAL_TTL_PADDING.multipliedBy(2))).join();
+
+    final RegistrationSession notInRepositorySession = RegistrationSession.newBuilder()
+        .setId(UUIDUtil.uuidToByteString(UUID.randomUUID()))
+        .build();
+
+    assertEquals(Optional.of(expiredSession), sessionRepository.removeExpiredSession(expiredSession).blockOptional());
+    assertEquals(Optional.empty(), sessionRepository.removeExpiredSession(notInRepositorySession).blockOptional());
   }
 }
