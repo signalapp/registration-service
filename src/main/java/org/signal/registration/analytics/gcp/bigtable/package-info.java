@@ -4,8 +4,8 @@
  */
 
 @Configuration
-@Requires(property = "analytics.bigtable.project-id")
-@Requires(property = "analytics.bigtable.instance-id")
+@Requires(property = "gcp.bigtable.project-id")
+@Requires(property = "gcp.bigtable.instance-id")
 @Requires(property = "analytics.bigtable.table-id")
 @Requires(property = "analytics.bigtable.column-family-name")
 package org.signal.registration.analytics.gcp.bigtable;
