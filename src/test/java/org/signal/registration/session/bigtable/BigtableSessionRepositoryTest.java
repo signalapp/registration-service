@@ -36,6 +36,7 @@ import java.util.concurrent.CompletionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
+import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import io.micronaut.context.event.ApplicationEventPublisher;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -48,7 +49,6 @@ import org.signal.registration.session.SessionNotFoundException;
 import org.signal.registration.session.SessionRepository;
 import org.signal.registration.util.CompletionExceptions;
 import org.signal.registration.util.UUIDUtil;
-import reactor.core.publisher.Flux;
 
 class BigtableSessionRepositoryTest extends AbstractSessionRepositoryTest {
 
@@ -94,7 +94,8 @@ class BigtableSessionRepositoryTest extends AbstractSessionRepositoryTest {
     sessionRepository = new BigtableSessionRepository(bigtableDataClient,
         executorService,
         sessionCompletedEventPublisher, new BigtableSessionRepositoryConfiguration(TABLE_ID, COLUMN_FAMILY_NAME),
-        getClock());
+        getClock(),
+        new SimpleMeterRegistry());
   }
 
   @AfterEach
@@ -133,7 +134,8 @@ class BigtableSessionRepositoryTest extends AbstractSessionRepositoryTest {
     final BigtableSessionRepository retryRepository = new BigtableSessionRepository(mockBigtableClient,
         executorService,
         sessionCompletedEventPublisher, new BigtableSessionRepositoryConfiguration(TABLE_ID, COLUMN_FAMILY_NAME),
-        getClock());
+        getClock(),
+        new SimpleMeterRegistry());
 
     final UUID sessionId = UUID.randomUUID();
 
@@ -164,7 +166,7 @@ class BigtableSessionRepositoryTest extends AbstractSessionRepositoryTest {
         executorService,
         sessionCompletedEventPublisher,
         new BigtableSessionRepositoryConfiguration(TABLE_ID, COLUMN_FAMILY_NAME),
-        getClock());
+        getClock(), new SimpleMeterRegistry());
 
     final UUID sessionId = UUID.randomUUID();
 

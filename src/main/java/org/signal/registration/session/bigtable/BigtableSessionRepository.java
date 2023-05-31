@@ -18,6 +18,8 @@ import com.google.i18n.phonenumbers.PhoneNumberUtil;
 import com.google.i18n.phonenumbers.Phonenumber;
 import com.google.protobuf.ByteString;
 import com.google.protobuf.InvalidProtocolBufferException;
+import io.micrometer.core.instrument.MeterRegistry;
+import io.micrometer.core.instrument.Timer;
 import io.micronaut.context.annotation.Requires;
 import io.micronaut.context.event.ApplicationEventPublisher;
 import io.micronaut.scheduling.TaskExecutors;
@@ -37,6 +39,7 @@ import java.util.concurrent.Executor;
 import java.util.function.Function;
 import javax.annotation.Nullable;
 import org.reactivestreams.Publisher;
+import org.signal.registration.metrics.MetricsUtil;
 import org.signal.registration.session.RegistrationSession;
 import org.signal.registration.session.SessionCompletedEvent;
 import org.signal.registration.session.SessionMetadata;
@@ -71,6 +74,11 @@ class BigtableSessionRepository implements SessionRepository {
   private final BigtableSessionRepositoryConfiguration configuration;
   private final Clock clock;
 
+  private final Timer createSessionTimer;
+  private final Timer getSessionTimer;
+  private final Timer updateSessionTimer;
+  private final Timer deleteSessionTimer;
+
   @VisibleForTesting
   static final ByteString DATA_COLUMN_NAME = ByteString.copyFromUtf8("D");
 
@@ -90,13 +98,19 @@ class BigtableSessionRepository implements SessionRepository {
       @Named(TaskExecutors.IO) final Executor executor,
       final ApplicationEventPublisher<SessionCompletedEvent> sessionCompletedEventPublisher,
       final BigtableSessionRepositoryConfiguration configuration,
-      final Clock clock) {
+      final Clock clock,
+      final MeterRegistry meterRegistry) {
 
     this.bigtableDataClient = bigtableDataClient;
     this.executor = executor;
     this.sessionCompletedEventPublisher = sessionCompletedEventPublisher;
     this.configuration = configuration;
     this.clock = clock;
+
+    this.createSessionTimer = meterRegistry.timer(MetricsUtil.name(getClass(), "createSession"));
+    this.getSessionTimer = meterRegistry.timer(MetricsUtil.name(getClass(), "getSession"));
+    this.updateSessionTimer = meterRegistry.timer(MetricsUtil.name(getClass(), "updateSession"));
+    this.deleteSessionTimer = meterRegistry.timer(MetricsUtil.name(getClass(), "deleteSession"));
   }
 
   @Scheduled(fixedDelay = "${session-repository.bigtable.remove-expired-sessions-interval:10s}")
@@ -134,6 +148,8 @@ class BigtableSessionRepository implements SessionRepository {
 
   @VisibleForTesting
   Mono<RegistrationSession> removeExpiredSession(final RegistrationSession session) {
+    final Timer.Sample sample = Timer.start();
+
     return Mono.fromFuture(GoogleApiUtil.toCompletableFuture(
             bigtableDataClient.checkAndMutateRowAsync(
                 ConditionalRowMutation.create(configuration.tableName(), session.getId())
@@ -144,12 +160,15 @@ class BigtableSessionRepository implements SessionRepository {
                     .then(Mutation.create().deleteRow())),
             executor))
         .filter(deleted -> deleted)
+        .doOnNext(ignored -> sample.stop(deleteSessionTimer))
         .map(ignored -> session);
   }
 
   @Override
   public CompletableFuture<RegistrationSession> createSession(final Phonenumber.PhoneNumber phoneNumber,
       final SessionMetadata sessionMetadata, final Instant expiration) {
+
+    final Timer.Sample sample = Timer.start();
 
     final UUID sessionId = UUID.randomUUID();
 
@@ -167,11 +186,14 @@ class BigtableSessionRepository implements SessionRepository {
                     .setCell(configuration.columnFamilyName(), DATA_COLUMN_NAME, session.toByteString())
                     .setCell(configuration.columnFamilyName(), REMOVAL_COLUMN_NAME, instantToByteString(expiration.plus(REMOVAL_TTL_PADDING)))),
             executor)
-        .thenApply(ignored -> session);
+        .thenApply(ignored -> session)
+        .whenComplete((ignored, throwable) -> sample.stop(createSessionTimer));
   }
 
   @Override
   public CompletableFuture<RegistrationSession> getSession(final UUID sessionId) {
+    final Timer.Sample sample = Timer.start();
+
     return GoogleApiUtil.toCompletableFuture(
         bigtableDataClient.readRowAsync(configuration.tableName(),
             UUIDUtil.uuidToByteString(sessionId),
@@ -188,14 +210,18 @@ class BigtableSessionRepository implements SessionRepository {
           } catch (final SessionNotFoundException e) {
             throw CompletionExceptions.wrap(e);
           }
-        });
+        })
+        .whenComplete((ignored, throwable) -> sample.stop(getSessionTimer));
   }
 
   @Override
   public CompletableFuture<RegistrationSession> updateSession(final UUID sessionId,
       final Function<RegistrationSession, RegistrationSession> sessionUpdater) {
 
-    return updateSession(sessionId, sessionUpdater, MAX_UPDATE_RETRIES);
+    final Timer.Sample sample = Timer.start();
+
+    return updateSession(sessionId, sessionUpdater, MAX_UPDATE_RETRIES)
+        .whenComplete((ignored, throwable) -> sample.stop(updateSessionTimer));
   }
 
   @VisibleForTesting
