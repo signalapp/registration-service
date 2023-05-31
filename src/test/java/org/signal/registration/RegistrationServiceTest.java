@@ -5,6 +5,7 @@
 
 package org.signal.registration;
 
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -802,5 +803,43 @@ class RegistrationServiceTest {
             List.of(),
             CURRENT_TIME.plus(RegistrationService.SESSION_TTL_AFTER_LAST_ACTION.dividedBy(2)))
     );
+  }
+
+  @Test
+  void getRegistrationSession() {
+    final SessionRepository hasSessionRepository = mock(SessionRepository.class);
+    when(hasSessionRepository.getSession(any()))
+        .thenReturn(CompletableFuture.completedFuture(RegistrationSession.newBuilder().build()));
+
+    final SessionRepository emptyRepository = mock(SessionRepository.class);
+    when(emptyRepository.getSession(any())).thenReturn(CompletableFuture.failedFuture(new SessionNotFoundException()));
+
+    {
+      final RegistrationService registrationService = new RegistrationService(mock(SenderSelectionStrategy.class),
+          primarySessionRepository,
+          List.of(hasSessionRepository, emptyRepository),
+          sessionCreationRateLimiter,
+          sendSmsVerificationCodeRateLimiter,
+          sendVoiceVerificationCodeRateLimiter,
+          checkVerificationCodeRateLimiter,
+          List.of(sender),
+          clock);
+
+      assertDoesNotThrow(() -> registrationService.getRegistrationSession(UUID.randomUUID()).join());
+    }
+
+    {
+      final RegistrationService registrationService = new RegistrationService(mock(SenderSelectionStrategy.class),
+          primarySessionRepository,
+          List.of(emptyRepository, hasSessionRepository),
+          sessionCreationRateLimiter,
+          sendSmsVerificationCodeRateLimiter,
+          sendVoiceVerificationCodeRateLimiter,
+          checkVerificationCodeRateLimiter,
+          List.of(sender),
+          clock);
+
+      assertDoesNotThrow(() -> registrationService.getRegistrationSession(UUID.randomUUID()).join());
+    }
   }
 }

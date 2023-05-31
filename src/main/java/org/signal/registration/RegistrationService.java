@@ -151,8 +151,8 @@ public class RegistrationService {
   private CompletableFuture<Pair<SessionRepository, RegistrationSession>> findRegistrationSession(final UUID sessionId) {
     return Flux.fromIterable(allSessionRepositories)
         .flatMap(sessionRepository -> Mono.fromFuture(sessionRepository.getSession(sessionId))
+            .onErrorResume(throwable -> CompletionExceptions.unwrap(throwable) instanceof SessionNotFoundException, throwable -> Mono.empty())
             .map(session -> Pair.of(sessionRepository, session)))
-        .onErrorResume(throwable -> CompletionExceptions.unwrap(throwable) instanceof SessionNotFoundException, throwable -> Mono.empty())
         .next()
         .toFuture()
         .thenApply(repositoryAndSession -> {
