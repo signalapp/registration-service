@@ -159,6 +159,10 @@
       <version>${micronaut.picocli.version}</version>
     </dependency>
     <dependency>
+      <groupId>io.micronaut.redis</groupId>
+      <artifactId>micronaut-redis-lettuce</artifactId>
+    </dependency>
+    <dependency>
       <groupId>io.micronaut</groupId>
       <artifactId>micronaut-validation</artifactId>
     </dependency>
@@ -215,6 +219,13 @@
     <dependency>
       <groupId>org.mockito</groupId>
       <artifactId>mockito-core</artifactId>
+      <scope>test</scope>
+    </dependency>
+
+    <dependency>
+      <groupId>org.signal</groupId>
+      <artifactId>embedded-redis</artifactId>
+      <version>0.8.3</version>
       <scope>test</scope>
     </dependency>
 

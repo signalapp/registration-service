@@ -18,7 +18,7 @@ micronaut:
       service: registration
 
 rate-limits:
-  firestore:
+  leaky-bucket:
     session-creation:
       max-capacity: 5
       permit-regeneration-period: 288m
