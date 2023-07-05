@@ -252,24 +252,6 @@ public class RegistrationService {
         });
   }
 
-  @Deprecated
-  public CompletableFuture<Boolean> legacyCheckVerificationCode(final UUID sessionId, final String verificationCode) {
-    return sessionRepository.getSession(sessionId)
-        .thenCompose(session -> {
-          if (StringUtils.isNotBlank(session.getVerifiedCode())) {
-            if (!verificationCode.equals(session.getVerifiedCode())) {
-              recordCheckVerificationCodeAttempt(session, session.getVerifiedCode());
-            }
-
-            return CompletableFuture.completedFuture(verificationCode.equals(session.getVerifiedCode()));
-          } else {
-            return checkVerificationCode(session, verificationCode)
-                .thenApply(updatedSession -> StringUtils.isNotBlank(updatedSession.getVerifiedCode()) &&
-                    verificationCode.equals(updatedSession.getVerifiedCode()));
-          }
-        });
-  }
-
   private CompletableFuture<RegistrationSession> checkVerificationCode(final RegistrationSession session, final String verificationCode) {
     if (session.getRegistrationAttemptsCount() == 0) {
       return CompletableFuture.failedFuture(new NoVerificationCodeSentException(session));

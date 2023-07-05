@@ -27,7 +27,6 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
-import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.stubbing.Answer;
 import org.signal.registration.AttemptExpiredException;
 import org.signal.registration.NoVerificationCodeSentException;
@@ -406,27 +405,6 @@ class RegistrationServiceGrpcEndpointTest {
         response.getError().getErrorType());
 
     assertFalse(response.getError().getMayRetry());
-  }
-
-  @ParameterizedTest
-  @ValueSource(booleans = {true, false})
-  void legacyCheckVerificationCode(final boolean verified) {
-    final UUID sessionId = UUID.randomUUID();
-    final String verificationCode = "123456";
-
-    when(registrationService.legacyCheckVerificationCode(sessionId, verificationCode))
-        .thenReturn(CompletableFuture.completedFuture(verified));
-
-    final LegacyCheckVerificationCodeResponse response =
-        blockingStub.legacyCheckVerificationCode(CheckVerificationCodeRequest.newBuilder()
-            .setSessionId(UUIDUtil.uuidToByteString(sessionId))
-            .setVerificationCode(verificationCode)
-            .build());
-
-    verify(registrationService).legacyCheckVerificationCode(sessionId, verificationCode);
-
-    assertEquals(verified, response.getVerified());
-    assertFalse(response.hasError());
   }
 
   @ParameterizedTest
