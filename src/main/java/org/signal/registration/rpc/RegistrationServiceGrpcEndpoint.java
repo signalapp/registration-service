@@ -46,12 +46,6 @@ public class RegistrationServiceGrpcEndpoint extends RegistrationServiceGrpc.Reg
   }
 
   @Override
-  public void createSessionTemp(final CreateRegistrationSessionRequest request,
-      final StreamObserver<CreateRegistrationSessionResponse> responseObserver) {
-    createSession(request, responseObserver);
-  }
-
-  @Override
   public void createSession(final CreateRegistrationSessionRequest request,
       final StreamObserver<CreateRegistrationSessionResponse> responseObserver) {
 
@@ -109,12 +103,6 @@ public class RegistrationServiceGrpcEndpoint extends RegistrationServiceGrpc.Reg
   }
 
   @Override
-  public void getSessionMetadataTemp(final GetRegistrationSessionMetadataRequest request,
-      final StreamObserver<GetRegistrationSessionMetadataResponse> responseObserver) {
-    getSessionMetadata(request, responseObserver);
-  }
-
-  @Override
   public void getSessionMetadata(final GetRegistrationSessionMetadataRequest request,
       final StreamObserver<GetRegistrationSessionMetadataResponse> responseObserver) {
 
@@ -152,12 +140,6 @@ public class RegistrationServiceGrpcEndpoint extends RegistrationServiceGrpc.Reg
     }
 
     return Optional.empty();
-  }
-
-  @Override
-  public void sendVerificationCodeTemp(final SendVerificationCodeRequest request,
-      final StreamObserver<SendVerificationCodeResponse> responseObserver) {
-    sendVerificationCode(request, responseObserver);
   }
 
   @Override
@@ -240,12 +222,6 @@ public class RegistrationServiceGrpcEndpoint extends RegistrationServiceGrpc.Reg
     }
 
     return Optional.empty();
-  }
-
-  @Override
-  public void checkVerificationCodeTemp(final CheckVerificationCodeRequest request,
-      final StreamObserver<CheckVerificationCodeResponse> responseObserver) {
-    checkVerificationCode(request, responseObserver);
   }
 
   @Override
