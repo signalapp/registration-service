@@ -5,8 +5,6 @@
 
 package org.signal.registration.rpc;
 
-import io.grpc.Context;
-import io.grpc.Contexts;
 import io.grpc.ForwardingServerCall;
 import io.grpc.Metadata;
 import io.grpc.ServerCall;
@@ -37,7 +35,7 @@ public class CallMetricsInterceptor implements ServerInterceptor, Ordered {
       final Metadata headers,
       final ServerCallHandler<ReqT, RespT> next) {
 
-    return Contexts.interceptCall(Context.current(), new ForwardingServerCall.SimpleForwardingServerCall<>(call) {
+    return next.startCall(new ForwardingServerCall.SimpleForwardingServerCall<>(call) {
 
       @Override
       public void close(final Status status, final Metadata trailers) {
@@ -48,6 +46,6 @@ public class CallMetricsInterceptor implements ServerInterceptor, Ordered {
                 STATUS_TAG_NAME, status.getCode().name())
             .increment();
       }
-    }, headers, next);
+    }, headers);
   }
 }
