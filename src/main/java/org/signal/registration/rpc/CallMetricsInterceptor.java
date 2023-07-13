@@ -14,8 +14,6 @@ import io.grpc.ServerCallHandler;
 import io.grpc.ServerInterceptor;
 import io.grpc.Status;
 import io.micrometer.core.instrument.MeterRegistry;
-import io.micrometer.core.instrument.Tags;
-import io.micrometer.core.instrument.Timer;
 import io.micronaut.core.order.Ordered;
 import jakarta.inject.Singleton;
 import org.signal.registration.metrics.MetricsUtil;
@@ -25,13 +23,10 @@ public class CallMetricsInterceptor implements ServerInterceptor, Ordered {
 
   private final MeterRegistry meterRegistry;
 
-  private static final String RPC_CALL_TIMER_NAME = MetricsUtil.name(CallMetricsInterceptor.class, "rpcCallDuration");
   private static final String RPC_CALL_COUNTER_NAME = MetricsUtil.name(CallMetricsInterceptor.class, "rpcCalls");
 
   private static final String METHOD_TAG_NAME = "method";
   private static final String STATUS_TAG_NAME = "status";
-
-  private static final Context.Key<Timer.Sample> CONTEXT_TIMER_SAMPLE_KEY = Context.key("timerSample");
 
   public CallMetricsInterceptor(final MeterRegistry meterRegistry) {
     this.meterRegistry = meterRegistry;
@@ -42,22 +37,16 @@ public class CallMetricsInterceptor implements ServerInterceptor, Ordered {
       final Metadata headers,
       final ServerCallHandler<ReqT, RespT> next) {
 
-    final Context context = Context.current().withValue(CONTEXT_TIMER_SAMPLE_KEY, Timer.start());
-
-    return Contexts.interceptCall(context, new ForwardingServerCall.SimpleForwardingServerCall<>(call) {
+    return Contexts.interceptCall(Context.current(), new ForwardingServerCall.SimpleForwardingServerCall<>(call) {
 
       @Override
       public void close(final Status status, final Metadata trailers) {
         super.close(status, trailers);
 
-        Tags tags = Tags.of(
-            METHOD_TAG_NAME, getMethodDescriptor().getBareMethodName(),
-            STATUS_TAG_NAME, status.getCode().name());
-
-        meterRegistry.counter(RPC_CALL_COUNTER_NAME, tags).increment();
-
-        CONTEXT_TIMER_SAMPLE_KEY.get().stop(
-            meterRegistry.timer(RPC_CALL_TIMER_NAME, METHOD_TAG_NAME, getMethodDescriptor().getBareMethodName()));
+        meterRegistry.counter(RPC_CALL_COUNTER_NAME,
+                METHOD_TAG_NAME, getMethodDescriptor().getBareMethodName(),
+                STATUS_TAG_NAME, status.getCode().name())
+            .increment();
       }
     }, headers, next);
   }
