@@ -179,7 +179,7 @@ GROUP BY t.sender_name, t.region;
   volatile private Map<String, List<Choice>> regionalChoices;
   volatile private List<Choice> globalChoices;
 
-  private BigQueryBanditStatsProvider(
+  public BigQueryBanditStatsProvider(
       @Named(TaskExecutors.IO) final Executor executor,
       final BigQuery bigQuery,
       final BanditStatsConfiguration config,
