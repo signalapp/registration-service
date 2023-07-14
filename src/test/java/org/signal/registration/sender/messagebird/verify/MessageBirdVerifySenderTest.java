@@ -91,7 +91,7 @@ public class MessageBirdVerifySenderTest {
   public void langSupport(String langRange, boolean supported) {
     assertEquals(
         supported,
-        sender.supportsDestination(MessageTransport.VOICE, NUMBER, Locale.LanguageRange.parse(langRange),
+        sender.supportsLanguageAndClient(MessageTransport.VOICE, NUMBER, Locale.LanguageRange.parse(langRange),
             ClientType.IOS));
   }
 

@@ -90,14 +90,18 @@ public class MessageBirdVoiceSender implements VerificationCodeSender {
   }
 
   @Override
-  public boolean supportsDestination(final MessageTransport messageTransport,
+  public boolean supportsTransport(final MessageTransport transport) {
+    return transport == MessageTransport.VOICE;
+  }
+
+  @Override
+  public boolean supportsLanguageAndClient(final MessageTransport messageTransport,
       final Phonenumber.PhoneNumber phoneNumber,
       final List<Locale.LanguageRange> languageRanges,
       final ClientType clientType) {
     // the language is supported only if the upstream TTS API supports
     // it AND there's a translation for it
-    return messageTransport == MessageTransport.VOICE
-        && lookupMessageBirdLanguage(languageRanges).isPresent()
+    return lookupMessageBirdLanguage(languageRanges).isPresent()
         && verificationTTSBodyProvider.supportsLanguage(languageRanges);
   }
 

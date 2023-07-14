@@ -18,21 +18,21 @@ import javax.annotation.Nullable;
 @Singleton
 @Primary
 @Requires(property = "selection")
-public class WeightedSenderSelectionStrategy implements SenderSelectionStrategy {
+public class DynamicSenderSelectionStrategy implements SenderSelectionStrategy {
 
   private final PrescribedVerificationCodeSender prescribedVerificationCodeSender;
   private final FictitiousNumberVerificationCodeSender fictitiousNumberVerificationCodeSender;
-  private final Map<MessageTransport, WeightedSelector> selectorsByTransport;
+  private final Map<MessageTransport, DynamicSelector> selectorsByTransport;
 
-  WeightedSenderSelectionStrategy(
-      final List<WeightedSelector> selectors,
+  DynamicSenderSelectionStrategy(
+      final List<DynamicSelector> selectors,
       final PrescribedVerificationCodeSender prescribedVerificationCodeSender,
       final FictitiousNumberVerificationCodeSender fictitiousNumberVerificationCodeSender) {
 
     this.prescribedVerificationCodeSender = prescribedVerificationCodeSender;
     this.fictitiousNumberVerificationCodeSender = fictitiousNumberVerificationCodeSender;
     this.selectorsByTransport = new EnumMap<>(MessageTransport.class);
-    for (WeightedSelector s : selectors) {
+    for (DynamicSelector s : selectors) {
       this.selectorsByTransport.put(s.getTransport(), s);
     }
     if (!Arrays.stream(MessageTransport.values()).allMatch(selectorsByTransport::containsKey)) {
@@ -49,9 +49,9 @@ public class WeightedSenderSelectionStrategy implements SenderSelectionStrategy 
 
     final VerificationCodeSender sender;
 
-    if (prescribedVerificationCodeSender.supportsDestination(transport, phoneNumber, languageRanges, clientType)) {
+    if (prescribedVerificationCodeSender.supportsLanguageAndClient(transport, phoneNumber, languageRanges, clientType)) {
       sender = prescribedVerificationCodeSender;
-    } else if (fictitiousNumberVerificationCodeSender.supportsDestination(transport, phoneNumber, languageRanges,
+    } else if (fictitiousNumberVerificationCodeSender.supportsLanguageAndClient(transport, phoneNumber, languageRanges,
         clientType)) {
       sender = fictitiousNumberVerificationCodeSender;
     } else {

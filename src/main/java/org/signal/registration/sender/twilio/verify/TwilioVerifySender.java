@@ -61,12 +61,17 @@ public class TwilioVerifySender implements VerificationCodeSender {
   }
 
   @Override
-  public boolean supportsDestination(final MessageTransport messageTransport,
+  public boolean supportsTransport(final MessageTransport transport) {
+    return transport == MessageTransport.SMS || transport == MessageTransport.VOICE;
+  }
+
+  @Override
+  public boolean supportsLanguageAndClient(
+      final MessageTransport messageTransport,
       final Phonenumber.PhoneNumber phoneNumber,
       final List<Locale.LanguageRange> languageRanges,
       final ClientType clientType) {
-    return CHANNELS_BY_TRANSPORT.containsKey(messageTransport) &&
-        Locale.lookupTag(languageRanges, configuration.getSupportedLanguages()) != null;
+    return Locale.lookupTag(languageRanges, configuration.getSupportedLanguages()) != null;
   }
 
   @Override

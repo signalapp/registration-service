@@ -42,7 +42,15 @@ public interface VerificationCodeSender {
   Duration getAttemptTtl();
 
   /**
-   * Indicates whether this sender can deliver messages to the given phone number via the given transport using any of
+   * Return whether this sender supports the given transport.
+   *
+   * @param transport the requested transport
+   * @return if the sender supports the transport
+   */
+  boolean supportsTransport(MessageTransport transport);
+
+  /**
+   * Indicates whether this sender can deliver messages to the given phone number using any of
    * the given languages and for the given client type.
    *
    * @param messageTransport the transport via which to send a verification code
@@ -52,7 +60,8 @@ public interface VerificationCodeSender {
    *
    * @return {@code true} if this sender can send notifications to the given destination or {@code false} if not
    */
-  boolean supportsDestination(MessageTransport messageTransport,
+  boolean supportsLanguageAndClient(
+      MessageTransport messageTransport,
       Phonenumber.PhoneNumber phoneNumber,
       List<Locale.LanguageRange> languageRanges,
       ClientType clientType);

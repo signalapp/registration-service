@@ -51,7 +51,7 @@ class TwilioVoiceSenderTest {
   @MethodSource
   void supportsDestination(final List<Locale.LanguageRange> languageRanges, final boolean expectSupported) {
     final Phonenumber.PhoneNumber phoneNumber = PhoneNumberUtil.getInstance().getExampleNumber("US");
-    assertEquals(expectSupported, sender.supportsDestination(MessageTransport.VOICE, phoneNumber, languageRanges, ClientType.UNKNOWN));
+    assertEquals(expectSupported, sender.supportsLanguageAndClient(MessageTransport.VOICE, phoneNumber, languageRanges, ClientType.UNKNOWN));
   }
 
   private static Stream<Arguments> supportsDestination() {

@@ -64,12 +64,17 @@ public class TwilioMessagingServiceSmsSender extends AbstractTwilioProvidedCodeS
   }
 
   @Override
-  public boolean supportsDestination(final MessageTransport messageTransport,
+  public boolean supportsTransport(final MessageTransport transport) {
+    return transport == MessageTransport.SMS;
+  }
+
+  @Override
+  public boolean supportsLanguageAndClient(
+      final MessageTransport messageTransport,
       final Phonenumber.PhoneNumber phoneNumber,
       final List<Locale.LanguageRange> languageRanges,
       final ClientType clientType) {
-
-    return messageTransport == MessageTransport.SMS && verificationSmsBodyProvider.supportsLanguage(languageRanges);
+    return verificationSmsBodyProvider.supportsLanguage(languageRanges);
   }
 
   @Override

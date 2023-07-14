@@ -73,13 +73,17 @@ public class TwilioVoiceSender extends AbstractTwilioProvidedCodeSender implemen
   }
 
   @Override
-  public boolean supportsDestination(final MessageTransport messageTransport,
+  public boolean supportsTransport(final MessageTransport transport) {
+    return transport == MessageTransport.VOICE;
+  }
+
+  @Override
+  public boolean supportsLanguageAndClient(
+      final MessageTransport messageTransport,
       final Phonenumber.PhoneNumber phoneNumber,
       final List<Locale.LanguageRange> languageRanges,
       final ClientType clientType) {
-
-    return messageTransport == MessageTransport.VOICE &&
-        Locale.lookupTag(languageRanges, configuration.getSupportedLanguages()) != null;
+    return Locale.lookupTag(languageRanges, configuration.getSupportedLanguages()) != null;
   }
 
   @Override

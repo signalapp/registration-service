@@ -50,8 +50,8 @@ class PrescribedVerificationCodeSenderTest {
 
   @Test
   void supportsDestination() {
-    assertTrue(sender.supportsDestination(MessageTransport.SMS, PRESCRIBED_CODE_NUMBER, Collections.emptyList(), ClientType.UNKNOWN));
-    assertFalse(sender.supportsDestination(MessageTransport.SMS, NON_PRESCRIBED_CODE_NUMBER, Collections.emptyList(), ClientType.UNKNOWN));
+    assertTrue(sender.supportsLanguageAndClient(MessageTransport.SMS, PRESCRIBED_CODE_NUMBER, Collections.emptyList(), ClientType.UNKNOWN));
+    assertFalse(sender.supportsLanguageAndClient(MessageTransport.SMS, NON_PRESCRIBED_CODE_NUMBER, Collections.emptyList(), ClientType.UNKNOWN));
   }
 
   @Test

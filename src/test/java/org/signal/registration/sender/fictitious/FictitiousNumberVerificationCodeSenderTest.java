@@ -54,7 +54,7 @@ class FictitiousNumberVerificationCodeSenderTest {
     final Phonenumber.PhoneNumber phoneNumber = PhoneNumberUtil.getInstance().parse(e164, null);
 
     assertEquals(expectSupported,
-        sender.supportsDestination(MessageTransport.SMS, phoneNumber, Collections.emptyList(), ClientType.UNKNOWN));
+        sender.supportsLanguageAndClient(MessageTransport.SMS, phoneNumber, Collections.emptyList(), ClientType.UNKNOWN));
   }
 
   @Test

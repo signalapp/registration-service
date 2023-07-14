@@ -47,7 +47,7 @@ class TwilioVerifySenderTest {
       final boolean expectSupportsDestination) {
 
     assertEquals(expectSupportsDestination,
-        twilioVerifySender.supportsDestination(messageTransport, phoneNumber, languageRanges, clientType));
+        twilioVerifySender.supportsLanguageAndClient(messageTransport, phoneNumber, languageRanges, clientType));
   }
 
   private static Stream<Arguments> supportsDestination() throws NumberParseException {

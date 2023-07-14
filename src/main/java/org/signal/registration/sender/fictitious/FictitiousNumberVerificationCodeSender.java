@@ -67,7 +67,12 @@ public class FictitiousNumberVerificationCodeSender implements VerificationCodeS
   }
 
   @Override
-  public boolean supportsDestination(final MessageTransport messageTransport,
+  public boolean supportsTransport(final MessageTransport transport) {
+    return true;
+  }
+
+  @Override
+  public boolean supportsLanguageAndClient(final MessageTransport messageTransport,
       final Phonenumber.PhoneNumber phoneNumber,
       final List<Locale.LanguageRange> languageRanges,
       final ClientType clientType) {

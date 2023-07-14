@@ -19,7 +19,6 @@ import jakarta.inject.Inject;
 import java.util.Collections;
 import java.util.Locale;
 import java.util.Map;
-import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.Stream;
 import org.junit.jupiter.api.BeforeEach;
@@ -45,11 +44,13 @@ import org.signal.registration.sender.twilio.verify.TwilioVerifySender;
 @Property(name = "selection.sms.region-weights.gl.messagebird-sms", value = "1")
 @Property(name = "selection.sms.region-overrides.cn", value = "twilio-verify")
 @Property(name = "selection.sms.region-overrides.mx", value = "twilio-programmable-messaging")
+@Property(name = "selection.sms.default-adaptive-choices", value = "twilio-verify,messagebird-verify")
 @Property(name = "selection.voice.fallback-senders", value = "twilio-verify,twilio-programmable-voice")
 @Property(name = "selection.voice.default-weights.twilio-verify", value = "1")
 @Property(name = "selection.voice.default-weights.messagebird-verify", value = "0")
 @Property(name = "selection.voice.region-overrides.cn", value = "twilio-verify")
 @Property(name = "selection.voice.region-overrides.mx", value = "twilio-programmable-voice")
+@Property(name = "selection.voice.default-adaptive-choices", value = "twilio-verify,messagebird-verify")
 @Property(name = "twilio.account-sid", value = "account-sid")
 @Property(name = "twilio.api-key-sid", value = "api-key-sid")
 @Property(name = "twilio.api-key-secret", value = "api-key-secret")
@@ -76,7 +77,6 @@ class WeightedSelectionStrategyIntegrationTest {
   PrescribedVerificationCodeRepository prescribedVerificationCodeRepository() {
     final PrescribedVerificationCodeRepository repository = mock(PrescribedVerificationCodeRepository.class);
     when(repository.getVerificationCodes()).thenReturn(CompletableFuture.completedFuture(Collections.emptyMap()));
-
     return repository;
   }
 
@@ -85,7 +85,7 @@ class WeightedSelectionStrategyIntegrationTest {
       mock(FictitiousNumberVerificationCodeRepository.class);
 
   @Inject
-  private WeightedSenderSelectionStrategy selectionStrategy;
+  private DynamicSenderSelectionStrategy selectionStrategy;
 
   @Inject
   PrescribedVerificationCodeRepository prescribedVerificationCodeRepository;

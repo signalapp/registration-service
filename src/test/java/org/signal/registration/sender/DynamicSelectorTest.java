@@ -1,33 +1,39 @@
 package org.signal.registration.sender;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.when;
 
 import com.google.i18n.phonenumbers.PhoneNumberUtil;
 import com.google.i18n.phonenumbers.Phonenumber;
+import java.time.Duration;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
+import java.util.Optional;
 import java.util.TreeMap;
+import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import javax.annotation.Nullable;
+import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import org.apache.commons.math3.random.AbstractRandomGenerator;
+import org.apache.commons.math3.random.JDKRandomGenerator;
 import org.apache.commons.math3.random.RandomGenerator;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
+import org.signal.registration.bandit.InMemoryBanditStatsProvider;
 
-public class WeightedSelectorTest {
+public class DynamicSelectorTest {
 
-  private static final VerificationCodeSender SENDER_FALLBACK = buildMockSender("default", true);
-  private static final VerificationCodeSender SENDER_A = buildMockSender("A", true);
-  private static final VerificationCodeSender SENDER_B = buildMockSender("B", true);
-  private static final VerificationCodeSender UNSUPPORTED = buildMockSender("unsupported", false);
+  private static final VerificationCodeSender SENDER_FALLBACK = buildTestSender("default", true);
+  private static final VerificationCodeSender SENDER_A = buildTestSender("A", true);
+  private static final VerificationCodeSender SENDER_B = buildTestSender("B", true);
+  private static final VerificationCodeSender UNSUPPORTED = buildTestSender("unsupported", false);
+
+  private static final List<VerificationCodeSender> SENDERS = List.of(SENDER_A, SENDER_B, UNSUPPORTED, SENDER_FALLBACK);
 
   static Stream<Arguments> select() {
     final Stream<Arguments> args = Stream.of(
@@ -90,18 +96,23 @@ public class WeightedSelectorTest {
       }
     };
 
-    final WeightedSelectorConfiguration config = new WeightedSelectorConfiguration(
+    final DynamicSelectorConfiguration config = new DynamicSelectorConfiguration(
         transport,
         List.of(SENDER_FALLBACK.getName()),
         sortedDefaults,
         sortedOverrides,
-        Collections.emptyMap()
+        Collections.emptyMap(),
+        Optional.of(100),
+        List.of("default"),
+        Map.of()
     );
 
-    final WeightedSelector ts = new WeightedSelector(
+    final DynamicSelector ts = new DynamicSelector(
         rg,
         config,
-        List.of(SENDER_A, SENDER_B, UNSUPPORTED, SENDER_FALLBACK)
+        List.of(SENDER_A, SENDER_B, UNSUPPORTED, SENDER_FALLBACK),
+        InMemoryBanditStatsProvider.create(Map.of()),
+        new SimpleMeterRegistry()
     );
 
     final VerificationCodeSender actual = ts.chooseVerificationCodeSender(
@@ -132,14 +143,17 @@ public class WeightedSelectorTest {
       final Phonenumber.PhoneNumber number,
       VerificationCodeSender expected) {
 
-    final WeightedSelectorConfiguration config = new WeightedSelectorConfiguration(
+    final DynamicSelectorConfiguration config = new DynamicSelectorConfiguration(
         MessageTransport.SMS,
         List.of(SENDER_FALLBACK.getName()),
         Map.of(),
         Map.of(),
-        regionOverrides);
+        regionOverrides,
+        Optional.empty(),
+        List.of("default"),
+        Map.of());
 
-    final WeightedSelector ts = new WeightedSelector(config, List.of(SENDER_A, SENDER_B, UNSUPPORTED, SENDER_FALLBACK));
+    final DynamicSelector ts = new DynamicSelector(new JDKRandomGenerator(), config, SENDERS, InMemoryBanditStatsProvider.create(Map.of()), new SimpleMeterRegistry());
     final VerificationCodeSender actual = ts.chooseVerificationCodeSender(
         number,
         Collections.emptyList(),
@@ -167,14 +181,17 @@ public class WeightedSelectorTest {
       final @Nullable VerificationCodeSender choice,
       final List<VerificationCodeSender> fallbacks,
       final VerificationCodeSender expected) {
-    final WeightedSelectorConfiguration config = new WeightedSelectorConfiguration(
+    final DynamicSelectorConfiguration config = new DynamicSelectorConfiguration(
         MessageTransport.SMS,
         fallbacks.stream().map(VerificationCodeSender::getName).toList(),
         choice == null ? Map.of() : Map.of(choice.getName(), 1),
         Map.of(),
+        Map.of(),
+        Optional.empty(),
+        List.of("default"),
         Map.of());
-    final WeightedSelector ts = new WeightedSelector(config,
-        List.of(SENDER_A, SENDER_B, UNSUPPORTED, SENDER_FALLBACK));
+
+    final DynamicSelector ts = new DynamicSelector(new JDKRandomGenerator(), config, SENDERS, InMemoryBanditStatsProvider.create(Map.of()), new SimpleMeterRegistry());
     final Phonenumber.PhoneNumber num = PhoneNumberUtil.getInstance().getExampleNumber("US");
     final VerificationCodeSender actual = ts.chooseVerificationCodeSender(num, Collections.emptyList(),
         ClientType.IOS, null);
@@ -183,12 +200,12 @@ public class WeightedSelectorTest {
 
   @Test
   public void preferredSender() {
-    final WeightedSelectorConfiguration config = new WeightedSelectorConfiguration(
+    final DynamicSelectorConfiguration config = new DynamicSelectorConfiguration(
         MessageTransport.SMS,
         List.of(SENDER_FALLBACK.getName()),
-        Map.of(), Map.of(), Map.of());
+        Map.of(), Map.of(), Map.of(), Optional.empty(), List.of("default"), Map.of());
 
-    final WeightedSelector ts = new WeightedSelector(config, List.of(SENDER_FALLBACK, SENDER_A));
+    final DynamicSelector ts = new DynamicSelector(new JDKRandomGenerator(), config, List.of(SENDER_FALLBACK, SENDER_A), InMemoryBanditStatsProvider.create(Map.of()), new SimpleMeterRegistry());
     final VerificationCodeSender actual = ts.chooseVerificationCodeSender(
         PhoneNumberUtil.getInstance().getExampleNumber("US"),
         Collections.emptyList(),
@@ -197,11 +214,45 @@ public class WeightedSelectorTest {
     assertEquals(SENDER_A, actual);
   }
 
-  private static VerificationCodeSender buildMockSender(final String name, final boolean supports) {
-    final VerificationCodeSender sender = mock(VerificationCodeSender.class);
-    when(sender.getName()).thenReturn(name);
-    when(sender.supportsDestination(any(), any(), any(), any())).thenReturn(supports);
-    when(sender.toString()).thenReturn(name);
-    return sender;
+  private static VerificationCodeSender buildTestSender(final String name, final boolean supports) {
+    return new VerificationCodeSender() {
+      @Override
+      public String getName() { return name; }
+
+      @Override
+      public Duration getAttemptTtl() { return Duration.ofMinutes(10); }
+
+      @Override
+      public boolean supportsTransport(final MessageTransport transport) {
+        return supports;
+      }
+
+      @Override
+      public boolean supportsLanguageAndClient(
+          final MessageTransport messageTransport,
+          final Phonenumber.PhoneNumber phoneNumber,
+          final List<Locale.LanguageRange> languageRanges,
+          final ClientType clientType
+      ) {
+        return supports;
+      }
+
+      @Override
+      public CompletableFuture<AttemptData> sendVerificationCode(
+          final MessageTransport messageTransport,
+          final Phonenumber.PhoneNumber phoneNumber,
+          final List<Locale.LanguageRange> languageRanges,
+          final ClientType clientType
+      ) throws UnsupportedMessageTransportException {
+        return null;
+      }
+
+      @Override
+      public CompletableFuture<Boolean> checkVerificationCode(
+          final String verificationCode, final byte[] senderData
+      ) {
+        return null;
+      }
+    };
   }
 }
