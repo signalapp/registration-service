@@ -83,7 +83,7 @@ FROM (
     region,
     (cast (verified as integer)) as ok,
     timestamp_diff(current_timestamp(), timestamp, MILLISECOND) as delta_ms
-  FROM `signal-registration.registration.analyzed-attempts`
+  FROM `registration.analyzed-attempts`
   WHERE timestamp > "%s"
 ) as t
 GROUP BY t.sender_name, t.region;
