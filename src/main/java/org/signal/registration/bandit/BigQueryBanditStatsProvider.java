@@ -70,10 +70,6 @@ public class BigQueryBanditStatsProvider implements BanditStatsProvider {
     });
   }
 
-  private static Duration withDefaultDuration(final Duration value, final Duration defaultValue) {
-    return Optional.ofNullable(value).filter(d -> d.toHours() > 0).orElse(defaultValue);
-  }
-
   // template for our SQL query
   // the first two %d parameters should be identical (half-life in milliseconds)
   // the last %s parameter should be an ISO-8601 date/time string produced by Instant.toString.
@@ -185,9 +181,7 @@ GROUP BY t.sender_name, t.region;
       final BanditStatsConfiguration config,
       final MeterRegistry meterRegistry) {
     this.initialized = false;
-    Duration halfLife = withDefaultDuration(config.halfLife(), Duration.ofDays(7L));
-    Duration windowSize = withDefaultDuration(config.windowSize(), Duration.ofDays(7L * 13L));
-    this.updater = new Updater(executor, bigQuery, halfLife, windowSize, meterRegistry);
+    this.updater = new Updater(executor, bigQuery, config.halfLife(), config.windowSize(), meterRegistry);
     this.regionalChoices = null;
     this.globalChoices = null;
   }
