@@ -99,7 +99,7 @@ GROUP BY t.sender_name, t.region;
     private final Duration halfLife;
     private final Duration windowSize;
     private final MeterRegistry meterRegistry;
-    private final Map<Tags, Pair<Double, Double>> currentStats;
+    private final Map<Pair<String, String>, Pair<Double, Double>> currentStats;
 
     public Updater(
         final Executor executor,
@@ -164,18 +164,19 @@ GROUP BY t.sender_name, t.region;
         regions.computeIfAbsent(region, r -> new ArrayList<>()).add(choice);
       }
 
-      final ToDoubleFunction<Tags> successFn =
-        t -> currentStats.getOrDefault(t, ZERO_PAIR).getLeft();
+      final ToDoubleFunction<Pair<String, String>> successFn =
+        k -> currentStats.getOrDefault(k, ZERO_PAIR).getLeft();
 
-      final ToDoubleFunction<Tags> failureFn =
-        t -> currentStats.getOrDefault(t, ZERO_PAIR).getRight();
+      final ToDoubleFunction<Pair<String, String>> failureFn =
+        k -> currentStats.getOrDefault(k, ZERO_PAIR).getRight();
 
       for (String r : regions.keySet()) {
         for (Choice c : regions.get(r)) {
+          final Pair<String, String> key = Pair.of(r, c.name());
           final Tags tags = Tags.of(REGION_TAG_NAME, r, SENDER_TAG_NAME, c.name());
-          currentStats.put(tags, Pair.of(c.successes(), c.failures()));
-          meterRegistry.gauge(SUCCESS_GAUGE_NAME, tags, successFn);
-          meterRegistry.gauge(FAILURE_GAUGE_NAME, tags, failureFn);
+          currentStats.put(key, Pair.of(c.successes(), c.failures()));
+          meterRegistry.gauge(SUCCESS_GAUGE_NAME, tags, key, successFn);
+          meterRegistry.gauge(FAILURE_GAUGE_NAME, tags, key, failureFn);
         }
       }
       return regions;
