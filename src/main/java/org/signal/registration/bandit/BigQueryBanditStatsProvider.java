@@ -19,6 +19,7 @@ import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
+import java.util.function.ToDoubleFunction;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.Tags;
 import io.micronaut.context.annotation.Requires;
@@ -26,6 +27,7 @@ import io.micronaut.scheduling.TaskExecutors;
 import io.micronaut.scheduling.annotation.Scheduled;
 import jakarta.inject.Named;
 import jakarta.inject.Singleton;
+import org.apache.commons.lang3.tuple.Pair;
 import org.signal.registration.bandit.AdaptiveStrategy.Choice;
 import org.signal.registration.metrics.MetricsUtil;
 import org.signal.registration.sender.DynamicSelectorConfiguration;
@@ -42,6 +44,7 @@ public class BigQueryBanditStatsProvider implements BanditStatsProvider {
   private static final String FAILURE_GAUGE_NAME = MetricsUtil.name(AdaptiveStrategy.class,"senderFailureStats");
   private static final String REGION_TAG_NAME = "region";
   private static final String SENDER_TAG_NAME = "sender";
+  private static final Pair<Double, Double> ZERO_PAIR = Pair.of(0.0, 0.0);
 
   private static void logUpdate(final Map<String, List<Choice>> regions, final List<Choice> totals, final boolean firstRun) {
     final int numSenders = totals.size();
@@ -96,6 +99,7 @@ GROUP BY t.sender_name, t.region;
     private final Duration halfLife;
     private final Duration windowSize;
     private final MeterRegistry meterRegistry;
+    private final Map<Tags, Pair<Double, Double>> currentStats;
 
     public Updater(
         final Executor executor,
@@ -109,6 +113,7 @@ GROUP BY t.sender_name, t.region;
       this.halfLife = halfLife;
       this.windowSize = windowSize;
       this.meterRegistry = meterRegistry;
+      this.currentStats = new HashMap<>();
     }
 
     private CompletableFuture<Optional<Map<String, List<Choice>>>> computeRegionalChoices() {
@@ -158,11 +163,19 @@ GROUP BY t.sender_name, t.region;
         final Choice choice = new Choice(name, successes, failures);
         regions.computeIfAbsent(region, r -> new ArrayList<>()).add(choice);
       }
+
+      final ToDoubleFunction<Tags> successFn =
+        t -> currentStats.getOrDefault(t, ZERO_PAIR).getLeft();
+
+      final ToDoubleFunction<Tags> failureFn =
+        t -> currentStats.getOrDefault(t, ZERO_PAIR).getRight();
+
       for (String r : regions.keySet()) {
         for (Choice c : regions.get(r)) {
           final Tags tags = Tags.of(REGION_TAG_NAME, r, SENDER_TAG_NAME, c.name());
-          meterRegistry.gauge(SUCCESS_GAUGE_NAME, tags, c.successes());
-          meterRegistry.gauge(FAILURE_GAUGE_NAME, tags, c.failures());
+          currentStats.put(tags, Pair.of(c.successes(), c.failures()));
+          meterRegistry.gauge(SUCCESS_GAUGE_NAME, tags, successFn);
+          meterRegistry.gauge(FAILURE_GAUGE_NAME, tags, failureFn);
         }
       }
       return regions;

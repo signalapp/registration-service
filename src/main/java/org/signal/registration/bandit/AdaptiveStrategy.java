@@ -16,6 +16,9 @@ import org.apache.commons.math3.distribution.BetaDistribution;
 import org.apache.commons.math3.random.RandomGenerator;
 import org.signal.registration.metrics.MetricsUtil;
 import org.signal.registration.sender.ClientType;
+import org.signal.registration.sender.DynamicSelector;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * Class responsible for choosing verification code senders based on a multi-armed bandit strategy.
@@ -29,6 +32,8 @@ import org.signal.registration.sender.ClientType;
  * <a href="https://en.wikipedia.org/wiki/Thompson_sampling">Wikipedia page for Thompson sampling</a>.
  */
 public class AdaptiveStrategy {
+
+  private static final Logger log = LoggerFactory.getLogger(AdaptiveStrategy.class);
 
   private static final String SAMPLING_COUNTER_NAME = MetricsUtil.name(AdaptiveStrategy.class, "sampling");
   private static final String REGION_TAG_NAME = "region";
@@ -137,6 +142,8 @@ public class AdaptiveStrategy {
         ? regionChoices
         : resolveChoices(statsProvider.getGlobalChoices(), config.defaultChoices);
     final String choice = sampleChoices(choices).name();
+
+    log.info("{} sampling for region {} returned choice {} out of {} choices", useRegionalBandit ? "regional" : "global", region, choice, choices.size());
 
     meterRegistry.counter(SAMPLING_COUNTER_NAME,
         REGION_TAG_NAME, region,
