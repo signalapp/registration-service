@@ -5,8 +5,8 @@ import io.micronaut.core.bind.annotation.Bindable;
 import javax.validation.constraints.NotNull;
 import java.time.Duration;
 
-@ConfigurationProperties("selection.bandit")
+@ConfigurationProperties("adaptive.bandit")
 record BanditStatsConfiguration(
-    @Bindable(defaultValue = "P1D") @NotNull Duration halfLife,
-    @Bindable(defaultValue = "P10D") @NotNull Duration windowSize) {
+    @Bindable(defaultValue = "PT1H") @NotNull Duration halfLife,
+    @Bindable(defaultValue = "P1D") @NotNull Duration windowSize) {
 }

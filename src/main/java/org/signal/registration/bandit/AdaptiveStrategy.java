@@ -16,7 +16,6 @@ import org.apache.commons.math3.distribution.BetaDistribution;
 import org.apache.commons.math3.random.RandomGenerator;
 import org.signal.registration.metrics.MetricsUtil;
 import org.signal.registration.sender.ClientType;
-import org.signal.registration.sender.DynamicSelector;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -143,7 +142,7 @@ public class AdaptiveStrategy {
         : resolveChoices(statsProvider.getGlobalChoices(), config.defaultChoices);
     final String choice = sampleChoices(choices).name();
 
-    log.info("{} sampling for region {} returned choice {} out of {} choices", useRegionalBandit ? "regional" : "global", region, choice, choices.size());
+    log.debug("{} sampling for region {} returned choice {} (from {} choices)", useRegionalBandit ? "regional" : "global", region, choice, choices.size());
 
     meterRegistry.counter(SAMPLING_COUNTER_NAME,
         REGION_TAG_NAME, region,
