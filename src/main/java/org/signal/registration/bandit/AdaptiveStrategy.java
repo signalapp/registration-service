@@ -147,7 +147,7 @@ public class AdaptiveStrategy {
     meterRegistry.counter(SAMPLING_COUNTER_NAME,
         REGION_TAG_NAME, region,
         USE_REGIONAL_STATS_TAG_NAME, String.valueOf(useRegionalBandit),
-        CHOICE_TAG_NAME, choice);
+        CHOICE_TAG_NAME, choice).increment();
     return choice;
   }
 
