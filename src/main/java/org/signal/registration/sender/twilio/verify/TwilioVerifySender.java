@@ -11,8 +11,10 @@ import com.google.protobuf.InvalidProtocolBufferException;
 import com.twilio.http.TwilioRestClient;
 import com.twilio.rest.verify.v2.service.Verification;
 import com.twilio.rest.verify.v2.service.VerificationCheck;
+import com.twilio.rest.verify.v2.service.VerificationCheckCreator;
 import com.twilio.rest.verify.v2.service.VerificationCreator;
 import io.micrometer.core.instrument.Timer;
+import io.micronaut.context.annotation.Value;
 import jakarta.inject.Singleton;
 import java.time.Duration;
 import java.util.EnumMap;
@@ -21,6 +23,8 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionStage;
+import java.util.function.Supplier;
 import org.signal.registration.sender.ApiClientInstrumenter;
 import org.signal.registration.sender.AttemptData;
 import org.signal.registration.sender.ClientType;
@@ -31,16 +35,23 @@ import org.signal.registration.sender.twilio.ApiExceptions;
 import org.signal.registration.util.CompletionExceptions;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import reactor.core.Exceptions;
+import reactor.core.publisher.Mono;
+import reactor.util.retry.Retry;
+import reactor.util.retry.RetryBackoffSpec;
 
 /**
  * A Twilio Verify sender sends verification codes to end users via Twilio Verify.
  */
 @Singleton
 public class TwilioVerifySender implements VerificationCodeSender {
+  private static final Logger logger = LoggerFactory.getLogger(TwilioVerifySender.class);
 
   private final TwilioRestClient twilioRestClient;
   private final TwilioVerifyConfiguration configuration;
   private final ApiClientInstrumenter apiClientInstrumenter;
+  private final Duration minRetryWait;
+  private final int maxRetries;
 
   public static final String SENDER_NAME = "twilio-verify";
 
@@ -49,15 +60,17 @@ public class TwilioVerifySender implements VerificationCodeSender {
       MessageTransport.VOICE, Verification.Channel.CALL
   ));
 
-  private static final Logger logger = LoggerFactory.getLogger(TwilioVerifySender.class);
-
   protected TwilioVerifySender(
       final TwilioRestClient twilioRestClient,
       final TwilioVerifyConfiguration configuration,
-      final ApiClientInstrumenter apiClientInstrumenter) {
+      final ApiClientInstrumenter apiClientInstrumenter,
+      final @Value("${twilio.min-retry-wait:100ms}") Duration minRetryWait,
+      final @Value("${twilio.max-retries:5}") int maxRetries) {
     this.twilioRestClient = twilioRestClient;
     this.configuration = configuration;
     this.apiClientInstrumenter = apiClientInstrumenter;
+    this.minRetryWait = minRetryWait;
+    this.maxRetries = maxRetries;
   }
 
   @Override
@@ -110,12 +123,14 @@ public class TwilioVerifySender implements VerificationCodeSender {
     }
 
     final Timer.Sample sample = Timer.start();
+    final String endpointName = "verification." + messageTransport.name().toLowerCase() + ".create";
 
-    return verificationCreator.createAsync(twilioRestClient)
+    return withRetries(() -> verificationCreator.createAsync(twilioRestClient), endpointName)
+        .toCompletableFuture()
         .whenComplete((sessionData, throwable) ->
             this.apiClientInstrumenter.recordApiCallMetrics(
                 this.getName(),
-                "verification." + messageTransport.name().toLowerCase() + ".create",
+                endpointName,
                 throwable == null,
                 ApiExceptions.extractErrorCode(throwable),
                 sample)
@@ -144,10 +159,11 @@ public class TwilioVerifySender implements VerificationCodeSender {
 
       final Timer.Sample sample = Timer.start();
 
-      return VerificationCheck.creator(configuration.getServiceSid())
+      final VerificationCheckCreator creator = VerificationCheck.creator(
+              configuration.getServiceSid())
           .setVerificationSid(verificationSid)
-          .setCode(verificationCode)
-          .createAsync(twilioRestClient)
+          .setCode(verificationCode);
+      return withRetries(() -> creator.createAsync(twilioRestClient), "verification_check.create")
           .thenApply(VerificationCheck::getValid)
           .handle((verificationCheck, throwable) -> {
             if (throwable == null) {
@@ -162,10 +178,27 @@ public class TwilioVerifySender implements VerificationCodeSender {
                   "verification_check.create",
                   throwable == null,
                   ApiExceptions.extractErrorCode(throwable),
-                  sample));
+                  sample))
+          .toCompletableFuture();
     } catch (final InvalidProtocolBufferException e) {
       logger.error("Failed to parse stored session data", e);
       return CompletableFuture.failedFuture(e);
     }
+  }
+
+  <T> CompletionStage<T> withRetries(
+      final Supplier<CompletionStage<T>> supp,
+      final String endpointName) {
+    return Mono.defer(() -> Mono.fromCompletionStage(supp))
+        .retryWhen(Retry
+            .backoff(maxRetries, minRetryWait)
+            .filter(ApiExceptions::isRetriable)
+            .doBeforeRetry(retrySignal ->
+              this.apiClientInstrumenter.recordApiRetry(
+                  this.getName(),
+                  endpointName,
+                  ApiExceptions.extractErrorCode(retrySignal.failure()))))
+        .onErrorMap(Exceptions::isRetryExhausted, Throwable::getCause)
+        .toFuture();
   }
 }

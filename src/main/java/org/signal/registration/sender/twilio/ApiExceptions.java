@@ -36,6 +36,11 @@ public class ApiExceptions {
       60205  // SMS is not supported by landline phone number
   );
 
+  // Codes that can be retried directly
+  private static final Set<Integer> INTERNAL_RETRY_ERROR_CODES = Set.of(
+      20429 // Too Many Requests
+  );
+
   private ApiExceptions() {}
 
   public static @Nullable String extractErrorCode(@NotNull final Throwable throwable) {
@@ -50,6 +55,14 @@ public class ApiExceptions {
     }
 
     return null;
+  }
+
+  public static boolean isRetriable(@NotNull final Throwable throwable) {
+    final Throwable unwrapped = CompletionExceptions.unwrap(throwable);
+    if (unwrapped instanceof ApiException apiException) {
+      return INTERNAL_RETRY_ERROR_CODES.contains(apiException.getCode());
+    }
+    return false;
   }
 
   /**

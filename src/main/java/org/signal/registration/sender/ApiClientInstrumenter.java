@@ -19,6 +19,7 @@ import org.signal.registration.metrics.MetricsUtil;
 public class ApiClientInstrumenter {
 
   private static final String CALL_COUNTER_NAME = MetricsUtil.name(ApiClientInstrumenter.class, "apiCalls");
+  private static final String RETRY_COUNTER_NAME = MetricsUtil.name(ApiClientInstrumenter.class, "apiRetries");
   private static final String CALL_TIMER_NAME = MetricsUtil.name(ApiClientInstrumenter.class, "apiCallDuration");
 
   private static final String ENDPOINT_TAG_NAME = "endpoint";
@@ -28,6 +29,20 @@ public class ApiClientInstrumenter {
 
   public ApiClientInstrumenter(final MeterRegistry meterRegistry) {
     this.meterRegistry = meterRegistry;
+  }
+
+  public void recordApiRetry(
+      final String senderName,
+      final String endpointName,
+      @Nullable final String errorCode) {
+
+    final List<Tag> tags = new ArrayList<>(4);
+    tags.add(Tag.of(ENDPOINT_TAG_NAME, endpointName));
+    tags.add(Tag.of(MetricsUtil.SENDER_TAG_NAME, senderName));
+    Optional
+        .ofNullable(errorCode)
+        .ifPresent(s -> tags.add(Tag.of(ERROR_CODE_TAG_NAME, s)));
+    meterRegistry.counter(RETRY_COUNTER_NAME, tags).increment();
   }
 
   public void recordApiCallMetrics(
