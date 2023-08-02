@@ -425,10 +425,11 @@ public class RegistrationService {
       nextSms = sendSmsVerificationCodeRateLimiter.getTimeOfNextAction(session).join();
 
       // Callers may not request codes via phone call until they've attempted an SMS
-      final boolean hasSentSms = session.getRegistrationAttemptsList().stream().anyMatch(attempt ->
-          attempt.getMessageTransport() == org.signal.registration.rpc.MessageTransport.MESSAGE_TRANSPORT_SMS);
+      final boolean hasAttemptedSms = session.getRegistrationAttemptsList().stream().anyMatch(attempt ->
+          attempt.getMessageTransport() == org.signal.registration.rpc.MessageTransport.MESSAGE_TRANSPORT_SMS) ||
+          session.getRejectedTransportsList().contains(org.signal.registration.rpc.MessageTransport.MESSAGE_TRANSPORT_SMS);
 
-      if (hasSentSms) {
+      if (hasAttemptedSms) {
         nextVoiceCall = sendVoiceVerificationCodeRateLimiter.getTimeOfNextAction(session).join();
       }
     }

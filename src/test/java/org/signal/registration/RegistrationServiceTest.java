@@ -603,6 +603,13 @@ class RegistrationServiceTest {
             false, true, true,
             false, true, true),
 
+        // Unverified session with SMS rejected as a transport
+        Arguments.of(getBaseSessionBuilder()
+                .addRejectedTransports(org.signal.registration.rpc.MessageTransport.MESSAGE_TRANSPORT_SMS)
+                .build(),
+            false, true, true,
+            false, true, false),
+
         // Unverified session with voice calls exhausted
         Arguments.of(getBaseSessionBuilder()
                 .addRegistrationAttempts(RegistrationAttempt.newBuilder()

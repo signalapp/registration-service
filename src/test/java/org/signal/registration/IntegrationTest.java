@@ -10,6 +10,7 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
@@ -23,6 +24,8 @@ import io.micronaut.test.annotation.MockBean;
 import io.micronaut.test.extensions.junit5.annotation.MicronautTest;
 import jakarta.inject.Inject;
 import jakarta.inject.Named;
+import java.nio.charset.StandardCharsets;
+import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import org.junit.jupiter.api.BeforeEach;
@@ -41,21 +44,18 @@ import org.signal.registration.rpc.RegistrationServiceGrpc;
 import org.signal.registration.rpc.SendVerificationCodeErrorType;
 import org.signal.registration.rpc.SendVerificationCodeRequest;
 import org.signal.registration.rpc.SendVerificationCodeResponse;
+import org.signal.registration.sender.AttemptData;
 import org.signal.registration.sender.LastDigitsOfPhoneNumberVerificationCodeSender;
+import org.signal.registration.sender.SenderRejectedTransportException;
 import org.signal.registration.sender.SenderSelectionStrategy;
+import org.signal.registration.sender.VerificationCodeSender;
 import org.signal.registration.util.UUIDUtil;
 
 @MicronautTest
 public class IntegrationTest {
 
   @MockBean
-  SenderSelectionStrategy senderSelectionStrategy() {
-    final SenderSelectionStrategy senderSelectionStrategy = mock(SenderSelectionStrategy.class);
-    when(senderSelectionStrategy.chooseVerificationCodeSender(any(), any(), any(), any(), any()))
-        .thenReturn(new LastDigitsOfPhoneNumberVerificationCodeSender());
-
-    return senderSelectionStrategy;
-  }
+  SenderSelectionStrategy senderSelectionStrategy = mock(SenderSelectionStrategy.class);
 
   @SuppressWarnings("unchecked")
   @MockBean(named = "session-creation")
@@ -68,6 +68,9 @@ public class IntegrationTest {
   @BeforeEach
   void setUp() {
     when(sessionCreationRateLimiter.checkRateLimit(any())).thenReturn(CompletableFuture.completedFuture(null));
+
+    when(senderSelectionStrategy.chooseVerificationCodeSender(any(), any(), any(), any(), any()))
+        .thenReturn(new LastDigitsOfPhoneNumberVerificationCodeSender());
   }
 
   @Test
@@ -127,6 +130,56 @@ public class IntegrationTest {
   }
 
   @Test
+  void registerTransportNotAllowed() {
+    final VerificationCodeSender smsNotSupportedSender = mock(VerificationCodeSender.class);
+
+    when(smsNotSupportedSender.sendVerificationCode(eq(org.signal.registration.sender.MessageTransport.SMS), any(), any(), any()))
+        .thenReturn(CompletableFuture.failedFuture(new SenderRejectedTransportException(new RuntimeException())));
+
+    when(smsNotSupportedSender.sendVerificationCode(eq(org.signal.registration.sender.MessageTransport.VOICE), any(), any(), any()))
+        .thenAnswer(invocation -> {
+          final Phonenumber.PhoneNumber phoneNumber = invocation.getArgument(1);
+          final byte[] senderData =
+              LastDigitsOfPhoneNumberVerificationCodeSender.getVerificationCode(phoneNumber).getBytes(StandardCharsets.UTF_8);
+
+          return CompletableFuture.completedFuture(new AttemptData(Optional.empty(), senderData));
+        });
+
+    when(smsNotSupportedSender.getName()).thenReturn("sms-not-supported");
+
+    when(senderSelectionStrategy.chooseVerificationCodeSender(any(), any(), any(), any(), any()))
+        .thenReturn(smsNotSupportedSender);
+
+    final Phonenumber.PhoneNumber phoneNumber = PhoneNumberUtil.getInstance().getExampleNumber("US");
+
+    final CreateRegistrationSessionResponse createRegistrationSessionResponse =
+        blockingStub.createSession(CreateRegistrationSessionRequest.newBuilder()
+            .setE164(phoneNumberToLong(phoneNumber))
+            .build());
+
+    assertEquals(CreateRegistrationSessionResponse.ResponseCase.SESSION_METADATA,
+        createRegistrationSessionResponse.getResponseCase());
+
+    final SendVerificationCodeResponse sendVerificationCodeSmsResponse =
+        blockingStub.sendVerificationCode(SendVerificationCodeRequest.newBuilder()
+            .setSessionId(createRegistrationSessionResponse.getSessionMetadata().getSessionId())
+            .setTransport(MessageTransport.MESSAGE_TRANSPORT_SMS)
+            .build());
+
+    assertEquals(SendVerificationCodeErrorType.SEND_VERIFICATION_CODE_ERROR_TYPE_TRANSPORT_NOT_ALLOWED,
+        sendVerificationCodeSmsResponse.getError().getErrorType());
+
+    final SendVerificationCodeResponse sendVerificationCodeVoiceResponse =
+        blockingStub.sendVerificationCode(SendVerificationCodeRequest.newBuilder()
+            .setSessionId(createRegistrationSessionResponse.getSessionMetadata().getSessionId())
+            .setTransport(MessageTransport.MESSAGE_TRANSPORT_VOICE)
+            .build());
+
+    assertEquals(SendVerificationCodeErrorType.SEND_VERIFICATION_CODE_ERROR_TYPE_UNSPECIFIED,
+        sendVerificationCodeVoiceResponse.getError().getErrorType());
+  }
+
+  @Test
   void getSessionMetadata() throws NumberParseException {
     final Phonenumber.PhoneNumber phoneNumber = PhoneNumberUtil.getInstance().getExampleNumber("US");
 
@@ -169,7 +222,7 @@ public class IntegrationTest {
 
   @Test
   void sendVerificationCodeNoSession() {
-    @SuppressWarnings("ResultOfMethodCallIgnored") final StatusRuntimeException exception =
+    final StatusRuntimeException exception =
         assertThrows(StatusRuntimeException.class,
             () -> blockingStub.sendVerificationCode(SendVerificationCodeRequest.newBuilder()
                 .setTransport(MessageTransport.MESSAGE_TRANSPORT_SMS)
