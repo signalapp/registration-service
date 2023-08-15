@@ -15,7 +15,7 @@ import io.micronaut.scheduling.annotation.Scheduled;
 import jakarta.inject.Named;
 import jakarta.inject.Singleton;
 import java.net.URI;
-import java.util.Optional;
+import java.time.Clock;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
 import org.signal.registration.analytics.AbstractAttemptAnalyzer;
@@ -43,12 +43,13 @@ class MessageBirdVerifyAttemptAnalyzer extends AbstractAttemptAnalyzer {
 
   protected MessageBirdVerifyAttemptAnalyzer(final AttemptPendingAnalysisRepository repository,
       final ApplicationEventPublisher<AttemptAnalyzedEvent> attemptAnalyzedEventPublisher,
+      final Clock clock,
       final MessageBirdClient messageBirdClient,
       final MessageBirdSmsAttemptAnalyzer smsAttemptAnalyzer,
       final MessageBirdVoiceAttemptAnalyzer voiceAttemptAnalyzer,
       @Named(TaskExecutors.IO) final Executor executor) {
 
-    super(repository, attemptAnalyzedEventPublisher);
+    super(repository, attemptAnalyzedEventPublisher, clock);
 
     this.messageBirdClient = messageBirdClient;
     this.smsAttemptAnalyzer = smsAttemptAnalyzer;
@@ -68,7 +69,7 @@ class MessageBirdVerifyAttemptAnalyzer extends AbstractAttemptAnalyzer {
   }
 
   @Override
-  protected CompletableFuture<Optional<AttemptAnalysis>> analyzeAttempt(final AttemptPendingAnalysis attemptPendingAnalysis) {
+  protected CompletableFuture<AttemptAnalysis> analyzeAttempt(final AttemptPendingAnalysis attemptPendingAnalysis) {
     return CompletableFuture.supplyAsync(() -> {
           try {
             return messageBirdClient.getVerifyObject(attemptPendingAnalysis.getRemoteId());

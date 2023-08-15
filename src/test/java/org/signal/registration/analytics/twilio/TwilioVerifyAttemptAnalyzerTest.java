@@ -30,6 +30,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
+import org.signal.registration.analytics.AbstractAttemptAnalyzer;
 import org.signal.registration.analytics.AttemptAnalysis;
 import org.signal.registration.analytics.AttemptAnalyzedEvent;
 import org.signal.registration.analytics.AttemptPendingAnalysis;
@@ -105,7 +106,7 @@ class TwilioVerifyAttemptAnalyzerTest {
         }
       }
       """,
-      CURRENT_TIME.minus(TwilioVerifyAttemptAnalyzer.PRICING_DEADLINE).minusSeconds(1));
+      CURRENT_TIME.minus(AbstractAttemptAnalyzer.PRICING_DEADLINE).minusSeconds(1));
 
   @BeforeEach
   void setUp() {

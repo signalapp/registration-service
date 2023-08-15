@@ -6,7 +6,6 @@
 package org.signal.registration.analytics;
 
 import java.util.Optional;
-import java.util.OptionalInt;
 
 /**
  * An analysis of a phone number verification attempt that includes information available only after an attempt has
@@ -21,4 +20,5 @@ public record AttemptAnalysis(Optional<Money> price,
                               Optional<String> mcc,
                               Optional<String> mnc) {
 
+  public static AttemptAnalysis EMPTY = new AttemptAnalysis(Optional.empty(), Optional.empty(), Optional.empty());
 }

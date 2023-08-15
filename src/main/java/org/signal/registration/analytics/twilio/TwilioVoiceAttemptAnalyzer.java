@@ -7,11 +7,11 @@ package org.signal.registration.analytics.twilio;
 
 import com.twilio.http.TwilioRestClient;
 import com.twilio.rest.api.v2010.account.Call;
-import io.micronaut.context.annotation.Requires;
 import io.micronaut.context.event.ApplicationEventPublisher;
 import io.micronaut.scheduling.annotation.Scheduled;
 import jakarta.inject.Singleton;
 import java.math.BigDecimal;
+import java.time.Clock;
 import java.util.Currency;
 import java.util.Locale;
 import java.util.Optional;
@@ -35,9 +35,10 @@ class TwilioVoiceAttemptAnalyzer extends AbstractAttemptAnalyzer {
 
   protected TwilioVoiceAttemptAnalyzer(final AttemptPendingAnalysisRepository repository,
       final ApplicationEventPublisher<AttemptAnalyzedEvent> attemptAnalyzedEventPublisher,
+      final Clock clock,
       final TwilioRestClient twilioRestClient) {
 
-    super(repository, attemptAnalyzedEventPublisher);
+    super(repository, attemptAnalyzedEventPublisher, clock);
 
     this.twilioRestClient = twilioRestClient;
   }
@@ -54,14 +55,16 @@ class TwilioVoiceAttemptAnalyzer extends AbstractAttemptAnalyzer {
   }
 
   @Override
-  protected CompletableFuture<Optional<AttemptAnalysis>> analyzeAttempt(final AttemptPendingAnalysis attemptPendingAnalysis) {
+  protected CompletableFuture<AttemptAnalysis> analyzeAttempt(final AttemptPendingAnalysis attemptPendingAnalysis) {
     return Call.fetcher(attemptPendingAnalysis.getRemoteId()).fetchAsync(twilioRestClient)
-        .thenApply(call -> StringUtils.isNotBlank(call.getPrice()) && call.getPriceUnit() != null
-            ? Optional.of(
-            new AttemptAnalysis(Optional.of(new Money(new BigDecimal(call.getPrice()).negate(),
-                Currency.getInstance(call.getPriceUnit().getCurrencyCode().toUpperCase(Locale.ROOT)))),
-                Optional.empty(),
-                Optional.empty()))
-            : Optional.empty());
+        .thenApply(call -> {
+          final Optional<Money> maybePrice = StringUtils.isNotBlank(call.getPrice()) && call.getPriceUnit() != null
+              ? Optional.of(new Money(
+                  new BigDecimal(call.getPrice()).negate(),
+                  Currency.getInstance(call.getPriceUnit().getCurrencyCode().toUpperCase(Locale.ROOT))))
+              : Optional.empty();
+
+          return new AttemptAnalysis(maybePrice, Optional.empty(), Optional.empty());
+        });
   }
 }

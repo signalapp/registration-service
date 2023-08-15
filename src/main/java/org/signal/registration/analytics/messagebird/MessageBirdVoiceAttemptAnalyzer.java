@@ -13,7 +13,7 @@ import io.micronaut.scheduling.TaskExecutors;
 import io.micronaut.scheduling.annotation.Scheduled;
 import jakarta.inject.Named;
 import jakarta.inject.Singleton;
-import java.util.Optional;
+import java.time.Clock;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
 import org.signal.registration.analytics.AbstractAttemptAnalyzer;
@@ -38,10 +38,11 @@ class MessageBirdVoiceAttemptAnalyzer extends AbstractAttemptAnalyzer {
 
   protected MessageBirdVoiceAttemptAnalyzer(final AttemptPendingAnalysisRepository repository,
       final ApplicationEventPublisher<AttemptAnalyzedEvent> attemptAnalyzedEventPublisher,
+      final Clock clock,
       final MessageBirdClient messageBirdClient,
       @Named(TaskExecutors.IO) final Executor executor) {
 
-    super(repository, attemptAnalyzedEventPublisher);
+    super(repository, attemptAnalyzedEventPublisher, clock);
 
     this.messageBirdClient = messageBirdClient;
     this.executor = executor;
@@ -60,23 +61,22 @@ class MessageBirdVoiceAttemptAnalyzer extends AbstractAttemptAnalyzer {
   }
 
   @Override
-  protected CompletableFuture<Optional<AttemptAnalysis>> analyzeAttempt(final AttemptPendingAnalysis attemptPendingAnalysis) {
+  protected CompletableFuture<AttemptAnalysis> analyzeAttempt(final AttemptPendingAnalysis attemptPendingAnalysis) {
     return analyzeAttempt(attemptPendingAnalysis.getRemoteId());
   }
 
-  CompletableFuture<Optional<AttemptAnalysis>> analyzeAttempt(final String messageId) {
+  CompletableFuture<AttemptAnalysis> analyzeAttempt(final String messageId) {
     return CompletableFuture.supplyAsync(() -> {
-          try {
-            return MessageBirdApiUtil.extractAttemptAnalysis(
-                messageBirdClient.viewVoiceMessage(messageId).getRecipients());
-          } catch (final MessageBirdException e) {
-            throw CompletionExceptions.wrap(e);
-          }
-        }, executor)
-        .whenComplete((ignored, throwable) -> {
-          if (throwable != null && !(CompletionExceptions.unwrap(throwable) instanceof NotFoundException)) {
-            logger.warn("Unexpected exception while analyzing attempt", throwable);
-          }
-        });
+      try {
+        return MessageBirdApiUtil.extractAttemptAnalysis(messageBirdClient.viewVoiceMessage(messageId).getRecipients());
+      } catch (final MessageBirdException e) {
+        if (e instanceof NotFoundException) {
+          return AttemptAnalysis.EMPTY;
+        }
+
+        logger.warn("Unexpected exception while analyzing attempt", e);
+        throw CompletionExceptions.wrap(e);
+      }
+    }, executor);
   }
 }

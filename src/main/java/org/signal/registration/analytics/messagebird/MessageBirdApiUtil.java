@@ -13,7 +13,7 @@ class MessageBirdApiUtil {
   private MessageBirdApiUtil() {
   }
 
-  static Optional<AttemptAnalysis> extractAttemptAnalysis(final MessageResponse.Recipients recipients) {
+  static AttemptAnalysis extractAttemptAnalysis(final MessageResponse.Recipients recipients) {
     final Optional<Money> maybePrice = recipients.getItems().stream()
         .map(MessageResponse.Items::getPrice)
         .filter(price -> price != null && StringUtils.isNotBlank(price.getCurrency()))
@@ -26,6 +26,6 @@ class MessageBirdApiUtil {
     final Optional<String> maybeMnc =
         recipients.getItems().stream().map(MessageResponse.Items::getMnc).filter(StringUtils::isNotBlank).findFirst();
 
-    return maybePrice.map(price -> new AttemptAnalysis(maybePrice, maybeMcc, maybeMnc));
+    return new AttemptAnalysis(maybePrice, maybeMcc, maybeMnc);
   }
 }

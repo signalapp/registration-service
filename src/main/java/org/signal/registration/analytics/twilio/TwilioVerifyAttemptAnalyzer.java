@@ -27,6 +27,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.function.Supplier;
 import org.apache.commons.lang3.StringUtils;
+import org.signal.registration.analytics.AbstractAttemptAnalyzer;
 import org.signal.registration.analytics.AttemptAnalysis;
 import org.signal.registration.analytics.AttemptAnalyzedEvent;
 import org.signal.registration.analytics.AttemptPendingAnalysisRepository;
@@ -61,9 +62,6 @@ class TwilioVerifyAttemptAnalyzer {
   private static final String VALUE_KEY = "value";
   private static final String MCC_KEY = "mcc";
   private static final String MNC_KEY = "mnc";
-
-  @VisibleForTesting
-  static final Duration PRICING_DEADLINE = Duration.ofHours(36);
 
   private static final Duration MAX_ATTEMPT_AGE = Duration.ofDays(2);
   private static final int PAGE_SIZE = 1_000;
@@ -105,7 +103,7 @@ class TwilioVerifyAttemptAnalyzer {
         .doOnNext(ignored -> attemptReadCounter.increment())
         .filter(verificationAttempt -> {
           final boolean pricingDeadlineExpired =
-              clock.instant().isAfter(verificationAttempt.getDateCreated().plus(PRICING_DEADLINE).toInstant());
+              clock.instant().isAfter(verificationAttempt.getDateCreated().plus(AbstractAttemptAnalyzer.PRICING_DEADLINE).toInstant());
 
           return hasPrice(verificationAttempt) || pricingDeadlineExpired;
         })

@@ -7,7 +7,9 @@ package org.signal.registration.analytics;
 
 import com.google.common.annotations.VisibleForTesting;
 import io.micronaut.context.event.ApplicationEventPublisher;
-import java.util.Optional;
+import java.time.Clock;
+import java.time.Duration;
+import java.time.Instant;
 import java.util.concurrent.CompletableFuture;
 import org.signal.registration.sender.VerificationCodeSender;
 import org.slf4j.Logger;
@@ -27,26 +29,34 @@ public abstract class AbstractAttemptAnalyzer {
 
   private final AttemptPendingAnalysisRepository repository;
   private final ApplicationEventPublisher<AttemptAnalyzedEvent> attemptAnalyzedEventPublisher;
+  private final Clock clock;
 
   private final Logger logger = LoggerFactory.getLogger(getClass());
 
+  @VisibleForTesting
+  public static final Duration PRICING_DEADLINE = Duration.ofHours(36);
+
   protected AbstractAttemptAnalyzer(final AttemptPendingAnalysisRepository repository,
-      final ApplicationEventPublisher<AttemptAnalyzedEvent> attemptAnalyzedEventPublisher) {
+      final ApplicationEventPublisher<AttemptAnalyzedEvent> attemptAnalyzedEventPublisher,
+      final Clock clock) {
 
     this.repository = repository;
     this.attemptAnalyzedEventPublisher = attemptAnalyzedEventPublisher;
+    this.clock = clock;
   }
 
   protected void analyzeAttempts() {
     logger.debug("Processing attempts pending analysis");
 
     Flux.from(repository.getBySender(getSenderName()))
-        .flatMap(attemptPendingAnalysis -> Mono.fromFuture(analyzeAttempt(attemptPendingAnalysis)
-                .thenApply(maybeAnalysis -> maybeAnalysis.map(analysis ->
-                    new AttemptAnalyzedEvent(attemptPendingAnalysis, analysis))))
-            .onErrorReturn(Optional.empty()))
-        .filter(Optional::isPresent)
-        .map(Optional::get)
+            .flatMap(attemptPendingAnalysis -> Mono.fromFuture(analyzeAttempt(attemptPendingAnalysis))
+                .map(analysis -> new AttemptAnalyzedEvent(attemptPendingAnalysis, analysis)))
+        .filter(attemptAnalyzedEvent -> {
+          final Instant attemptTimestamp = Instant.ofEpochMilli(attemptAnalyzedEvent.attemptPendingAnalysis().getTimestampEpochMillis());
+          final boolean pricingDeadlinePassed = clock.instant().isAfter(attemptTimestamp.plus(PRICING_DEADLINE));
+
+          return attemptAnalyzedEvent.attemptAnalysis().price().isPresent() || pricingDeadlinePassed;
+        })
         .subscribe(attemptAnalyzedEvent -> {
           repository.remove(attemptAnalyzedEvent.attemptPendingAnalysis().getSenderName(), attemptAnalyzedEvent.attemptPendingAnalysis().getRemoteId());
           attemptAnalyzedEventPublisher.publishEvent(attemptAnalyzedEvent);
@@ -63,13 +73,13 @@ public abstract class AbstractAttemptAnalyzer {
 
   /**
    * Attempts to retrieve additional details (presumably from an external service provider) about an attempt pending
-   * analysis.
+   * analysis. If no details are available, callers should return {@link AttemptAnalysis#EMPTY}.
    *
    * @param attemptPendingAnalysis the attempt for which to retrieve additional details
    *
-   * @return an analysis of the attempt or empty if an analysis is not yet available
+   * @return an analysis of the attempt with whatever details are currently available
    *
    * @see VerificationCodeSender#getName()
    */
-  protected abstract CompletableFuture<Optional<AttemptAnalysis>> analyzeAttempt(final AttemptPendingAnalysis attemptPendingAnalysis);
+  protected abstract CompletableFuture<AttemptAnalysis> analyzeAttempt(final AttemptPendingAnalysis attemptPendingAnalysis);
 }
