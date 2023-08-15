@@ -18,6 +18,7 @@ import io.micronaut.context.event.ApplicationEventPublisher;
 import io.micronaut.scheduling.annotation.Scheduled;
 import jakarta.inject.Singleton;
 import java.math.BigDecimal;
+import java.time.Clock;
 import java.time.Duration;
 import java.time.ZonedDateTime;
 import java.util.Currency;
@@ -49,6 +50,8 @@ class TwilioVerifyAttemptAnalyzer {
 
   private final ApplicationEventPublisher<AttemptAnalyzedEvent> attemptAnalyzedEventPublisher;
 
+  private final Clock clock;
+
   private final String verifyServiceSid;
 
   private final Counter attemptReadCounter;
@@ -59,6 +62,9 @@ class TwilioVerifyAttemptAnalyzer {
   private static final String MCC_KEY = "mcc";
   private static final String MNC_KEY = "mnc";
 
+  @VisibleForTesting
+  static final Duration PRICING_DEADLINE = Duration.ofHours(36);
+
   private static final Duration MAX_ATTEMPT_AGE = Duration.ofDays(2);
   private static final int PAGE_SIZE = 1_000;
   private static final int TOO_MANY_REQUESTS_CODE = 20429;
@@ -68,12 +74,14 @@ class TwilioVerifyAttemptAnalyzer {
   public TwilioVerifyAttemptAnalyzer(final TwilioRestClient twilioRestClient,
       final AttemptPendingAnalysisRepository repository,
       final ApplicationEventPublisher<AttemptAnalyzedEvent> attemptAnalyzedEventPublisher,
+      final Clock clock,
       @Value("${twilio.verify.service-sid}") final String verifyServiceSid,
       final MeterRegistry meterRegistry) {
 
     this.twilioRestClient = twilioRestClient;
     this.repository = repository;
     this.attemptAnalyzedEventPublisher = attemptAnalyzedEventPublisher;
+    this.clock = clock;
 
     this.verifyServiceSid = verifyServiceSid;
 
@@ -95,23 +103,30 @@ class TwilioVerifyAttemptAnalyzer {
   void analyzeAttempts(final Flux<VerificationAttempt> verificationAttempts) {
     verificationAttempts
         .doOnNext(ignored -> attemptReadCounter.increment())
-        .filter(verificationAttempt -> verificationAttempt.getPrice() != null
-            && verificationAttempt.getPrice().get(VALUE_KEY) != null
-            && verificationAttempt.getPrice().get(CURRENCY_KEY) != null)
+        .filter(verificationAttempt -> {
+          final boolean pricingDeadlineExpired =
+              clock.instant().isAfter(verificationAttempt.getDateCreated().plus(PRICING_DEADLINE).toInstant());
+
+          return hasPrice(verificationAttempt) || pricingDeadlineExpired;
+        })
         .flatMap(verificationAttempt -> Mono.fromFuture(
                 repository.getByRemoteIdentifier(TwilioVerifySender.SENDER_NAME, verificationAttempt.getSid()))
             .flatMap(Mono::justOrEmpty)
             .flatMap(attemptPendingAnalysis -> {
-              final Money price;
-
-              try {
-                price = new Money(new BigDecimal(verificationAttempt.getPrice().get(VALUE_KEY).toString()),
-                    Currency.getInstance(
-                        verificationAttempt.getPrice().get(CURRENCY_KEY).toString().toUpperCase(Locale.ROOT)));
-              } catch (final IllegalArgumentException e) {
-                logger.warn("Failed to parse price: {}", verificationAttempt, e);
-                return Mono.empty();
-              }
+              Optional<Money> maybePrice = Optional
+                  .of(verificationAttempt)
+                  .filter(TwilioVerifyAttemptAnalyzer::hasPrice)
+                  .flatMap(attempt -> {
+                    try {
+                      return Optional.of(
+                          new Money(new BigDecimal(verificationAttempt.getPrice().get(VALUE_KEY).toString()),
+                              Currency.getInstance(
+                                  verificationAttempt.getPrice().get(CURRENCY_KEY).toString().toUpperCase(Locale.ROOT))));
+                    } catch (final IllegalArgumentException e) {
+                      logger.warn("Failed to parse price: {}", verificationAttempt, e);
+                      return Optional.empty();
+                    }
+                  });
 
               final Optional<Map<String, Object>> maybeChannelData =
                   Optional.ofNullable(verificationAttempt.getChannelData());
@@ -125,7 +140,7 @@ class TwilioVerifyAttemptAnalyzer {
                   .map(mnc -> StringUtils.stripToNull(mnc.toString()));
 
               return Mono.just(new AttemptAnalyzedEvent(attemptPendingAnalysis,
-                  new AttemptAnalysis(Optional.of(price), maybeMcc, maybeMnc)));
+                  new AttemptAnalysis(maybePrice, maybeMcc, maybeMnc)));
             }))
         .doOnNext(analyzedAttempt -> {
           attemptAnalyzedCounter.increment();
@@ -134,6 +149,12 @@ class TwilioVerifyAttemptAnalyzer {
           attemptAnalyzedEventPublisher.publishEvent(analyzedAttempt);
         })
         .blockLast();
+  }
+
+  private static boolean hasPrice(final VerificationAttempt verificationAttempt) {
+    return verificationAttempt.getPrice() != null
+        && verificationAttempt.getPrice().get(VALUE_KEY) != null
+        && verificationAttempt.getPrice().get(CURRENCY_KEY) != null;
   }
 
   private Flux<VerificationAttempt> getVerificationAttempts() {

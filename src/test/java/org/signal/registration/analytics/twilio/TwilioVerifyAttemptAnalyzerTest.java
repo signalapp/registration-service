@@ -17,6 +17,10 @@ import com.twilio.rest.verify.v2.VerificationAttempt;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import io.micronaut.context.event.ApplicationEventPublisher;
 import java.math.BigDecimal;
+import java.time.Clock;
+import java.time.Instant;
+import java.time.ZoneId;
+import java.time.temporal.ChronoUnit;
 import java.util.Currency;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
@@ -41,35 +45,44 @@ class TwilioVerifyAttemptAnalyzerTest {
 
   private TwilioVerifyAttemptAnalyzer twilioVerifyAttemptAnalyzer;
 
-  private static final String EMPTY_VERIFICATION_ATTEMPT_JSON = """
-      {
-        "sid": "empty-verification-attempt"
-      }
-      """;
+  private static final Instant CURRENT_TIME = Instant.now().truncatedTo(ChronoUnit.SECONDS);
 
-  private static final String MISSING_PRICE_VERIFICATION_ATTEMPT_JSON = """
+  private static final String EMPTY_VERIFICATION_ATTEMPT_JSON = String.format("""
+      {
+        "sid": "empty-verification-attempt",
+        "date_created": "%s"
+      }
+      """,
+      CURRENT_TIME);
+
+  private static final String MISSING_PRICE_VERIFICATION_ATTEMPT_JSON = String.format("""
       {
         "sid": "missing-price",
+        "date_created": "%s",
         "channel_data": {
           "mcc": "123",
           "mnc": "456"
         }
       }
-      """;
+      """,
+      CURRENT_TIME);
 
-  private static final String MISSING_MCC_MNC_VERIFICATION_ATTEMPT_JSON = """
+  private static final String MISSING_MCC_MNC_VERIFICATION_ATTEMPT_JSON = String.format("""
       {
         "sid": "missing-mcc-mnc",
+        "date_created": "%s",
         "price": {
           "value": "0.005",
           "currency": "usd"
         }
       }
-      """;
+      """,
+      CURRENT_TIME);
 
-  private static final String COMPLETE_VERIFICATION_ATTEMPT_JSON = """
+  private static final String COMPLETE_VERIFICATION_ATTEMPT_JSON = String.format("""
       {
         "sid": "complete-attempt",
+        "date_created": "%s",
         "price": {
           "value": "0.005",
           "currency": "usd"
@@ -79,7 +92,20 @@ class TwilioVerifyAttemptAnalyzerTest {
           "mnc": "456"
         }
       }
-      """;
+      """,
+      CURRENT_TIME);
+
+  private static final String PRICING_DEADLINE_PASSED_ATTEMPT_JSON = String.format("""
+      {
+        "sid": "complete-attempt",
+        "date_created": "%s",
+        "channel_data": {
+          "mcc": "123",
+          "mnc": "456"
+        }
+      }
+      """,
+      CURRENT_TIME.minus(TwilioVerifyAttemptAnalyzer.PRICING_DEADLINE).minusSeconds(1));
 
   @BeforeEach
   void setUp() {
@@ -91,6 +117,7 @@ class TwilioVerifyAttemptAnalyzerTest {
     twilioVerifyAttemptAnalyzer = new TwilioVerifyAttemptAnalyzer(mock(TwilioRestClient.class),
         repository,
         attemptAnalyzedEventPublisher,
+        Clock.fixed(CURRENT_TIME, ZoneId.systemDefault()),
         "verify-service-sid",
         new SimpleMeterRegistry());
   }
@@ -135,13 +162,20 @@ class TwilioVerifyAttemptAnalyzerTest {
         Optional.of("123"),
         Optional.of("456"));
 
+    final AttemptAnalysis pricingDeadlinePassedAnalysis = new AttemptAnalysis(
+        Optional.empty(),
+        Optional.of("123"),
+        Optional.of("456"));
+
     return Stream.of(
         Arguments.of(VerificationAttempt.fromJson(EMPTY_VERIFICATION_ATTEMPT_JSON, objectMapper), false, null),
         Arguments.of(VerificationAttempt.fromJson(EMPTY_VERIFICATION_ATTEMPT_JSON, objectMapper), true, null),
         Arguments.of(VerificationAttempt.fromJson(MISSING_PRICE_VERIFICATION_ATTEMPT_JSON, objectMapper), true, null),
         Arguments.of(VerificationAttempt.fromJson(MISSING_MCC_MNC_VERIFICATION_ATTEMPT_JSON, objectMapper), true, missingMccMncAnalysis),
         Arguments.of(VerificationAttempt.fromJson(COMPLETE_VERIFICATION_ATTEMPT_JSON, objectMapper), true, completeAnalysis),
-        Arguments.of(VerificationAttempt.fromJson(COMPLETE_VERIFICATION_ATTEMPT_JSON, objectMapper), false, null)
+        Arguments.of(VerificationAttempt.fromJson(COMPLETE_VERIFICATION_ATTEMPT_JSON, objectMapper), false, null),
+        Arguments.of(VerificationAttempt.fromJson(PRICING_DEADLINE_PASSED_ATTEMPT_JSON, objectMapper), true, pricingDeadlinePassedAnalysis),
+        Arguments.of(VerificationAttempt.fromJson(PRICING_DEADLINE_PASSED_ATTEMPT_JSON, objectMapper), false, null)
     );
   }
 }
