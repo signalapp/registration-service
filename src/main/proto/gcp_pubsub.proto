@@ -112,4 +112,17 @@ message AttemptAnalyzedPubSubMessage {
    * as reported by the client.
    */
   optional string client_radio_mnc = 17;
+
+  /**
+   * The estimated price to send the message associated with this attempt.
+   * Prices are reported in "micros," or one millionth of the base unit of their
+   * currency. For example, a value of 100,000 with a currency of "USD" would
+   * represent a quantity of $0.10.
+   */
+  optional int64 estimated_price_micros = 18;
+
+  /**
+   * The currency for the estimated price.
+   */
+  optional string estimated_price_currency = 19;
 }
