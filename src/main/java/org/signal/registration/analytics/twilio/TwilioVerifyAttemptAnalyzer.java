@@ -43,6 +43,7 @@ class TwilioVerifyAttemptAnalyzer {
 
   private final TwilioRestClient twilioRestClient;
   private final AttemptPendingAnalysisRepository repository;
+  private final TwilioVerifyPriceEstimator twilioVerifyPriceEstimator;
 
   private final ApplicationEventPublisher<AttemptAnalyzedEvent> attemptAnalyzedEventPublisher;
 
@@ -65,6 +66,7 @@ class TwilioVerifyAttemptAnalyzer {
 
   public TwilioVerifyAttemptAnalyzer(final TwilioRestClient twilioRestClient,
       final AttemptPendingAnalysisRepository repository,
+      final TwilioVerifyPriceEstimator twilioVerifyPriceEstimator,
       final ApplicationEventPublisher<AttemptAnalyzedEvent> attemptAnalyzedEventPublisher,
       final Clock clock,
       @Value("${twilio.verify.service-sid}") final String verifyServiceSid,
@@ -72,6 +74,7 @@ class TwilioVerifyAttemptAnalyzer {
 
     this.twilioRestClient = twilioRestClient;
     this.repository = repository;
+    this.twilioVerifyPriceEstimator = twilioVerifyPriceEstimator;
     this.attemptAnalyzedEventPublisher = attemptAnalyzedEventPublisher;
     this.clock = clock;
 
@@ -135,7 +138,10 @@ class TwilioVerifyAttemptAnalyzer {
                   .map(mnc -> StringUtils.stripToNull(mnc.toString()));
 
               return Mono.just(new AttemptAnalyzedEvent(attemptPendingAnalysis,
-                  new AttemptAnalysis(maybePrice, maybeMcc, maybeMnc)));
+                  new AttemptAnalysis(maybePrice,
+                      twilioVerifyPriceEstimator.estimatePrice(attemptPendingAnalysis, maybeMcc.orElse(null), maybeMnc.orElse(null)),
+                      maybeMcc,
+                      maybeMnc)));
             }))
         .doOnNext(analyzedAttempt -> {
           attemptAnalyzedCounter.increment();

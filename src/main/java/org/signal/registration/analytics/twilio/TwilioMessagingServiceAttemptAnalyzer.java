@@ -32,15 +32,18 @@ import org.signal.registration.sender.twilio.classic.TwilioMessagingServiceSmsSe
 class TwilioMessagingServiceAttemptAnalyzer extends AbstractAttemptAnalyzer {
 
   private final TwilioRestClient twilioRestClient;
+  private final TwilioMessagingPriceEstimator twilioMessagingPriceEstimator;
 
   protected TwilioMessagingServiceAttemptAnalyzer(final AttemptPendingAnalysisRepository repository,
       final ApplicationEventPublisher<AttemptAnalyzedEvent> attemptAnalyzedEventPublisher,
       final Clock clock,
-      final TwilioRestClient twilioRestClient) {
+      final TwilioRestClient twilioRestClient,
+      final TwilioMessagingPriceEstimator twilioMessagingPriceEstimator) {
 
     super(repository, attemptAnalyzedEventPublisher, clock);
 
     this.twilioRestClient = twilioRestClient;
+    this.twilioMessagingPriceEstimator = twilioMessagingPriceEstimator;
   }
 
   @Override
@@ -64,7 +67,10 @@ class TwilioMessagingServiceAttemptAnalyzer extends AbstractAttemptAnalyzer {
                   Currency.getInstance(message.getPriceUnit().getCurrencyCode().toUpperCase(Locale.ROOT))))
               : Optional.empty();
 
-          return new AttemptAnalysis(maybePrice, Optional.empty(), Optional.empty());
+          return new AttemptAnalysis(maybePrice,
+              twilioMessagingPriceEstimator.estimatePrice(attemptPendingAnalysis, null, null),
+              Optional.empty(),
+              Optional.empty());
         });
   }
 }

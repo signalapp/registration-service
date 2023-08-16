@@ -45,12 +45,13 @@ class MessageBirdVerifyAttemptAnalyzer extends AbstractMessageBirdAttemptAnalyze
   protected MessageBirdVerifyAttemptAnalyzer(final AttemptPendingAnalysisRepository repository,
       final ApplicationEventPublisher<AttemptAnalyzedEvent> attemptAnalyzedEventPublisher,
       final Clock clock,
+      final MessageBirdPriceEstimator messageBirdPriceEstimator,
       final MessageBirdClient messageBirdClient,
       final MessageBirdSmsAttemptAnalyzer smsAttemptAnalyzer,
       final MessageBirdVoiceAttemptAnalyzer voiceAttemptAnalyzer,
       @Named(TaskExecutors.IO) final Executor executor) {
 
-    super(repository, attemptAnalyzedEventPublisher, clock);
+    super(repository, attemptAnalyzedEventPublisher, clock, messageBirdPriceEstimator);
 
     this.messageBirdClient = messageBirdClient;
     this.smsAttemptAnalyzer = smsAttemptAnalyzer;

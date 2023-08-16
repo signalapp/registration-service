@@ -115,8 +115,12 @@ class TwilioVerifyAttemptAnalyzerTest {
     //noinspection unchecked
     attemptAnalyzedEventPublisher = mock(ApplicationEventPublisher.class);
 
+    final TwilioVerifyPriceEstimator twilioVerifyPriceEstimator = mock(TwilioVerifyPriceEstimator.class);
+    when(twilioVerifyPriceEstimator.estimatePrice(any(), any(), any())).thenReturn(Optional.empty());
+
     twilioVerifyAttemptAnalyzer = new TwilioVerifyAttemptAnalyzer(mock(TwilioRestClient.class),
         repository,
+        twilioVerifyPriceEstimator,
         attemptAnalyzedEventPublisher,
         Clock.fixed(CURRENT_TIME, ZoneId.systemDefault()),
         "verify-service-sid",
@@ -156,14 +160,17 @@ class TwilioVerifyAttemptAnalyzerTest {
     final AttemptAnalysis missingMccMncAnalysis = new AttemptAnalysis(
         Optional.of(new Money(new BigDecimal("0.005"), Currency.getInstance("USD"))),
         Optional.empty(),
+        Optional.empty(),
         Optional.empty());
 
     final AttemptAnalysis completeAnalysis = new AttemptAnalysis(
         Optional.of(new Money(new BigDecimal("0.005"), Currency.getInstance("USD"))),
+        Optional.empty(),
         Optional.of("123"),
         Optional.of("456"));
 
     final AttemptAnalysis pricingDeadlinePassedAnalysis = new AttemptAnalysis(
+        Optional.empty(),
         Optional.empty(),
         Optional.of("123"),
         Optional.of("456"));

@@ -10,7 +10,9 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 import org.signal.registration.analytics.AttemptAnalysis;
+import org.signal.registration.analytics.AttemptPendingAnalysis;
 import org.signal.registration.analytics.Money;
+import org.signal.registration.analytics.PriceEstimator;
 
 import javax.annotation.Nullable;
 import java.math.BigDecimal;
@@ -20,8 +22,8 @@ import java.util.Optional;
 import java.util.stream.Stream;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.when;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.*;
 
 class AbstractMessageBirdAttemptAnalyzerTest {
 
@@ -36,7 +38,11 @@ class AbstractMessageBirdAttemptAnalyzerTest {
         final MessageResponse.Recipients recipients = mock(MessageResponse.Recipients.class);
         when(recipients.getItems()).thenReturn(List.of(items));
 
-        assertEquals(expectedAnalysis, AbstractMessageBirdAttemptAnalyzer.extractAttemptAnalysis(recipients));
+        final PriceEstimator priceEstimator = mock(PriceEstimator.class);
+        when(priceEstimator.estimatePrice(any(), any(), any())).thenReturn(Optional.empty());
+
+        assertEquals(expectedAnalysis, AbstractMessageBirdAttemptAnalyzer.extractAttemptAnalysis(recipients, AttemptPendingAnalysis.newBuilder().build(), priceEstimator));
+        verify(priceEstimator).estimatePrice(any(), eq(mcc), eq(mnc));
     }
 
     private static Stream<Arguments> extractAttemptAnalysis() {
@@ -51,19 +57,19 @@ class AbstractMessageBirdAttemptAnalyzerTest {
         return Stream.of(
                 // Populated price, but no MCC/MNC
                 Arguments.of(price, null, null,
-                        new AttemptAnalysis(Optional.of(new Money(amount, Currency.getInstance("USD"))), Optional.empty(), Optional.empty())),
+                        new AttemptAnalysis(Optional.of(new Money(amount, Currency.getInstance("USD"))), Optional.empty(), Optional.empty(), Optional.empty())),
 
                 // Populated price with MCC/MNC
                 Arguments.of(price, mcc, mnc,
-                        new AttemptAnalysis(Optional.of(new Money(amount, Currency.getInstance("USD"))), Optional.of(mcc), Optional.of(mnc))),
+                        new AttemptAnalysis(Optional.of(new Money(amount, Currency.getInstance("USD"))), Optional.empty(), Optional.of(mcc), Optional.of(mnc))),
 
                 // MCC/MNC present, but empty price
                 Arguments.of(mock(MessageResponse.Price.class), mcc, mnc,
-                        new AttemptAnalysis(Optional.empty(), Optional.of(mcc), Optional.of(mnc))),
+                        new AttemptAnalysis(Optional.empty(), Optional.empty(), Optional.of(mcc), Optional.of(mnc))),
 
                 // MCC/MNC present, but no price at all
                 Arguments.of(null, mcc, mnc,
-                        new AttemptAnalysis(Optional.empty(), Optional.of(mcc), Optional.of(mnc)))
+                        new AttemptAnalysis(Optional.empty(), Optional.empty(), Optional.of(mcc), Optional.of(mnc)))
         );
     }
 }

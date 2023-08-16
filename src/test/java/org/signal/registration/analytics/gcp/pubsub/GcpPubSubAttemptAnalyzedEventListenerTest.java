@@ -67,11 +67,13 @@ class GcpPubSubAttemptAnalyzedEventListenerTest {
         .build();
 
     final Money price = new Money(new BigDecimal("0.04"), Currency.getInstance("USD"));
+    final Money estimatedPrice = new Money(new BigDecimal("0.045"), Currency.getInstance("CAD"));
     final String mcc = "017";
     final String mnc = "029";
 
     final AttemptAnalysis attemptAnalysis = new AttemptAnalysis(
         Optional.of(price),
+        Optional.of(estimatedPrice),
         Optional.of(mcc),
         Optional.of(mnc));
 
@@ -89,6 +91,8 @@ class GcpPubSubAttemptAnalyzedEventListenerTest {
         .setCurrency(price.currency().getCurrencyCode())
         .setSenderMcc(mcc)
         .setSenderMnc(mnc)
+        .setEstimatedPriceMicros(estimatedPrice.amount().multiply(ONE_MILLION).longValueExact())
+        .setEstimatedPriceCurrency(estimatedPrice.currency().getCurrencyCode())
         .build();
 
     listener.onApplicationEvent(new AttemptAnalyzedEvent(attemptPendingAnalysis, attemptAnalysis));
@@ -126,11 +130,13 @@ class GcpPubSubAttemptAnalyzedEventListenerTest {
         .build();
 
     final Money price = new Money(new BigDecimal("0.04"), Currency.getInstance("USD"));
+    final Money estimatedPrice = new Money(new BigDecimal("0.045"), Currency.getInstance("CAD"));
     final String mcc = "017";
     final String mnc = "029";
 
     final AttemptAnalysis attemptAnalysis = new AttemptAnalysis(
         Optional.of(price),
+        Optional.of(estimatedPrice),
         Optional.of(mcc),
         Optional.of(mnc));
 
@@ -148,6 +154,8 @@ class GcpPubSubAttemptAnalyzedEventListenerTest {
         .setCurrency(price.currency().getCurrencyCode())
         .setSenderMcc(mcc)
         .setSenderMnc(mnc)
+        .setEstimatedPriceMicros(estimatedPrice.amount().multiply(ONE_MILLION).longValueExact())
+        .setEstimatedPriceCurrency(estimatedPrice.currency().getCurrencyCode())
         .build();
 
     assertEquals(expectedPubSubMessage,

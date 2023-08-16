@@ -76,6 +76,11 @@ public class GcpPubSubAttemptAnalyzedEventListener implements ApplicationEventLi
       pubSubMessageBuilder.setCurrency(price.currency().getCurrencyCode());
     });
 
+    event.attemptAnalysis().estimatedPrice().ifPresent(estimatedPrice -> {
+      pubSubMessageBuilder.setEstimatedPriceMicros(estimatedPrice.amount().multiply(ONE_MILLION).longValue());
+      pubSubMessageBuilder.setEstimatedPriceCurrency(estimatedPrice.currency().getCurrencyCode());
+    });
+
     event.attemptAnalysis().mcc().ifPresent(pubSubMessageBuilder::setSenderMcc);
     event.attemptAnalysis().mnc().ifPresent(pubSubMessageBuilder::setSenderMnc);
 

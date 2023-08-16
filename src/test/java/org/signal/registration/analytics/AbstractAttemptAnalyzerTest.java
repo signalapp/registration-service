@@ -91,6 +91,7 @@ class AbstractAttemptAnalyzerTest {
 
     final AttemptAnalysis attemptAnalysis = new AttemptAnalysis(
         Optional.of(new Money(new BigDecimal("0.1"), Currency.getInstance("USD"))),
+        Optional.of(new Money(new BigDecimal("0.15"), Currency.getInstance("CAD"))),
         Optional.of("001"),
         Optional.of("002"));
 

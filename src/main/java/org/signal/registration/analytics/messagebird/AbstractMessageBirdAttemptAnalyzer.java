@@ -21,15 +21,20 @@ import org.signal.registration.analytics.AttemptAnalyzedEvent;
 import org.signal.registration.analytics.AttemptPendingAnalysis;
 import org.signal.registration.analytics.AttemptPendingAnalysisRepository;
 import org.signal.registration.analytics.Money;
+import org.signal.registration.analytics.PriceEstimator;
 import org.signal.registration.util.CompletionExceptions;
 
 abstract class AbstractMessageBirdAttemptAnalyzer extends AbstractAttemptAnalyzer {
 
+  private final PriceEstimator priceEstimator;
+
   AbstractMessageBirdAttemptAnalyzer(final AttemptPendingAnalysisRepository repository,
       final ApplicationEventPublisher<AttemptAnalyzedEvent> attemptAnalyzedEventPublisher,
-      final Clock clock) {
+      final Clock clock, final PriceEstimator priceEstimator) {
 
     super(repository, attemptAnalyzedEventPublisher, clock);
+
+    this.priceEstimator = priceEstimator;
   }
 
   protected abstract CompletableFuture<MessageResponse.Recipients> getRecipients(final AttemptPendingAnalysis attemptPendingAnalysis);
@@ -37,7 +42,7 @@ abstract class AbstractMessageBirdAttemptAnalyzer extends AbstractAttemptAnalyze
   @Override
   protected CompletableFuture<AttemptAnalysis> analyzeAttempt(final AttemptPendingAnalysis attemptPendingAnalysis) {
     return getRecipients(attemptPendingAnalysis)
-        .thenApply(AbstractMessageBirdAttemptAnalyzer::extractAttemptAnalysis)
+        .thenApply(recipients -> extractAttemptAnalysis(recipients, attemptPendingAnalysis, priceEstimator))
         .exceptionally(throwable -> {
           if (CompletionExceptions.unwrap(throwable) instanceof NotFoundException) {
             return AttemptAnalysis.EMPTY;
@@ -48,7 +53,7 @@ abstract class AbstractMessageBirdAttemptAnalyzer extends AbstractAttemptAnalyze
   }
 
   @VisibleForTesting
-  static AttemptAnalysis extractAttemptAnalysis(final MessageResponse.Recipients recipients) {
+  static AttemptAnalysis extractAttemptAnalysis(final MessageResponse.Recipients recipients, final AttemptPendingAnalysis attemptPendingAnalysis, final PriceEstimator priceEstimator) {
     final Optional<Money> maybePrice = recipients.getItems().stream()
         .map(MessageResponse.Items::getPrice)
         .filter(price -> price != null && StringUtils.isNotBlank(price.getCurrency()))
@@ -61,6 +66,9 @@ abstract class AbstractMessageBirdAttemptAnalyzer extends AbstractAttemptAnalyze
     final Optional<String> maybeMnc =
         recipients.getItems().stream().map(MessageResponse.Items::getMnc).filter(StringUtils::isNotBlank).findFirst();
 
-    return new AttemptAnalysis(maybePrice, maybeMcc, maybeMnc);
+    return new AttemptAnalysis(maybePrice,
+        priceEstimator.estimatePrice(attemptPendingAnalysis, maybeMcc.orElse(null), maybeMnc.orElse(null)),
+        maybeMcc,
+        maybeMnc);
   }
 }

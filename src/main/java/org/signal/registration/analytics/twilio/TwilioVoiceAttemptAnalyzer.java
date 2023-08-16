@@ -64,7 +64,7 @@ class TwilioVoiceAttemptAnalyzer extends AbstractAttemptAnalyzer {
                   Currency.getInstance(call.getPriceUnit().getCurrencyCode().toUpperCase(Locale.ROOT))))
               : Optional.empty();
 
-          return new AttemptAnalysis(maybePrice, Optional.empty(), Optional.empty());
+          return new AttemptAnalysis(maybePrice, Optional.empty(), Optional.empty(), Optional.empty());
         });
   }
 }
