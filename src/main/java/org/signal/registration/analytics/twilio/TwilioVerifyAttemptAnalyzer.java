@@ -6,11 +6,8 @@
 package org.signal.registration.analytics.twilio;
 
 import com.google.common.annotations.VisibleForTesting;
-import com.twilio.base.Page;
-import com.twilio.exception.ApiException;
 import com.twilio.http.TwilioRestClient;
 import com.twilio.rest.verify.v2.VerificationAttempt;
-import com.twilio.rest.verify.v2.VerificationAttemptReader;
 import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micronaut.context.annotation.Value;
@@ -25,7 +22,6 @@ import java.util.Currency;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
-import java.util.function.Supplier;
 import org.apache.commons.lang3.StringUtils;
 import org.signal.registration.analytics.AbstractAttemptAnalyzer;
 import org.signal.registration.analytics.AttemptAnalysis;
@@ -38,7 +34,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
-import reactor.util.retry.Retry;
 
 /**
  * Analyzes verification attempts from {@link TwilioVerifySender}.
@@ -65,7 +60,6 @@ class TwilioVerifyAttemptAnalyzer {
 
   private static final Duration MAX_ATTEMPT_AGE = Duration.ofDays(2);
   private static final int PAGE_SIZE = 1_000;
-  private static final int TOO_MANY_REQUESTS_CODE = 20429;
 
   private static final Logger logger = LoggerFactory.getLogger(TwilioVerifyAttemptAnalyzer.class);
 
@@ -94,7 +88,10 @@ class TwilioVerifyAttemptAnalyzer {
     // https://www.twilio.com/docs/verify/api/list-verification-attempts#rate-limits) prevent us from doing that here.
     // Instead, we fetch verification attempts from the Twilio API using fewer, larger pages and reconcile those against
     // what we have stored locally.
-    analyzeAttempts(getVerificationAttempts());
+    analyzeAttempts(ReaderUtil.readerToFlux(VerificationAttempt.reader()
+        .setVerifyServiceSid(verifyServiceSid)
+        .setDateCreatedAfter(ZonedDateTime.now().minus(MAX_ATTEMPT_AGE))
+        .setPageSize(PAGE_SIZE), twilioRestClient));
   }
 
   @VisibleForTesting
@@ -153,29 +150,5 @@ class TwilioVerifyAttemptAnalyzer {
     return verificationAttempt.getPrice() != null
         && verificationAttempt.getPrice().get(VALUE_KEY) != null
         && verificationAttempt.getPrice().get(CURRENCY_KEY) != null;
-  }
-
-  private Flux<VerificationAttempt> getVerificationAttempts() {
-    final VerificationAttemptReader reader = VerificationAttempt.reader()
-        .setVerifyServiceSid(verifyServiceSid)
-        .setDateCreatedAfter(ZonedDateTime.now().minus(MAX_ATTEMPT_AGE))
-        .setPageSize(PAGE_SIZE);
-
-    return Flux.from(fetchPageWithBackoff(() -> reader.firstPage(twilioRestClient)))
-        .expand(page -> {
-          if (page.hasNextPage()) {
-            return fetchPageWithBackoff(() -> reader.nextPage(page, twilioRestClient));
-          } else {
-            return Mono.empty();
-          }
-        })
-        .flatMapIterable(Page::getRecords);
-  }
-
-  private Mono<Page<VerificationAttempt>> fetchPageWithBackoff(final Supplier<Page<VerificationAttempt>> pageSupplier) {
-    return Mono.fromSupplier(pageSupplier)
-        .retryWhen(Retry.backoff(10, Duration.ofMillis(500))
-            .filter(throwable -> throwable instanceof ApiException apiException && apiException.getCode() == TOO_MANY_REQUESTS_CODE)
-            .maxBackoff(Duration.ofSeconds(8)));
   }
 }
