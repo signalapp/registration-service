@@ -5,54 +5,44 @@
 
 package org.signal.registration.analytics.messagebird;
 
-import io.micronaut.context.annotation.Value;
-import io.micronaut.http.HttpRequest;
-import io.micronaut.http.client.HttpClient;
-import io.micronaut.http.client.annotation.Client;
+import com.messagebird.MessageBirdClient;
+import io.micronaut.scheduling.TaskExecutors;
+import jakarta.inject.Named;
 import jakarta.inject.Singleton;
-import org.apache.commons.lang3.StringUtils;
+import java.util.Currency;
+import java.util.concurrent.Executor;
 import org.signal.registration.analytics.Money;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
-import java.math.BigDecimal;
-import java.util.Currency;
-import java.util.List;
-import java.util.stream.Collectors;
+import reactor.core.scheduler.Schedulers;
 
 @Singleton
 class MessageBirdSmsPriceProvider {
 
-  private final HttpClient httpClient;
-  private final String accessKey;
+  private final MessageBirdClient messageBirdClient;
+  private final Executor executor;
 
   private static final String DEFAULT_RATE_COUNTRY_CODE = "XX";
 
-  MessageBirdSmsPriceProvider(@Client("https://rest.messagebird.com/") final HttpClient httpClient,
-      @Value("${messagebird.access-key}") final String accessKey) {
+  MessageBirdSmsPriceProvider(final MessageBirdClient messageBirdClient,
+      @Named(TaskExecutors.IO) final Executor executor) {
 
-    this.httpClient = httpClient;
-    this.accessKey = accessKey;
-  }
-
-  record SmsPriceEntry(BigDecimal price, String currencyCode, String mcc, String mnc, String countryIsoCode) {
-  }
-
-  record SmsPriceResponse(List<SmsPriceEntry> prices) {
+    this.messageBirdClient = messageBirdClient;
+    this.executor = executor;
   }
 
   Flux<MessageBirdSmsPrice> getPrices() {
-    return Mono.from(httpClient.retrieve(HttpRequest.GET("/pricing/sms/outbound")
-                .header("Authorization", "AccessKey " + accessKey),
-            SmsPriceResponse.class))
-        .flatMapMany(response -> Flux.fromIterable(response.prices())
+    return Mono.fromCallable(messageBirdClient::getOutboundSmsPrices)
+        .subscribeOn(Schedulers.fromExecutor(executor))
+        .flatMapMany(outboundSmsPriceResponse -> Flux.fromIterable(outboundSmsPriceResponse.getPrices())
             .map(entry -> {
-              final Money price = new Money(entry.price(), Currency.getInstance(entry.currencyCode()));
+              final Money price = new Money(entry.getPrice(), Currency.getInstance(entry.getCurrencyCode()));
 
-              if (DEFAULT_RATE_COUNTRY_CODE.equals(entry.countryIsoCode()) && entry.mnc() == null) {
+              if (DEFAULT_RATE_COUNTRY_CODE.equals(entry.getCountryIsoCode()) && entry.getMnc() == null) {
                 return new MessageBirdSmsPrice(null, null, null, price);
               }
 
-              return new MessageBirdSmsPrice(entry.countryIsoCode(), entry.mcc(), entry.mnc(), price);
+              return new MessageBirdSmsPrice(entry.getCountryIsoCode(), entry.getMcc(), entry.getMnc(), price);
             }));
   }
 }
