@@ -6,7 +6,7 @@ import javax.validation.constraints.NotNull;
 import java.time.Duration;
 
 @ConfigurationProperties("adaptive.bandit")
-record BanditStatsConfiguration(
+record VerificationStatsConfiguration(
     @Bindable(defaultValue = "PT1H") @NotNull Duration halfLife,
     @Bindable(defaultValue = "P1D") @NotNull Duration windowSize) {
 }

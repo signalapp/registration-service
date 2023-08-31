@@ -17,6 +17,11 @@ micronaut:
       # Note that an `instance` tag is added at runtime in `Application.java`
       service: registration
 
+  executors:
+    scheduled:
+      type: scheduled
+      core-pool-size: 16
+
 rate-limits:
   leaky-bucket:
     session-creation:

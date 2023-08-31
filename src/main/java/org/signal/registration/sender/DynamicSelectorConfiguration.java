@@ -1,12 +1,16 @@
 package org.signal.registration.sender;
 
+import static org.signal.registration.sender.DynamicSelector.ADAPTIVE_NAME;
+
 import io.micronaut.context.annotation.EachProperty;
 import io.micronaut.context.annotation.Parameter;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
+import java.util.Set;
 import javax.validation.constraints.NotBlank;
 import javax.validation.constraints.NotEmpty;
+import org.signal.registration.util.MapUtil;
 
 /**
  * Sender configuration for a single transport {@link DynamicSelector}
@@ -17,9 +21,6 @@ import javax.validation.constraints.NotEmpty;
  * @param defaultWeights  The proportion of each service type to use
  * @param regionWeights   Override of weights by region
  * @param regionOverrides Map from region to service that should always be used for that region
- * @param minimumRegionalAdaptiveWeight The minimum weight required to use a bandit's regional weights. Below this weight the global bandit weights will be used.
- * @param defaultAdaptiveChoices The default list of senders to consider when using a bandit
- * @param regionalAdaptiveChoices The lists of senders to use for specific regions (overrides defaultAdaptiveChoices)
  */
 @EachProperty("selection")
 public record DynamicSelectorConfiguration(
@@ -27,9 +28,40 @@ public record DynamicSelectorConfiguration(
     @NotEmpty List<@NotBlank String> fallbackSenders,
     Map<@NotBlank String, Integer> defaultWeights,
     Map<@NotBlank String, Map<@NotBlank String, Integer>> regionWeights,
-    Map<@NotBlank String, @NotBlank String> regionOverrides,
-    Optional<Integer> minimumRegionalAdaptiveWeight,
-    @NotEmpty List<@NotBlank String> defaultAdaptiveChoices,
-    Map<@NotBlank String, List<@NotBlank String>> regionalAdaptiveChoices
+    Map<@NotBlank String, @NotBlank String> regionOverrides
 ) {
+
+  public DynamicSelectorConfiguration(
+      @Parameter MessageTransport transport,
+      @NotEmpty List<@NotBlank String> fallbackSenders,
+      Map<@NotBlank String, Integer> defaultWeights,
+      Map<@NotBlank String, Map<@NotBlank String, Integer>> regionWeights,
+      Map<@NotBlank String, @NotBlank String> regionOverrides) {
+    this.transport = transport;
+    this.fallbackSenders = fallbackSenders;
+    this.defaultWeights = defaultWeights;
+    this.regionWeights = MapUtil.keysToUpperCase(regionWeights);
+    this.regionOverrides = MapUtil.keysToUpperCase(regionOverrides);
+  }
+
+
+  /**
+   * Determine which regions are configured to use adaptive routing.
+   */
+  public Set<String> computeAdaptiveRegions() {
+    final Set<String> adaptiveRegions = new HashSet<>();
+    this.regionOverrides().forEach((region, senderName) -> {
+      if (senderName.equals(ADAPTIVE_NAME)) {
+        adaptiveRegions.add(region);
+      }
+    });
+    this.regionWeights().forEach((region, dist) -> {
+      dist.forEach((senderName, weight) -> {
+        if (senderName.equals(ADAPTIVE_NAME)) {
+          adaptiveRegions.add(region);
+        }
+      });
+    });
+    return adaptiveRegions;
+  }
 }

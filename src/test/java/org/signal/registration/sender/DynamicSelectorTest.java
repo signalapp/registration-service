@@ -10,13 +10,11 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
-import java.util.Optional;
 import java.util.TreeMap;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import javax.annotation.Nullable;
-import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import org.apache.commons.math3.random.AbstractRandomGenerator;
 import org.apache.commons.math3.random.JDKRandomGenerator;
 import org.apache.commons.math3.random.RandomGenerator;
@@ -24,7 +22,6 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
-import org.signal.registration.bandit.InMemoryBanditStatsProvider;
 
 public class DynamicSelectorTest {
 
@@ -101,19 +98,13 @@ public class DynamicSelectorTest {
         List.of(SENDER_FALLBACK.getName()),
         sortedDefaults,
         sortedOverrides,
-        Collections.emptyMap(),
-        Optional.of(100),
-        List.of("default"),
-        Map.of()
-    );
+        Collections.emptyMap());
 
     final DynamicSelector ts = new DynamicSelector(
         rg,
         config,
-        List.of(SENDER_A, SENDER_B, UNSUPPORTED, SENDER_FALLBACK),
-        InMemoryBanditStatsProvider.create(Map.of()),
-        new SimpleMeterRegistry()
-    );
+        null,
+        List.of(SENDER_A, SENDER_B, UNSUPPORTED, SENDER_FALLBACK));
 
     final VerificationCodeSender actual = ts.chooseVerificationCodeSender(
         PhoneNumberUtil.getInstance().getExampleNumber(region),
@@ -148,12 +139,9 @@ public class DynamicSelectorTest {
         List.of(SENDER_FALLBACK.getName()),
         Map.of(),
         Map.of(),
-        regionOverrides,
-        Optional.empty(),
-        List.of("default"),
-        Map.of());
+        regionOverrides);
 
-    final DynamicSelector ts = new DynamicSelector(new JDKRandomGenerator(), config, SENDERS, InMemoryBanditStatsProvider.create(Map.of()), new SimpleMeterRegistry());
+    final DynamicSelector ts = new DynamicSelector(new JDKRandomGenerator(), config, null, SENDERS);
     final VerificationCodeSender actual = ts.chooseVerificationCodeSender(
         number,
         Collections.emptyList(),
@@ -186,12 +174,9 @@ public class DynamicSelectorTest {
         fallbacks.stream().map(VerificationCodeSender::getName).toList(),
         choice == null ? Map.of() : Map.of(choice.getName(), 1),
         Map.of(),
-        Map.of(),
-        Optional.empty(),
-        List.of("default"),
         Map.of());
 
-    final DynamicSelector ts = new DynamicSelector(new JDKRandomGenerator(), config, SENDERS, InMemoryBanditStatsProvider.create(Map.of()), new SimpleMeterRegistry());
+    final DynamicSelector ts = new DynamicSelector(new JDKRandomGenerator(), config, null, SENDERS);
     final Phonenumber.PhoneNumber num = PhoneNumberUtil.getInstance().getExampleNumber("US");
     final VerificationCodeSender actual = ts.chooseVerificationCodeSender(num, Collections.emptyList(),
         ClientType.IOS, null);
@@ -203,9 +188,11 @@ public class DynamicSelectorTest {
     final DynamicSelectorConfiguration config = new DynamicSelectorConfiguration(
         MessageTransport.SMS,
         List.of(SENDER_FALLBACK.getName()),
-        Map.of(), Map.of(), Map.of(), Optional.empty(), List.of("default"), Map.of());
+        Map.of(),
+        Map.of(),
+        Map.of());
 
-    final DynamicSelector ts = new DynamicSelector(new JDKRandomGenerator(), config, List.of(SENDER_FALLBACK, SENDER_A), InMemoryBanditStatsProvider.create(Map.of()), new SimpleMeterRegistry());
+    final DynamicSelector ts = new DynamicSelector(new JDKRandomGenerator(), config, null, List.of(SENDER_FALLBACK, SENDER_A));
     final VerificationCodeSender actual = ts.chooseVerificationCodeSender(
         PhoneNumberUtil.getInstance().getExampleNumber("US"),
         Collections.emptyList(),
@@ -214,13 +201,19 @@ public class DynamicSelectorTest {
     assertEquals(SENDER_A, actual);
   }
 
+
+
   private static VerificationCodeSender buildTestSender(final String name, final boolean supports) {
     return new VerificationCodeSender() {
       @Override
-      public String getName() { return name; }
+      public String getName() {
+        return name;
+      }
 
       @Override
-      public Duration getAttemptTtl() { return Duration.ofMinutes(10); }
+      public Duration getAttemptTtl() {
+        return Duration.ofMinutes(10);
+      }
 
       @Override
       public boolean supportsTransport(final MessageTransport transport) {

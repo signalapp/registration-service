@@ -40,6 +40,14 @@ public class MetricsUtil {
     };
   }
 
+  public static MessageTransport messageTransportFromTagValue(final String tag) {
+    return switch (tag) {
+      case "sms" -> MessageTransport.MESSAGE_TRANSPORT_SMS;
+      case "voice" -> MessageTransport.MESSAGE_TRANSPORT_VOICE;
+      default -> MessageTransport.UNRECOGNIZED;
+    };
+  }
+
   public static String getClientTypeTagValue(final ClientType clientType) {
     return switch (clientType) {
       case CLIENT_TYPE_IOS -> "ios";

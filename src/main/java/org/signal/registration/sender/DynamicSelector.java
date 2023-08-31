@@ -1,32 +1,31 @@
 package org.signal.registration.sender;
 
+
 import com.google.common.annotations.VisibleForTesting;
 import com.google.i18n.phonenumbers.Phonenumber;
-import io.micrometer.core.instrument.MeterRegistry;
 import io.micronaut.context.annotation.EachBean;
 import jakarta.inject.Singleton;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
-import java.util.Set;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
+import javax.annotation.Nullable;
 import org.apache.commons.math3.distribution.EnumeratedDistribution;
 import org.apache.commons.math3.random.AbstractRandomGenerator;
 import org.apache.commons.math3.random.RandomGenerator;
 import org.apache.commons.math3.util.Pair;
-import org.signal.registration.bandit.BanditStatsProvider;
+import org.signal.registration.bandit.AdaptiveStrategy;
+import org.signal.registration.bandit.AdaptiveStrategyCreator;
 import org.signal.registration.sender.fictitious.FictitiousNumberVerificationCodeSender;
 import org.signal.registration.sender.prescribed.PrescribedVerificationCodeSender;
-import org.signal.registration.bandit.AdaptiveStrategy;
+import org.signal.registration.util.MapUtil;
 import org.signal.registration.util.PhoneNumbers;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import javax.annotation.Nullable;
 
 /**
  * Selects a sender for a specific {@link MessageTransport}
@@ -44,7 +43,7 @@ import javax.annotation.Nullable;
 public class DynamicSelector {
   private static final Logger logger = LoggerFactory.getLogger(DynamicSelector.class);
 
-  private static final String ADAPTIVE_NAME = "adaptive";
+  public static final String ADAPTIVE_NAME = "adaptive";
 
   private static final RandomGenerator RANDOM = new AbstractRandomGenerator() {
 
@@ -69,21 +68,17 @@ public class DynamicSelector {
 
   public DynamicSelector(
       final DynamicSelectorConfiguration config,
-      final List<VerificationCodeSender> verificationCodeSenders,
-      final BanditStatsProvider banditStatsProvider,
-      final MeterRegistry meterRegistry) {
-    this(RANDOM, config, verificationCodeSenders, banditStatsProvider, meterRegistry);
+      final AdaptiveStrategyCreator adaptiveStrategyCreator,
+      final List<VerificationCodeSender> verificationCodeSenders) {
+    this(RANDOM, config, adaptiveStrategyCreator.create(config), verificationCodeSenders);
   }
 
   @VisibleForTesting
   DynamicSelector(
       final RandomGenerator random,
       final DynamicSelectorConfiguration config,
-      final List<VerificationCodeSender> verificationCodeSenders,
-      final BanditStatsProvider banditStatsProvider,
-      final MeterRegistry meterRegistry
-  ) {
-
+      final AdaptiveStrategy adaptiveStrategy,
+      final List<VerificationCodeSender> verificationCodeSenders) {
     logger.info("Configuring WeightedSelector for transport {} with {}", config.transport(), config);
 
     // look up senders by name
@@ -98,7 +93,7 @@ public class DynamicSelector {
             config.fallbackSenders().stream(),
             config.defaultWeights().keySet().stream(),
             config.regionOverrides().values().stream(),
-            config.regionWeights().values().stream().flatMap(m -> m.keySet().stream())).flatMap(x -> x);
+            config.regionWeights().values().stream().flatMap(m -> m.keySet().stream())).flatMap(Function.identity());
 
     List<String> missingNames =
         names.filter(this::isUnknownSender).distinct().toList();
@@ -111,10 +106,12 @@ public class DynamicSelector {
     this.transport = config.transport();
 
     // specific sender to be used for a given region (2).
-    this.regionOverrides = parseAndNormalizeMap(config.regionOverrides(), Optional::of);
+    this.regionOverrides = config.regionOverrides();
 
     // weighted distribution of senders for a particular region (3a).
-    this.regionalDist = parseAndNormalizeMap(config.regionWeights(), v -> parseDistribution(transport, senders, random, v));
+    this.regionalDist = MapUtil.filterMapValues(
+        config.regionWeights(),
+        v -> DynamicSelector.parseDistribution(transport, senders, random, v));
 
     // default weighted distribution of senders (3b).
     this.defaultDist = Optional.of(config.defaultWeights())
@@ -125,20 +122,9 @@ public class DynamicSelector {
     this.fallbackSenders = config.fallbackSenders();
 
     // adaptive strategy for message routing
-    this.strategy = new AdaptiveStrategy(
-        parseAdaptiveConfig(config),
-        banditStatsProvider,
-        random,
-        meterRegistry);
+    this.strategy = adaptiveStrategy;
   }
 
-  private static AdaptiveStrategy.Config parseAdaptiveConfig(DynamicSelectorConfiguration config) {
-    final Optional<Double> minimumRegionalCount = config.minimumRegionalAdaptiveWeight().map(Integer::doubleValue);
-    final Set<String> defaultChoices = new HashSet<>(config.defaultAdaptiveChoices());
-    final Map<String, Set<String>> regionalChoices =
-        parseAndNormalizeMap(config.regionalAdaptiveChoices(), v -> v.isEmpty() ? Optional.empty() : Optional.of(new HashSet<>(v)));
-    return new AdaptiveStrategy.Config(minimumRegionalCount, defaultChoices, regionalChoices);
-  }
 
   private static boolean isProductionSender(VerificationCodeSender sender) {
     return !(sender instanceof FictitiousNumberVerificationCodeSender
@@ -147,15 +133,6 @@ public class DynamicSelector {
 
   private boolean isUnknownSender(String senderName) {
     return !senders.containsKey(senderName) && !senderName.equals(ADAPTIVE_NAME);
-  }
-
-  private static <V, W> Map<String, W> parseAndNormalizeMap(Map<String, V> input, Function<V, Optional<W>> fn) {
-    return input.entrySet().stream()
-        .flatMap(e -> {
-          final String k = e.getKey().toUpperCase();
-          return fn.apply(e.getValue()).map(w -> new Pair<>(k, w)).stream();
-        })
-        .collect(Collectors.toMap(Pair::getKey, Pair::getValue));
   }
 
   public VerificationCodeSender chooseVerificationCodeSender(

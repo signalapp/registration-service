@@ -6,15 +6,19 @@ import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import org.apache.commons.math3.random.JDKRandomGenerator;
 import org.apache.commons.math3.random.RandomGenerator;
 import org.junit.jupiter.api.Test;
-import org.signal.registration.bandit.BanditStatsProvider;
-import org.signal.registration.bandit.InMemoryBanditStatsProvider;
+import org.signal.registration.bandit.AdaptiveStrategyConfiguration;
+import org.signal.registration.bandit.VerificationStatsProvider;
+import org.signal.registration.bandit.InMemoryVerificationStatsProvider;
 import org.signal.registration.bandit.AdaptiveStrategy;
+import org.signal.registration.bandit.VerificationStats;
+import org.signal.registration.cost.CostProvider;
 
 import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -39,30 +43,45 @@ public class DynamicSelectorBanditTest {
         "DE", Map.of(TV, 0, MV, 0, A, 100),
         "ZZ", Map.of(TV, 10, MV, 10, A, 80));
     final Map<String, String> regionOverrides = Map.of();
-    final Optional<Integer> minimumRegionalBanditCount = Optional.of(10);
-    final List<String> defaultBanditChoices = List.of(TV, MV);
-    final Map<String, List<String>> regionalBanditChoices = Map.of();
-
     final DynamicSelectorConfiguration config = new DynamicSelectorConfiguration(
-        transport, fallbackSenders, defaultWeights, regionWeights, regionOverrides, minimumRegionalBanditCount, defaultBanditChoices, regionalBanditChoices
-    );
+        transport, fallbackSenders, defaultWeights, regionWeights, regionOverrides);
 
     final List<VerificationCodeSender> verificationCodeSenders =
         List.of(
             new TestVerificationCodeSender(TV, List.of("de", "en")),
             new TestVerificationCodeSender(TPM, List.of("de", "en", "fr", "zh")),
             new TestVerificationCodeSender(MV, List.of("de", "en", "fr")));
-    final BanditStatsProvider banditStatsProvider = InMemoryBanditStatsProvider.create(
-        Map.of(
-            "DE", List.of(
-              new AdaptiveStrategy.Choice(TV, 100.0, 10.0),
-              new AdaptiveStrategy.Choice(MV, 95.0, 15.0)),
-            "ZZ", List.of(
-                new AdaptiveStrategy.Choice(TV, 70.0, 40.0),
-                new AdaptiveStrategy.Choice(MV, 85.0, 25.0)
-            )));
 
-    this.selector = new DynamicSelector(random, config, verificationCodeSenders, banditStatsProvider, new SimpleMeterRegistry());
+    final VerificationStatsProvider verificationStatsProvider = InMemoryVerificationStatsProvider.create(
+        Map.of(
+            "DE", Map.of(
+              TV, new VerificationStats(100.0, 10.0),
+              MV, new VerificationStats(95.0, 15.0)),
+            "ZZ", Map.of(
+                TV, new VerificationStats(70.0, 40.0),
+                MV, new VerificationStats(85.0, 25.0))));
+
+    final CostProvider dummyCostProvider = new CostProvider() {
+      @Override
+      public Optional<Integer> getCost(final MessageTransport messageTransport, final String region, final String senderName) {
+        return Optional.of(1);
+      }
+
+      @Override
+      public boolean supports(final MessageTransport messageTransport, final String region, final String senderName) {
+        return true;
+      }
+    };
+
+    final Set<String> defaultBanditChoices = Set.of(TV, MV);
+    final AdaptiveStrategy adaptiveStrategy = new AdaptiveStrategy(
+        new AdaptiveStrategyConfiguration(transport, defaultBanditChoices, Map.of()),
+        dummyCostProvider,
+        verificationStatsProvider,
+        random,
+        new SimpleMeterRegistry());
+
+    this.selector = new DynamicSelector(random, config, adaptiveStrategy, verificationCodeSenders);
   }
 
   public String chooseName(final String phoneNumber, final String region, final String language) {
