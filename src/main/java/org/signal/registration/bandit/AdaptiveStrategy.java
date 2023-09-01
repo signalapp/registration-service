@@ -86,6 +86,19 @@ public class AdaptiveStrategy {
       final List<Locale.LanguageRange> languageRanges,
       final ClientType clientType) {
 
+    final List<Distribution> choices = buildDistributions(region, phoneNumber);
+    final String choice = sampleChoices(generator, choices).senderName();
+
+    meterRegistry.counter(SAMPLING_COUNTER_NAME,
+        REGION_TAG_NAME, region,
+        CHOICE_TAG_NAME, choice).increment();
+
+    log.debug("sampling for region {} returned choice {} (from {} choices)", region, choice, choices.size());
+    return choice;
+  }
+
+  @VisibleForTesting
+  List<Distribution> buildDistributions(final String region, final Phonenumber.PhoneNumber phoneNumber) {
     // Get the configured list of senders for this region
     final Set<String> configuredSenders = configuredSenders(region);
 
@@ -106,21 +119,13 @@ public class AdaptiveStrategy {
     // Build distributions, computing the relative cost of each sender.
     // If none of the senders have cost information available, assign them all a cost of 1.0
     final double maxCost = costs.values().stream().flatMap(Optional::stream).max(Double::compareTo).orElse(1.0);
-    final List<Distribution> scaledChoices = configuredSenders.stream()
+    return configuredSenders.stream()
         .map(sender -> new Distribution(
             sender,
             choices.get(sender),
-            maxCost / costs.get(sender).orElse(maxCost)))
+            costs.get(sender).orElse(maxCost) / maxCost))
         .toList();
 
-    final String choice = sampleChoices(generator, scaledChoices).senderName();
-
-    meterRegistry.counter(SAMPLING_COUNTER_NAME,
-        REGION_TAG_NAME, region,
-        CHOICE_TAG_NAME, choice).increment();
-
-    log.debug("sampling for region {} returned choice {} (from {} choices)", region, choice, scaledChoices.size());
-    return choice;
   }
 
   /**

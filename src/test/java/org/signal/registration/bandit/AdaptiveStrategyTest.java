@@ -4,15 +4,20 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.time.Duration;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.IntSummaryStatistics;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
+import com.google.i18n.phonenumbers.PhoneNumberUtil;
+import com.google.i18n.phonenumbers.Phonenumber;
+import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import org.apache.commons.math3.random.JDKRandomGenerator;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
@@ -24,6 +29,7 @@ import org.signal.registration.cost.FixedCostConfiguration;
 import org.signal.registration.cost.FixedCostProvider;
 import org.signal.registration.sender.MessageTransport;
 import org.signal.registration.sender.VerificationCodeSender;
+import org.signal.registration.util.MapUtil;
 
 public class AdaptiveStrategyTest {
 
@@ -300,6 +306,36 @@ public class AdaptiveStrategyTest {
     System.out.println(computeSteadyStateHistogram(Duration.ofMinutes(2), Duration.ofMinutes(120), 10080));
     System.out.println(computeSteadyStateHistogram(Duration.ofMinutes(5), Duration.ofMinutes(120), 10080));
     System.out.println(computeSteadyStateHistogram(Duration.ofMinutes(10), Duration.ofMinutes(120), 10080));
+  }
+
+  @Test
+  public void distributionConstruction() {
+    final Phonenumber.PhoneNumber phoneNumber = PhoneNumberUtil.getInstance().getExampleNumber("US");
+
+    final AdaptiveStrategyConfiguration config = new AdaptiveStrategyConfiguration(
+        MessageTransport.SMS,
+        Set.of("A", "B", "C"),
+        Collections.emptyMap());
+    final AdaptiveStrategy strat = new AdaptiveStrategy(config,
+        new FixedCostProvider(List.of(new FixedCostConfiguration(MessageTransport.SMS, Map.of("US", Map.of(
+            "A", 10,
+            "B", 1,
+            "C", 5))))),
+        InMemoryVerificationStatsProvider.create(Map.of("US", Map.of(
+            "A", new VerificationStats(90.0, 100.0),
+            "B", new VerificationStats(8.0, 2.0),
+            "C", new VerificationStats(3.0, 7.0)))),
+        this.generator,
+        new SimpleMeterRegistry());
+
+    final List<Distribution> distributions = strat.buildDistributions("US", phoneNumber);
+    assertEquals(distributions.size(), 3);
+    final Map<String, Distribution> byName = distributions.stream()
+        .collect(Collectors.toMap(Distribution::senderName, Function.identity()));
+    assertEquals(byName.keySet(), Set.of("A", "B", "C"));
+    assertEquals(1.0, byName.get("A").relativeCost(), 0.01);
+    assertEquals(.1, byName.get("B").relativeCost(), 0.01);
+    assertEquals(.5, byName.get("C").relativeCost(), 0.01);
   }
 
   @MethodSource
