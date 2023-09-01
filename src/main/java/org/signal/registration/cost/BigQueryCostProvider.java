@@ -68,7 +68,9 @@ public class BigQueryCostProvider implements CostProvider {
   @Scheduled(initialDelay = "5s", fixedDelay = "5m")
   void internalUpdate() {
     final QueryParameterValue windowStart = QueryParameterValue.timestamp(
-        Instant.now().minus(windowSize).getEpochSecond());
+        // Timestamp takes microseconds since epoch
+        Instant.now().minus(windowSize).toEpochMilli() * 1000L);
+
     final JobId jobId = JobId.of(UUID.randomUUID().toString());
     final QueryJobConfiguration queryConfig = QueryJobConfiguration
         .newBuilder("""

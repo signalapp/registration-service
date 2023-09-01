@@ -5,8 +5,7 @@ import io.micronaut.core.bind.annotation.Bindable;
 import javax.validation.constraints.NotNull;
 import java.time.Duration;
 
-@ConfigurationProperties("adaptive.bandit")
+@ConfigurationProperties("stats.bigquery")
 record VerificationStatsConfiguration(
-    @Bindable(defaultValue = "PT1H") @NotNull Duration halfLife,
     @Bindable(defaultValue = "P1D") @NotNull Duration windowSize) {
 }

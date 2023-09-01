@@ -6,6 +6,7 @@ import com.google.cloud.bigquery.Job;
 import com.google.cloud.bigquery.JobId;
 import com.google.cloud.bigquery.JobInfo;
 import com.google.cloud.bigquery.QueryJobConfiguration;
+import com.google.cloud.bigquery.QueryParameterValue;
 import com.google.cloud.bigquery.TableResult;
 import com.google.i18n.phonenumbers.Phonenumber;
 import io.micrometer.core.instrument.MeterRegistry;
@@ -17,7 +18,6 @@ import jakarta.inject.Named;
 import jakarta.inject.Singleton;
 import java.time.Duration;
 import java.time.Instant;
-import java.time.temporal.ChronoUnit;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.DoubleSummaryStatistics;
@@ -65,26 +65,6 @@ public class BigQueryVerificationStatsProvider implements VerificationStatsProvi
         summary.getSum());
   }
 
-  // template for our SQL query
-  // the first two %d parameters should be identical (half-life in milliseconds)
-  // the third %s parameter should be an ISO-8601 date/time string produced by Instant.toString.
-  // the fourth %s parameter should be the message_transport (sms or voice)
-  private static final String BASE_SQL_FORMAT = """
-      SELECT t.sender_name as sender_name,
-        t.region as region,
-        sum(t.ok * exp(-log(2) / %d * delta_ms)) as successes,
-        sum(1 * exp(-log(2) / %d * delta_ms)) as total
-      FROM (
-        SELECT sender_name,
-          region,
-          (cast (verified as integer)) as ok,
-          timestamp_diff(current_timestamp(), timestamp, MILLISECOND) as delta_ms
-        FROM `registration.analyzed-attempts`
-        WHERE timestamp > "%s" AND message_transport = "%s"
-      ) as t
-      GROUP BY t.sender_name, t.region;
-      """;
-
   @Override
   public Optional<VerificationStats> getVerificationStats(final MessageTransport messageTransport,
       final Phonenumber.PhoneNumber phoneNumber,
@@ -100,7 +80,6 @@ public class BigQueryVerificationStatsProvider implements VerificationStatsProvi
     private final Executor executor;
     private final BigQuery bigQuery;
     private final MessageTransport messageTransport;
-    private final Duration halfLife;
     private final Duration windowSize;
     private final MeterRegistry meterRegistry;
     private final Map<Pair<String, String>, VerificationStats> currentStats;
@@ -112,13 +91,11 @@ public class BigQueryVerificationStatsProvider implements VerificationStatsProvi
         final Executor executor,
         final BigQuery bigQuery,
         final MessageTransport messageTransport,
-        final Duration halfLife,
         final Duration windowSize,
         final MeterRegistry meterRegistry) {
       this.executor = executor;
       this.bigQuery = bigQuery;
       this.messageTransport = messageTransport;
-      this.halfLife = halfLife;
       this.windowSize = windowSize;
       this.meterRegistry = meterRegistry;
       this.currentStats = new HashMap<>();
@@ -128,9 +105,7 @@ public class BigQueryVerificationStatsProvider implements VerificationStatsProvi
     }
 
     private CompletableFuture<Void> refreshStats() {
-      final Instant start = Instant.now().minus(windowSize);
-      final String sql = makeSql(halfLife, start);
-      return runQuery(sql)
+      return runQuery()
           .thenApply(o -> o.map(this::processTableResult))
           .thenAccept(opt -> {
             if (opt.isPresent()) {
@@ -143,22 +118,32 @@ public class BigQueryVerificationStatsProvider implements VerificationStatsProvi
           });
     }
 
-    private String makeSql(Duration halfLife, Instant start) {
-      final long halfLifeMs = halfLife.toMillis(); // e.g. 604800000
-      final String limit = start.truncatedTo(ChronoUnit.SECONDS).toString(); // e.g. "2023-03-09T17:39:54Z"
-      return String.format(BASE_SQL_FORMAT, halfLifeMs, halfLifeMs, limit, messageTransportColumnVal(messageTransport));
-    }
-
     private static String messageTransportColumnVal(final MessageTransport messageTransport) {
       return MetricsUtil.getMessageTransportTagValue(
           MessageTransports.getRpcMessageTransportFromSenderTransport(messageTransport));
     }
 
-    private CompletableFuture<Optional<TableResult>> runQuery(final String sql) {
+    private CompletableFuture<Optional<TableResult>> runQuery() {
       return CompletableFuture.supplyAsync(() -> {
+        final QueryParameterValue windowStart = QueryParameterValue.timestamp(
+            // Timestamp takes microseconds since epoch
+            Instant.now().minus(windowSize).toEpochMilli() * 1000L);
+
+        final QueryParameterValue transport = QueryParameterValue.string(messageTransportColumnVal(messageTransport));
 
         final JobId jobId = JobId.of(UUID.randomUUID().toString());
-        final QueryJobConfiguration queryConfig = QueryJobConfiguration.newBuilder(sql)
+        final QueryJobConfiguration queryConfig = QueryJobConfiguration.newBuilder("""
+                SELECT
+                  sender_name,
+                  region,
+                  SUM(CAST(verified as integer)) as successes,
+                  SUM(1) as total
+                FROM `registration.analyzed-attempts`
+                WHERE timestamp > @window_start_ts AND message_transport = @message_transport
+                GROUP BY sender_name, region;
+                """)
+            .addNamedParameter("window_start_ts", windowStart)
+            .addNamedParameter("message_transport", transport)
             .setUseLegacySql(false)
             .build();
         final JobInfo jobInfo = JobInfo.newBuilder(queryConfig).setJobId(jobId).build();
@@ -218,7 +203,7 @@ public class BigQueryVerificationStatsProvider implements VerificationStatsProvi
       final MeterRegistry meterRegistry) {
     this.updaterByTransport = new EnumMap<>(Arrays.stream(MessageTransport.values()).collect(Collectors.toMap(
         Function.identity(),
-        mt -> new Updater(executor, bigQuery, mt, config.halfLife(), config.windowSize(), meterRegistry))));
+        mt -> new Updater(executor, bigQuery, mt, config.windowSize(), meterRegistry))));
     this.updaterByTransport.forEach((messageTransport, updater) ->
         meterRegistry.gauge(REGION_COUNT_GAUGE_NAME,
             Tags.of(TRANSPORT_TAG_NAME, messageTransport.name()),
