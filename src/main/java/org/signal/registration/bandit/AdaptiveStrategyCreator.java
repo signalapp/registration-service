@@ -46,19 +46,16 @@ public class AdaptiveStrategyCreator {
   private final Map<MessageTransport, AdaptiveStrategyConfiguration> adaptiveConfigurations;
   private final CostProvider costProvider;
   private final VerificationStatsProvider verificationStatsProvider;
-  private final MeterRegistry meterRegistry;
 
   public AdaptiveStrategyCreator(
       final List<AdaptiveStrategyConfiguration> adaptiveConfigurations,
       final CostProvider costProvider,
-      final VerificationStatsProvider verificationStatsProvider,
-      final MeterRegistry meterRegistry) {
+      final VerificationStatsProvider verificationStatsProvider) {
     this.adaptiveConfigurations = adaptiveConfigurations.stream().collect(Collectors.toMap(
         AdaptiveStrategyConfiguration::transport,
         Function.identity()));
     this.costProvider = costProvider;
     this.verificationStatsProvider = verificationStatsProvider;
-    this.meterRegistry = meterRegistry;
   }
 
   /**
@@ -81,7 +78,7 @@ public class AdaptiveStrategyCreator {
     // check that these regions all are capable of getting cost information
     validateConfig(adaptiveRegions, costProvider, config);
 
-    return new AdaptiveStrategy(config, costProvider, verificationStatsProvider, RANDOM, meterRegistry);
+    return new AdaptiveStrategy(config, costProvider, verificationStatsProvider, RANDOM);
   }
 
   /**

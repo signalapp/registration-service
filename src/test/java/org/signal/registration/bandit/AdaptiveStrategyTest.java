@@ -325,8 +325,7 @@ public class AdaptiveStrategyTest {
             "A", new VerificationStats(90.0, 100.0),
             "B", new VerificationStats(8.0, 2.0),
             "C", new VerificationStats(3.0, 7.0)))),
-        this.generator,
-        new SimpleMeterRegistry());
+        this.generator);
 
     final List<Distribution> distributions = strat.buildDistributions("US", phoneNumber);
     assertEquals(distributions.size(), 3);

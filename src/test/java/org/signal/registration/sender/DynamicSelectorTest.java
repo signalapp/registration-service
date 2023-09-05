@@ -15,9 +15,11 @@ import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import javax.annotation.Nullable;
+import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import org.apache.commons.math3.random.AbstractRandomGenerator;
 import org.apache.commons.math3.random.JDKRandomGenerator;
 import org.apache.commons.math3.random.RandomGenerator;
+import org.junit.jupiter.api.DisplayNameGenerator;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
@@ -102,6 +104,7 @@ public class DynamicSelectorTest {
 
     final DynamicSelector ts = new DynamicSelector(
         rg,
+        new SimpleMeterRegistry(),
         config,
         null,
         List.of(SENDER_A, SENDER_B, UNSUPPORTED, SENDER_FALLBACK));
@@ -141,7 +144,7 @@ public class DynamicSelectorTest {
         Map.of(),
         regionOverrides);
 
-    final DynamicSelector ts = new DynamicSelector(new JDKRandomGenerator(), config, null, SENDERS);
+    final DynamicSelector ts = new DynamicSelector(new SimpleMeterRegistry(), config, null, SENDERS);
     final VerificationCodeSender actual = ts.chooseVerificationCodeSender(
         number,
         Collections.emptyList(),
@@ -176,7 +179,7 @@ public class DynamicSelectorTest {
         Map.of(),
         Map.of());
 
-    final DynamicSelector ts = new DynamicSelector(new JDKRandomGenerator(), config, null, SENDERS);
+    final DynamicSelector ts = new DynamicSelector(new SimpleMeterRegistry(), config, null, SENDERS);
     final Phonenumber.PhoneNumber num = PhoneNumberUtil.getInstance().getExampleNumber("US");
     final VerificationCodeSender actual = ts.chooseVerificationCodeSender(num, Collections.emptyList(),
         ClientType.IOS, null);
@@ -192,7 +195,7 @@ public class DynamicSelectorTest {
         Map.of(),
         Map.of());
 
-    final DynamicSelector ts = new DynamicSelector(new JDKRandomGenerator(), config, null, List.of(SENDER_FALLBACK, SENDER_A));
+    final DynamicSelector ts = new DynamicSelector(new SimpleMeterRegistry(), config, null, List.of(SENDER_FALLBACK, SENDER_A));
     final VerificationCodeSender actual = ts.chooseVerificationCodeSender(
         PhoneNumberUtil.getInstance().getExampleNumber("US"),
         Collections.emptyList(),

@@ -3,6 +3,7 @@ package org.signal.registration.sender;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.i18n.phonenumbers.Phonenumber;
+import io.micrometer.core.instrument.MeterRegistry;
 import io.micronaut.context.annotation.EachBean;
 import jakarta.inject.Singleton;
 import java.util.List;
@@ -20,6 +21,7 @@ import org.apache.commons.math3.random.RandomGenerator;
 import org.apache.commons.math3.util.Pair;
 import org.signal.registration.bandit.AdaptiveStrategy;
 import org.signal.registration.bandit.AdaptiveStrategyCreator;
+import org.signal.registration.metrics.MetricsUtil;
 import org.signal.registration.sender.fictitious.FictitiousNumberVerificationCodeSender;
 import org.signal.registration.sender.prescribed.PrescribedVerificationCodeSender;
 import org.signal.registration.util.MapUtil;
@@ -45,6 +47,8 @@ public class DynamicSelector {
 
   public static final String ADAPTIVE_NAME = "adaptive";
 
+  private static final String ADAPTIVE_SAMPLING_COUNTER_NAME = MetricsUtil.name(DynamicSelector.class, "adaptiveSampling");
+
   private static final RandomGenerator RANDOM = new AbstractRandomGenerator() {
 
     @Override
@@ -65,20 +69,24 @@ public class DynamicSelector {
   private final Map<String, String> regionOverrides;
   private final Map<String, VerificationCodeSender> senders;
   private final AdaptiveStrategy strategy;
+  private final MeterRegistry meterRegistry;
 
   public DynamicSelector(
+      final MeterRegistry meterRegistry,
       final DynamicSelectorConfiguration config,
       final AdaptiveStrategyCreator adaptiveStrategyCreator,
       final List<VerificationCodeSender> verificationCodeSenders) {
-    this(RANDOM, config, adaptiveStrategyCreator.create(config), verificationCodeSenders);
+    this(RANDOM, meterRegistry, config, adaptiveStrategyCreator.create(config), verificationCodeSenders);
   }
 
   @VisibleForTesting
   DynamicSelector(
       final RandomGenerator random,
+      final MeterRegistry meterRegistry,
       final DynamicSelectorConfiguration config,
       final AdaptiveStrategy adaptiveStrategy,
       final List<VerificationCodeSender> verificationCodeSenders) {
+    this.meterRegistry = meterRegistry;
     logger.info("Configuring WeightedSelector for transport {} with {}", config.transport(), config);
 
     // look up senders by name
@@ -148,18 +156,21 @@ public class DynamicSelector {
     final Phonenumber.PhoneNumber phoneNumber,
     final List<Locale.LanguageRange> languageRanges,
     final ClientType clientType,
-    final @Nullable String preferredSender
-  ) {
+    final @Nullable String preferredSender) {
 
     if (preferredSender != null && senders.containsKey(preferredSender)) {
       return preferredSender;
     }
 
-    // check for region based overrides
     final String region = PhoneNumbers.regionCodeUpper(phoneNumber);
+
+    // check for region based overrides
     if (this.regionOverrides.containsKey(region)) {
       return this.regionOverrides.get(region);
     }
+
+    // determine what we would pick with the adaptive strategy
+    final String adaptivePick = strategy.sample(phoneNumber, region, languageRanges, clientType);
 
     // make a weighted selection if we have one configured
     final Optional<String> weightedSelection = Optional
@@ -167,22 +178,24 @@ public class DynamicSelector {
         .map(EnumeratedDistribution::sample);
 
     final Optional<String> sampledSelection =
-        weightedSelection.map(name -> {
-          if (name.equals(ADAPTIVE_NAME)) {
-            return strategy.sample(phoneNumber, region, languageRanges, clientType);
-          } else {
-            return name;
-          }
-        });
+        weightedSelection.map(name -> name.equals(ADAPTIVE_NAME) ? adaptivePick : name);
 
-    return Stream
-      // [selected sender, fallbackSenders...]
-      .concat(sampledSelection.stream(), this.fallbackSenders.stream())
-      // get first sender that supports the destination
-      .filter(s -> senders.get(s).supportsLanguageAndClient(transport, phoneNumber, languageRanges, clientType))
-      .findFirst()
-      // or, if none support the destination, the first fallbackSender
-      .orElse(this.fallbackSenders.get(0));
+    final String selection = Stream
+        // [selected sender, fallbackSenders...]
+        .concat(sampledSelection.stream(), this.fallbackSenders.stream())
+        // get first sender that supports the destination
+        .filter(s -> senders.get(s).supportsLanguageAndClient(transport, phoneNumber, languageRanges, clientType))
+        .findFirst()
+        // or, if none support the destination, the first fallbackSender
+        .orElse(this.fallbackSenders.get(0));
+
+    final boolean usedAdaptive = weightedSelection.map(ADAPTIVE_NAME::equals).orElse(false) && adaptivePick.equals(selection);
+    meterRegistry.counter(ADAPTIVE_SAMPLING_COUNTER_NAME,
+        "region", region,
+        "choice", adaptivePick,
+        "enabled", Boolean.toString(usedAdaptive)).increment();
+
+    return selection;
   }
 
   public MessageTransport getTransport() {

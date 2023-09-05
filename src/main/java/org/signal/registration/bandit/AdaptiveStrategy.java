@@ -33,28 +33,20 @@ public class AdaptiveStrategy {
 
   private static final Logger log = LoggerFactory.getLogger(AdaptiveStrategy.class);
 
-  private static final String SAMPLING_COUNTER_NAME = MetricsUtil.name(AdaptiveStrategy.class, "sampling");
-  private static final String REGION_TAG_NAME = "region";
-  private static final String CHOICE_TAG_NAME = "choice";
-
-
   private final AdaptiveStrategyConfiguration config;
   private final CostProvider costProvider;
   private final VerificationStatsProvider statsProvider;
   private final RandomGenerator generator;
-  private final MeterRegistry meterRegistry;
 
   public AdaptiveStrategy(
       final AdaptiveStrategyConfiguration config,
       final CostProvider costProvider,
       final VerificationStatsProvider statsProvider,
-      final RandomGenerator generator,
-      final MeterRegistry meterRegistry) {
+      final RandomGenerator generator) {
     this.config = config;
     this.costProvider = costProvider;
     this.statsProvider = statsProvider;
     this.generator = generator;
-    this.meterRegistry = meterRegistry;
   }
 
   /**
@@ -88,10 +80,6 @@ public class AdaptiveStrategy {
 
     final List<Distribution> choices = buildDistributions(region, phoneNumber);
     final String choice = sampleChoices(generator, choices).senderName();
-
-    meterRegistry.counter(SAMPLING_COUNTER_NAME,
-        REGION_TAG_NAME, region,
-        CHOICE_TAG_NAME, choice).increment();
 
     log.debug("sampling for region {} returned choice {} (from {} choices)", region, choice, choices.size());
     return choice;

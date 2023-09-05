@@ -78,10 +78,9 @@ public class DynamicSelectorBanditTest {
         new AdaptiveStrategyConfiguration(transport, defaultBanditChoices, Map.of()),
         dummyCostProvider,
         verificationStatsProvider,
-        random,
-        new SimpleMeterRegistry());
+        random);
 
-    this.selector = new DynamicSelector(random, config, adaptiveStrategy, verificationCodeSenders);
+    this.selector = new DynamicSelector(random, new SimpleMeterRegistry(), config, adaptiveStrategy, verificationCodeSenders);
   }
 
   public String chooseName(final String phoneNumber, final String region, final String language) {
