@@ -2,7 +2,7 @@ package org.signal.registration.bandit;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.i18n.phonenumbers.Phonenumber;
-import io.micrometer.core.instrument.MeterRegistry;
+import jakarta.inject.Singleton;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Locale;
@@ -13,8 +13,8 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 import org.apache.commons.math3.random.RandomGenerator;
 import org.signal.registration.cost.CostProvider;
-import org.signal.registration.metrics.MetricsUtil;
 import org.signal.registration.sender.ClientType;
+import org.signal.registration.sender.MessageTransport;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -29,21 +29,22 @@ import org.slf4j.LoggerFactory;
  * See {@link AdaptiveStrategyConfiguration} for more details, as well as the
  * <a href="https://en.wikipedia.org/wiki/Thompson_sampling">Wikipedia page for Thompson sampling</a>.
  */
+@Singleton
 public class AdaptiveStrategy {
 
   private static final Logger log = LoggerFactory.getLogger(AdaptiveStrategy.class);
 
-  private final AdaptiveStrategyConfiguration config;
+  private final Map<MessageTransport, AdaptiveStrategyConfiguration> configs;
   private final CostProvider costProvider;
   private final VerificationStatsProvider statsProvider;
   private final RandomGenerator generator;
 
   public AdaptiveStrategy(
-      final AdaptiveStrategyConfiguration config,
+      final List<AdaptiveStrategyConfiguration> config,
       final CostProvider costProvider,
       final VerificationStatsProvider statsProvider,
       final RandomGenerator generator) {
-    this.config = config;
+    this.configs = config.stream().collect(Collectors.toMap(AdaptiveStrategyConfiguration::transport, Function.identity()));
     this.costProvider = costProvider;
     this.statsProvider = statsProvider;
     this.generator = generator;
@@ -52,10 +53,12 @@ public class AdaptiveStrategy {
   /**
    * Select the set of allowed choices, either using a regional override or the global setting.
    *
+   * @param messageTransport the message transport to use
    * @param region The region requesting a verification
    * @return the set of allowed sender names (which is guaranteed to be non-empty).
    */
-  private Set<String> configuredSenders(String region) {
+  private Set<String> configuredSenders(final MessageTransport messageTransport, String region) {
+    final AdaptiveStrategyConfiguration config = configs.get(messageTransport);
     return config.regionalChoices().getOrDefault(region, config.defaultChoices());
   }
 
@@ -73,12 +76,13 @@ public class AdaptiveStrategy {
    * @return the name of the sender which was selected
    */
   public String sample(
+      final MessageTransport messageTransport,
       final Phonenumber.PhoneNumber phoneNumber,
       final String region,
       final List<Locale.LanguageRange> languageRanges,
       final ClientType clientType) {
 
-    final List<Distribution> choices = buildDistributions(region, phoneNumber);
+    final List<Distribution> choices = buildDistributions(messageTransport, region, phoneNumber);
     final String choice = sampleChoices(generator, choices).senderName();
 
     log.debug("sampling for region {} returned choice {} (from {} choices)", region, choice, choices.size());
@@ -86,23 +90,23 @@ public class AdaptiveStrategy {
   }
 
   @VisibleForTesting
-  List<Distribution> buildDistributions(final String region, final Phonenumber.PhoneNumber phoneNumber) {
+  List<Distribution> buildDistributions(final MessageTransport messageTransport, final String region, final Phonenumber.PhoneNumber phoneNumber) {
     // Get the configured list of senders for this region
-    final Set<String> configuredSenders = configuredSenders(region);
+    final Set<String> configuredSenders = configuredSenders(messageTransport, region);
 
     // Get success/failure information about each sender
     final Map<String, VerificationStats> choices = configuredSenders.stream()
         .collect(Collectors.toMap(
             Function.identity(),
             sender -> statsProvider
-                .getVerificationStats(config.transport(), phoneNumber, region, sender)
+                .getVerificationStats(messageTransport, phoneNumber, region, sender)
                 .orElseGet(VerificationStats::empty)));
 
     // Get cost information about each sender
     final Map<String, Optional<Double>> costs = configuredSenders.stream()
         .collect(Collectors.toMap(
             Function.identity(),
-            sender -> costProvider.getCost(config.transport(), region, sender).map(Integer::doubleValue)));
+            sender -> costProvider.getCost(messageTransport, region, sender).map(Integer::doubleValue)));
 
     // Build distributions, computing the relative cost of each sender.
     // If none of the senders have cost information available, assign them all a cost of 1.0

@@ -3,33 +3,24 @@ package org.signal.registration.bandit;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import com.google.i18n.phonenumbers.PhoneNumberUtil;
+import com.google.i18n.phonenumbers.Phonenumber;
 import java.time.Duration;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.IntSummaryStatistics;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
-import java.util.stream.Stream;
-import com.google.i18n.phonenumbers.PhoneNumberUtil;
-import com.google.i18n.phonenumbers.Phonenumber;
-import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import org.apache.commons.math3.random.JDKRandomGenerator;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.params.ParameterizedTest;
-import org.junit.jupiter.params.provider.Arguments;
-import org.junit.jupiter.params.provider.MethodSource;
-import org.signal.registration.cost.CostProvider;
 import org.signal.registration.cost.FixedCostConfiguration;
 import org.signal.registration.cost.FixedCostProvider;
 import org.signal.registration.sender.MessageTransport;
-import org.signal.registration.sender.VerificationCodeSender;
-import org.signal.registration.util.MapUtil;
 
 public class AdaptiveStrategyTest {
 
@@ -316,7 +307,7 @@ public class AdaptiveStrategyTest {
         MessageTransport.SMS,
         Set.of("A", "B", "C"),
         Collections.emptyMap());
-    final AdaptiveStrategy strat = new AdaptiveStrategy(config,
+    final AdaptiveStrategy strat = new AdaptiveStrategy(List.of(config),
         new FixedCostProvider(List.of(new FixedCostConfiguration(MessageTransport.SMS, Map.of("US", Map.of(
             "A", 10,
             "B", 1,
@@ -327,7 +318,7 @@ public class AdaptiveStrategyTest {
             "C", new VerificationStats(3.0, 7.0)))),
         this.generator);
 
-    final List<Distribution> distributions = strat.buildDistributions("US", phoneNumber);
+    final List<Distribution> distributions = strat.buildDistributions(MessageTransport.SMS, "US", phoneNumber);
     assertEquals(distributions.size(), 3);
     final Map<String, Distribution> byName = distributions.stream()
         .collect(Collectors.toMap(Distribution::senderName, Function.identity()));
@@ -335,50 +326,6 @@ public class AdaptiveStrategyTest {
     assertEquals(1.0, byName.get("A").relativeCost(), 0.01);
     assertEquals(.1, byName.get("B").relativeCost(), 0.01);
     assertEquals(.5, byName.get("C").relativeCost(), 0.01);
-  }
-
-  @MethodSource
-  @ParameterizedTest
-  void catchMissingCosts(
-      Map<String, Set<String>> regionalChoices,
-      Set<String> defaultSenders,
-      Set<String> adaptiveRegions,
-      Map<String, Set<String>> expected) {
-
-    final AdaptiveStrategyConfiguration config = new AdaptiveStrategyConfiguration(
-        MessageTransport.SMS,
-        defaultSenders,
-        regionalChoices);
-
-    final CostProvider costs = new FixedCostProvider(List.of(new FixedCostConfiguration(
-        MessageTransport.SMS,
-        Map.of("R1", Map.of("a", 10, "b", 6, "c", 9)))));
-
-    final Map<String, Set<String>> result = AdaptiveStrategyCreator.findMissingCosts(
-        adaptiveRegions,
-        (region, senderName) -> costs.supports(MessageTransport.SMS, region, senderName),
-        config);
-    assertEquals(expected, result);
-  }
-
-  private static Stream<Arguments> catchMissingCosts() {
-    return Stream.of(
-        // we have one configured region with all costs -- nothing missing
-        Arguments.of(Map.of("R1", Set.of("a", "b")), Set.of("x", "y"), Set.of("R1"), Map.of()),
-        // we have an un-configured adaptive region; default senders don't have costs for this region
-        Arguments.of(Map.of("R1", Set.of("a", "b")), Set.of("x", "y"), Set.of("R1", "R9"),
-            Map.of("R9", Set.of("x", "y"))),
-        // we have an unknown sender in R1, so report it
-        Arguments.of(Map.of("R1", Set.of("a", "b", "z")), Set.of("x", "y"), Set.of("R1"), Map.of("R1", Set.of("z"))),
-        // we have a non-adaptive region configured (R2) which we ignore -- nothing missing
-        Arguments.of(Map.of("R1", Set.of("a", "b"), "R2", Set.of("x", "y")), Set.of("x", "y"), Set.of("R1"), Map.of()),
-        // we don't have any configuration but default senders have costs for R1 -- nothing missing
-        Arguments.of(Map.of(), Set.of("a", "b"), Set.of("R1"), Map.of()),
-        // default senders have costs for R1 but not R9
-        Arguments.of(Map.of(), Set.of("a", "b"), Set.of("R1", "R9"), Map.of("R9", Set.of("a", "b"))),
-        // one default sender is missing, so just report that
-        Arguments.of(Map.of(), Set.of("a", "b", "z"), Set.of("R1"), Map.of("R1", Set.of("z")))
-    );
   }
 
   private static Distribution addSuccesses(final Distribution choice, double count) {

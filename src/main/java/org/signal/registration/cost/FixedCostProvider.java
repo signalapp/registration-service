@@ -37,11 +37,4 @@ public class FixedCostProvider implements CostProvider {
         .getOrDefault(region, Collections.emptyMap())
         .get(senderName));
   }
-
-  @Override
-  public boolean supports(final MessageTransport messageTransport, final String region, final String provider) {
-    return fixedCosts.getOrDefault(messageTransport, Collections.emptyMap())
-        .getOrDefault(region.toUpperCase(), Collections.emptyMap())
-        .containsKey(provider);
-  }
 }

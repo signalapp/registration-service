@@ -60,11 +60,6 @@ public class BigQueryCostProvider implements CostProvider {
         .get(senderName));
   }
 
-  @Override
-  public boolean supports(final MessageTransport messageTransport, final String region, final String senderName) {
-    return true;
-  }
-
   @Scheduled(initialDelay = "5s", fixedDelay = "5m")
   void internalUpdate() {
     final QueryParameterValue windowStart = QueryParameterValue.timestamp(

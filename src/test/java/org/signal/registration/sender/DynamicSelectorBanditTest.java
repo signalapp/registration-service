@@ -61,21 +61,11 @@ public class DynamicSelectorBanditTest {
                 TV, new VerificationStats(70.0, 40.0),
                 MV, new VerificationStats(85.0, 25.0))));
 
-    final CostProvider dummyCostProvider = new CostProvider() {
-      @Override
-      public Optional<Integer> getCost(final MessageTransport messageTransport, final String region, final String senderName) {
-        return Optional.of(1);
-      }
-
-      @Override
-      public boolean supports(final MessageTransport messageTransport, final String region, final String senderName) {
-        return true;
-      }
-    };
+    final CostProvider dummyCostProvider = (messageTransport, region, senderName) -> Optional.of(1);
 
     final Set<String> defaultBanditChoices = Set.of(TV, MV);
     final AdaptiveStrategy adaptiveStrategy = new AdaptiveStrategy(
-        new AdaptiveStrategyConfiguration(transport, defaultBanditChoices, Map.of()),
+        List.of(new AdaptiveStrategyConfiguration(transport, defaultBanditChoices, Map.of())),
         dummyCostProvider,
         verificationStatsProvider,
         random);

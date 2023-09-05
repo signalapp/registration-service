@@ -18,11 +18,4 @@ public interface CostProvider {
    * @return an estimate of the cost to send a message in micro-dollars
    */
   Optional<Integer> getCost(final MessageTransport messageTransport, final String region, final String senderName);
-
-  /**
-   * @return whether the cost provider supports cost information for the messages from senderName to the specified
-   * region over the specified transport
-   */
-  boolean supports(final MessageTransport messageTransport, final String region, final String senderName);
-
 }

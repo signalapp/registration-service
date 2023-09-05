@@ -1,9 +1,13 @@
 package org.signal.registration.sender;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
 import com.google.i18n.phonenumbers.PhoneNumberUtil;
 import com.google.i18n.phonenumbers.Phonenumber;
+import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import java.time.Duration;
 import java.util.Arrays;
 import java.util.Collections;
@@ -15,15 +19,14 @@ import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import javax.annotation.Nullable;
-import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import org.apache.commons.math3.random.AbstractRandomGenerator;
 import org.apache.commons.math3.random.JDKRandomGenerator;
 import org.apache.commons.math3.random.RandomGenerator;
-import org.junit.jupiter.api.DisplayNameGenerator;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
+import org.signal.registration.bandit.AdaptiveStrategy;
 
 public class DynamicSelectorTest {
 
@@ -84,29 +87,15 @@ public class DynamicSelectorTest {
             e -> new TreeMap<>(e.getValue())
         ));
 
-    RandomGenerator rg = new AbstractRandomGenerator() {
-      @Override
-      public void setSeed(final long seed) {
-      }
-
-      @Override
-      public double nextDouble() {
-        return randomValue;
-      }
-    };
-
     final DynamicSelectorConfiguration config = new DynamicSelectorConfiguration(
         transport,
         List.of(SENDER_FALLBACK.getName()),
         sortedDefaults,
         sortedOverrides,
         Collections.emptyMap());
-
-    final DynamicSelector ts = new DynamicSelector(
-        rg,
-        new SimpleMeterRegistry(),
+    final DynamicSelector ts = fixedRandom(
+        randomValue,
         config,
-        null,
         List.of(SENDER_A, SENDER_B, UNSUPPORTED, SENDER_FALLBACK));
 
     final VerificationCodeSender actual = ts.chooseVerificationCodeSender(
@@ -144,7 +133,7 @@ public class DynamicSelectorTest {
         Map.of(),
         regionOverrides);
 
-    final DynamicSelector ts = new DynamicSelector(new SimpleMeterRegistry(), config, null, SENDERS);
+    final DynamicSelector ts = buildSelector(config, SENDERS);
     final VerificationCodeSender actual = ts.chooseVerificationCodeSender(
         number,
         Collections.emptyList(),
@@ -179,7 +168,7 @@ public class DynamicSelectorTest {
         Map.of(),
         Map.of());
 
-    final DynamicSelector ts = new DynamicSelector(new SimpleMeterRegistry(), config, null, SENDERS);
+    final DynamicSelector ts = buildSelector(config, SENDERS);
     final Phonenumber.PhoneNumber num = PhoneNumberUtil.getInstance().getExampleNumber("US");
     final VerificationCodeSender actual = ts.chooseVerificationCodeSender(num, Collections.emptyList(),
         ClientType.IOS, null);
@@ -195,7 +184,7 @@ public class DynamicSelectorTest {
         Map.of(),
         Map.of());
 
-    final DynamicSelector ts = new DynamicSelector(new SimpleMeterRegistry(), config, null, List.of(SENDER_FALLBACK, SENDER_A));
+    final DynamicSelector ts = buildSelector(config, List.of(SENDER_FALLBACK, SENDER_A));
     final VerificationCodeSender actual = ts.chooseVerificationCodeSender(
         PhoneNumberUtil.getInstance().getExampleNumber("US"),
         Collections.emptyList(),
@@ -205,6 +194,27 @@ public class DynamicSelectorTest {
   }
 
 
+  private static DynamicSelector fixedRandom(final double randomValue, DynamicSelectorConfiguration config, List<VerificationCodeSender> senders) {
+    RandomGenerator rg = new AbstractRandomGenerator() {
+      @Override
+      public void setSeed(final long seed) {
+      }
+
+      @Override
+      public double nextDouble() {
+        return randomValue;
+      }
+    };
+    final AdaptiveStrategy adaptiveStrategy = mock(AdaptiveStrategy.class);
+    when(adaptiveStrategy.sample(any(), any(), any(), any(), any())).thenReturn("an_adaptive_choice");
+    return new DynamicSelector(rg, new SimpleMeterRegistry(), config, adaptiveStrategy, senders);
+  }
+
+  private static DynamicSelector buildSelector(DynamicSelectorConfiguration config, List<VerificationCodeSender> senders) {
+    final AdaptiveStrategy adaptiveStrategy = mock(AdaptiveStrategy.class);
+    when(adaptiveStrategy.sample(any(), any(), any(), any(), any())).thenReturn("an_adaptive_choice");
+    return new DynamicSelector(new JDKRandomGenerator(), new SimpleMeterRegistry(), config, adaptiveStrategy, senders);
+  }
 
   private static VerificationCodeSender buildTestSender(final String name, final boolean supports) {
     return new VerificationCodeSender() {

@@ -1,7 +1,6 @@
 package org.signal.registration.sender;
 
 
-import com.google.common.annotations.VisibleForTesting;
 import com.google.i18n.phonenumbers.Phonenumber;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micronaut.context.annotation.EachBean;
@@ -10,17 +9,14 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
-import java.util.concurrent.ThreadLocalRandom;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import javax.annotation.Nullable;
 import org.apache.commons.math3.distribution.EnumeratedDistribution;
-import org.apache.commons.math3.random.AbstractRandomGenerator;
 import org.apache.commons.math3.random.RandomGenerator;
 import org.apache.commons.math3.util.Pair;
 import org.signal.registration.bandit.AdaptiveStrategy;
-import org.signal.registration.bandit.AdaptiveStrategyCreator;
 import org.signal.registration.metrics.MetricsUtil;
 import org.signal.registration.sender.fictitious.FictitiousNumberVerificationCodeSender;
 import org.signal.registration.sender.prescribed.PrescribedVerificationCodeSender;
@@ -49,19 +45,6 @@ public class DynamicSelector {
 
   private static final String ADAPTIVE_SAMPLING_COUNTER_NAME = MetricsUtil.name(DynamicSelector.class, "adaptiveSampling");
 
-  private static final RandomGenerator RANDOM = new AbstractRandomGenerator() {
-
-    @Override
-    public void setSeed(final long seed) {
-      ThreadLocalRandom.current().setSeed(seed);
-    }
-
-    @Override
-    public double nextDouble() {
-      return ThreadLocalRandom.current().nextDouble();
-    }
-  };
-
   private final MessageTransport transport;
   private final List<String> fallbackSenders;
   private final Optional<EnumeratedDistribution<String>> defaultDist;
@@ -72,15 +55,6 @@ public class DynamicSelector {
   private final MeterRegistry meterRegistry;
 
   public DynamicSelector(
-      final MeterRegistry meterRegistry,
-      final DynamicSelectorConfiguration config,
-      final AdaptiveStrategyCreator adaptiveStrategyCreator,
-      final List<VerificationCodeSender> verificationCodeSenders) {
-    this(RANDOM, meterRegistry, config, adaptiveStrategyCreator.create(config), verificationCodeSenders);
-  }
-
-  @VisibleForTesting
-  DynamicSelector(
       final RandomGenerator random,
       final MeterRegistry meterRegistry,
       final DynamicSelectorConfiguration config,
@@ -170,7 +144,7 @@ public class DynamicSelector {
     }
 
     // determine what we would pick with the adaptive strategy
-    final String adaptivePick = strategy.sample(phoneNumber, region, languageRanges, clientType);
+    final String adaptivePick = strategy.sample(transport, phoneNumber, region, languageRanges, clientType);
 
     // make a weighted selection if we have one configured
     final Optional<String> weightedSelection = Optional
