@@ -165,8 +165,9 @@ public class DynamicSelector {
 
     final boolean usedAdaptive = weightedSelection.map(ADAPTIVE_NAME::equals).orElse(false) && adaptivePick.equals(selection);
     meterRegistry.counter(ADAPTIVE_SAMPLING_COUNTER_NAME,
-        "region", region,
-        "choice", adaptivePick,
+        MetricsUtil.REGION_CODE_TAG_NAME, region,
+        MetricsUtil.SENDER_TAG_NAME, adaptivePick,
+        MetricsUtil.TRANSPORT_TAG_NAME, transport.name(),
         "enabled", Boolean.toString(usedAdaptive)).increment();
 
     return selection;

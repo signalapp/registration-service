@@ -50,9 +50,6 @@ public class BigQueryVerificationStatsProvider implements VerificationStatsProvi
       "senderFailureStats");
   private static final String REGION_COUNT_GAUGE_NAME = MetricsUtil.name(BigQueryVerificationStatsProvider.class,
       "regionCount");
-  private static final String TRANSPORT_TAG_NAME = "transport";
-  private static final String REGION_TAG_NAME = "region";
-  private static final String SENDER_TAG_NAME = "sender";
 
   private static void logUpdate(final Map<String, Map<String, VerificationStats>> regions, final boolean firstRun) {
     final int numRegions = regions.size();
@@ -184,7 +181,10 @@ public class BigQueryVerificationStatsProvider implements VerificationStatsProvi
       for (String r : regions.keySet()) {
         regions.get(r).forEach((sender, stats) -> {
           final Pair<String, String> key = Pair.of(r, sender);
-          final Tags tags = Tags.of(REGION_TAG_NAME, r, SENDER_TAG_NAME, sender, TRANSPORT_TAG_NAME, messageTransport.name());
+          final Tags tags = Tags.of(
+              MetricsUtil.REGION_CODE_TAG_NAME, r,
+              MetricsUtil.SENDER_TAG_NAME, sender,
+              MetricsUtil.TRANSPORT_TAG_NAME, messageTransport.name());
           currentStats.put(key, stats);
           meterRegistry.gauge(SUCCESS_GAUGE_NAME, tags, key, successFn);
           meterRegistry.gauge(FAILURE_GAUGE_NAME, tags, key, failureFn);
@@ -206,7 +206,7 @@ public class BigQueryVerificationStatsProvider implements VerificationStatsProvi
         mt -> new Updater(executor, bigQuery, mt, config.windowSize(), meterRegistry))));
     this.updaterByTransport.forEach((messageTransport, updater) ->
         meterRegistry.gauge(REGION_COUNT_GAUGE_NAME,
-            Tags.of(TRANSPORT_TAG_NAME, messageTransport.name()),
+            Tags.of(MetricsUtil.TRANSPORT_TAG_NAME, messageTransport.name()),
             updater, u -> u.senderStatsByRegion.size()));
   }
 

@@ -132,9 +132,9 @@ public class BigQueryCostProvider implements CostProvider {
             senderCosts.forEach((sender, cost) ->
                 meterRegistry.gauge(
                     COST_GAUGE_NAME, Tags.of(
-                        "transport", transport.name(),
-                        "region", region,
-                        "sender", sender),
+                        MetricsUtil.TRANSPORT_TAG_NAME, transport.name(),
+                        MetricsUtil.REGION_CODE_TAG_NAME, region,
+                        MetricsUtil.SENDER_TAG_NAME, sender),
                     this, t -> t.absoluteCosts
                         .getOrDefault(transport, Collections.emptyMap())
                         .getOrDefault(region, Collections.emptyMap())
