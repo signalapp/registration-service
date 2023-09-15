@@ -113,6 +113,12 @@ message RegistrationAttempt {
    * The type of client that initiated this attempt.
    */
   org.signal.registration.rpc.ClientType client_type = 7;
+
+  /**
+   * Indicates the reason we selected particular sender. (e.g. 'adaptive',
+   * 'configured', 'lang_support', 'random')
+   */
+  string selection_reason = 8;
 }
 
 message SessionMetadata {

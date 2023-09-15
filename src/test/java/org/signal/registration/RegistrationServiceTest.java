@@ -94,7 +94,8 @@ class RegistrationServiceTest {
     sessionRepository = spy(new MemorySessionRepository(mock(ApplicationEventPublisher.class), clock));
 
     final SenderSelectionStrategy senderSelectionStrategy = mock(SenderSelectionStrategy.class);
-    when(senderSelectionStrategy.chooseVerificationCodeSender(any(), any(), any(), any(), any())).thenReturn(sender);
+    when(senderSelectionStrategy.chooseVerificationCodeSender(any(), any(), any(), any(), any()))
+        .thenReturn(new SenderSelectionStrategy.SenderSelection(sender, SenderSelectionStrategy.SelectionReason.CONFIGURED));
 
     //noinspection unchecked
     sessionCreationRateLimiter = mock(RateLimiter.class);

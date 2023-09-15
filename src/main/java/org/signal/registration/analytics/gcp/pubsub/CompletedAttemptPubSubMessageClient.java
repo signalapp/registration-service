@@ -9,8 +9,8 @@ import io.micronaut.gcp.pubsub.annotation.PubSubClient;
 import io.micronaut.gcp.pubsub.annotation.Topic;
 
 @PubSubClient
-public interface AttemptAnalyzedPubSubMessageClient {
+public interface CompletedAttemptPubSubMessageClient {
 
-  @Topic(value = "${analytics.pubsub.analyzed-attempts.topic}", contentType = "application/protobuf")
-  void send(byte[] attemptAnalyzedPubSubMessage);
+  @Topic(value = "${analytics.pubsub.completed-attempts.topic}", contentType = "application/protobuf")
+  void send(byte[] attemptPubSubMessage);
 }

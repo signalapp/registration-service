@@ -142,7 +142,9 @@ class WeightedSelectionStrategyIntegrationTest {
 
     assertEquals(senderClass,
         selectionStrategy.chooseVerificationCodeSender(
-            messageTransport, phoneNumber, Locale.LanguageRange.parse(acceptLanguage), clientType, null).getClass());
+            messageTransport, phoneNumber, Locale.LanguageRange.parse(acceptLanguage), clientType, null)
+            .sender()
+            .getClass());
   }
 
   private static Stream<Arguments> chooseVerificationCodeSender() {

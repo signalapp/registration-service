@@ -32,12 +32,12 @@ public class LastDigitsOfPhoneNumberSenderSelectionStrategy implements SenderSel
   }
 
   @Override
-  public VerificationCodeSender chooseVerificationCodeSender(final MessageTransport transport,
+  public SenderSelection chooseVerificationCodeSender(final MessageTransport transport,
       final Phonenumber.PhoneNumber phoneNumber,
       final List<Locale.LanguageRange> languageRanges,
       final ClientType clientType,
       final @Nullable String preferredSender) {
 
-    return lastDigitsSender;
+    return new SenderSelection(lastDigitsSender, SelectionReason.CONFIGURED);
   }
 }

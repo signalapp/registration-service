@@ -10,6 +10,7 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.function.Function;
+import java.util.function.Predicate;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import javax.annotation.Nullable;
@@ -22,6 +23,8 @@ import org.signal.registration.sender.fictitious.FictitiousNumberVerificationCod
 import org.signal.registration.sender.prescribed.PrescribedVerificationCodeSender;
 import org.signal.registration.util.MapUtil;
 import org.signal.registration.util.PhoneNumbers;
+import static org.signal.registration.sender.SenderSelectionStrategy.SenderSelection;
+import static org.signal.registration.sender.SenderSelectionStrategy.SelectionReason;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -46,10 +49,10 @@ public class DynamicSelector {
   private static final String ADAPTIVE_SAMPLING_COUNTER_NAME = MetricsUtil.name(DynamicSelector.class, "adaptiveSampling");
 
   private final MessageTransport transport;
-  private final List<String> fallbackSenders;
+  private final List<VerificationCodeSender> fallbackSenders;
   private final Optional<EnumeratedDistribution<String>> defaultDist;
   private final Map<String, EnumeratedDistribution<String>> regionalDist;
-  private final Map<String, String> regionOverrides;
+  private final Map<String, VerificationCodeSender> regionOverrides;
   private final Map<String, VerificationCodeSender> senders;
   private final AdaptiveStrategy strategy;
   private final MeterRegistry meterRegistry;
@@ -88,7 +91,7 @@ public class DynamicSelector {
     this.transport = config.transport();
 
     // specific sender to be used for a given region (2).
-    this.regionOverrides = config.regionOverrides();
+    this.regionOverrides = MapUtil.mapValues(config.regionOverrides(), senders::get);
 
     // weighted distribution of senders for a particular region (3a).
     this.regionalDist = MapUtil.filterMapValues(
@@ -101,7 +104,7 @@ public class DynamicSelector {
         .flatMap(weights -> parseDistribution(transport, senders, random, weights));
 
     // senders to use if nothing else is working (4, 5).
-    this.fallbackSenders = config.fallbackSenders();
+    this.fallbackSenders = config.fallbackSenders().stream().map(senders::get).toList();
 
     // adaptive strategy for message routing
     this.strategy = adaptiveStrategy;
@@ -117,53 +120,38 @@ public class DynamicSelector {
     return !senders.containsKey(senderName) && !senderName.equals(ADAPTIVE_NAME);
   }
 
-  public VerificationCodeSender chooseVerificationCodeSender(
-      final Phonenumber.PhoneNumber phoneNumber,
-      final List<Locale.LanguageRange> languageRanges,
-      final ClientType clientType,
-      final @Nullable String preferredSender
-  ) {
-    return senders.get(chooseVerificationCodeSenderName(phoneNumber, languageRanges, clientType, preferredSender));
-  }
-
-  public String chooseVerificationCodeSenderName(
+  public SenderSelection chooseVerificationCodeSender(
     final Phonenumber.PhoneNumber phoneNumber,
     final List<Locale.LanguageRange> languageRanges,
     final ClientType clientType,
     final @Nullable String preferredSender) {
 
     if (preferredSender != null && senders.containsKey(preferredSender)) {
-      return preferredSender;
+      return new SenderSelection(senders.get(preferredSender), SelectionReason.PREFERRED);
     }
 
     final String region = PhoneNumbers.regionCodeUpper(phoneNumber);
 
     // check for region based overrides
     if (this.regionOverrides.containsKey(region)) {
-      return this.regionOverrides.get(region);
+      return new SenderSelection(
+          this.regionOverrides.get(region),
+          SelectionReason.CONFIGURED);
     }
 
     // determine what we would pick with the adaptive strategy
     final String adaptivePick = strategy.sample(transport, phoneNumber, region, languageRanges, clientType);
 
     // make a weighted selection if we have one configured
-    final Optional<String> weightedSelection = Optional
+    final Optional<SenderSelection> sampledSelection = Optional
         .ofNullable(this.regionalDist.get(region)).or(() -> this.defaultDist)
-        .map(EnumeratedDistribution::sample);
+        .map(EnumeratedDistribution::sample)
+        .map(name -> name.equals(ADAPTIVE_NAME)
+            ? new SenderSelection(senders.get(adaptivePick), SelectionReason.ADAPTIVE)
+            : new SenderSelection(senders.get(name), SelectionReason.RANDOM));
 
-    final Optional<String> sampledSelection =
-        weightedSelection.map(name -> name.equals(ADAPTIVE_NAME) ? adaptivePick : name);
-
-    final String selection = Stream
-        // [selected sender, fallbackSenders...]
-        .concat(sampledSelection.stream(), this.fallbackSenders.stream())
-        // get first sender that supports the destination
-        .filter(s -> senders.get(s).supportsLanguageAndClient(transport, phoneNumber, languageRanges, clientType))
-        .findFirst()
-        // or, if none support the destination, the first fallbackSender
-        .orElse(this.fallbackSenders.get(0));
-
-    final boolean usedAdaptive = weightedSelection.map(ADAPTIVE_NAME::equals).orElse(false) && adaptivePick.equals(selection);
+    final SenderSelection selection = findSupportedSender(sampledSelection, phoneNumber, languageRanges, clientType);
+    final boolean usedAdaptive = selection.reason().equals(SelectionReason.ADAPTIVE);
     meterRegistry.counter(ADAPTIVE_SAMPLING_COUNTER_NAME,
         MetricsUtil.REGION_CODE_TAG_NAME, region,
         MetricsUtil.SENDER_TAG_NAME, adaptivePick,
@@ -171,6 +159,51 @@ public class DynamicSelector {
         "enabled", Boolean.toString(usedAdaptive)).increment();
 
     return selection;
+  }
+
+  /**
+   * Return the sender to use for the request, and why we selected it.
+   *
+   * If the proposed choice does not support the message, find the first fallback sender that does. If no fallback
+   * senders support the request, use the first fallback sender.
+   *
+   * @return The sender to use and the reason why
+   */
+  private SenderSelection findSupportedSender(
+      final Optional<SenderSelection> choice,
+      final Phonenumber.PhoneNumber phoneNumber,
+      final List<Locale.LanguageRange> languageRanges,
+      final ClientType clientType) {
+
+    final Predicate<VerificationCodeSender> supports = sender -> sender.supportsLanguageAndClient(
+        transport, phoneNumber, languageRanges, clientType);
+
+    // If we didn't make a choice, use the fallback sender
+    if (choice.isEmpty() && supports.test(fallbackSenders.get(0))) {
+      return new SenderSelection(fallbackSenders.get(0), SelectionReason.CONFIGURED);
+    }
+
+    // If we have a choice, and it supports the message, use that
+    if (choice.isPresent() && supports.test(choice.get().sender())) {
+      return choice.get();
+    }
+
+    // If our choice or first fallback didn't support the language, find the first fallback that does.
+    // in this case, we'll note that we selected this sender for capability reasons
+    for (VerificationCodeSender sender : fallbackSenders) {
+      if (supports.test(sender)) {
+        return new SenderSelection(sender, SelectionReason.LANGUAGE_SUPPORT);
+      }
+    }
+
+    // No senders support the request. Use our first fallback sender.
+    return new SenderSelection(
+        fallbackSenders.get(0),
+        choice.isPresent()
+            // If we initially had an alternate choice, we fell back for capability reasons
+            ? SelectionReason.LANGUAGE_SUPPORT
+            // Otherwise, no senders support this message, so we're just using the configured sender
+            : SelectionReason.CONFIGURED);
   }
 
   public MessageTransport getTransport() {

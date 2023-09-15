@@ -75,11 +75,11 @@ public class DynamicSelectorBanditTest {
 
   public String chooseName(final String phoneNumber, final String region, final String language) {
     try {
-      return selector.chooseVerificationCodeSenderName(
+      return selector.chooseVerificationCodeSender(
           PhoneNumberUtil.getInstance().parse(phoneNumber, region),
           List.of(new Locale.LanguageRange(language)),
           ClientType.IOS,
-          null);
+          null).sender().getName();
     } catch (NumberParseException e) {
       throw new RuntimeException(e);
     }

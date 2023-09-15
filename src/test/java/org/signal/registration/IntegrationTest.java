@@ -70,7 +70,9 @@ public class IntegrationTest {
     when(sessionCreationRateLimiter.checkRateLimit(any())).thenReturn(CompletableFuture.completedFuture(null));
 
     when(senderSelectionStrategy.chooseVerificationCodeSender(any(), any(), any(), any(), any()))
-        .thenReturn(new LastDigitsOfPhoneNumberVerificationCodeSender());
+        .thenReturn(new SenderSelectionStrategy.SenderSelection(
+            new LastDigitsOfPhoneNumberVerificationCodeSender(),
+            SenderSelectionStrategy.SelectionReason.CONFIGURED));
   }
 
   @Test
@@ -148,7 +150,9 @@ public class IntegrationTest {
     when(smsNotSupportedSender.getName()).thenReturn("sms-not-supported");
 
     when(senderSelectionStrategy.chooseVerificationCodeSender(any(), any(), any(), any(), any()))
-        .thenReturn(smsNotSupportedSender);
+        .thenReturn(new SenderSelectionStrategy.SenderSelection(
+            smsNotSupportedSender,
+            SenderSelectionStrategy.SelectionReason.CONFIGURED));
 
     final Phonenumber.PhoneNumber phoneNumber = PhoneNumberUtil.getInstance().getExampleNumber("US");
 

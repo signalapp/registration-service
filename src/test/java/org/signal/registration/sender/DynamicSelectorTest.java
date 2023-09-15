@@ -28,6 +28,8 @@ import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 import org.signal.registration.bandit.AdaptiveStrategy;
 
+import static org.signal.registration.sender.SenderSelectionStrategy.*;
+
 public class DynamicSelectorTest {
 
   private static final VerificationCodeSender SENDER_FALLBACK = buildTestSender("default", true);
@@ -42,21 +44,19 @@ public class DynamicSelectorTest {
         // defaultWeights, regionWeights, PN region, rng value, expected sender
 
         // default
-        Arguments.of(Map.of(UNSUPPORTED.getName(), 1), Collections.emptyMap(), "US", 1.0, SENDER_FALLBACK),
+        Arguments.of(Map.of(UNSUPPORTED.getName(), 1), Collections.emptyMap(), "US", 1.0, SENDER_FALLBACK, SelectionReason.LANGUAGE_SUPPORT),
         // default weights
-        Arguments.of(Map.of(SENDER_A.getName(), 1), Collections.emptyMap(), "US", 1.0, SENDER_A),
+        Arguments.of(Map.of(SENDER_A.getName(), 1), Collections.emptyMap(), "US", 1.0, SENDER_A, SelectionReason.RANDOM),
         // region weights
-        Arguments.of(Map.of(SENDER_A.getName(), 1), Map.of("US", Map.of(SENDER_B.getName(), 1)), "US", 1.0, SENDER_B),
+        Arguments.of(Map.of(SENDER_A.getName(), 1), Map.of("US", Map.of(SENDER_B.getName(), 1)), "US", 1.0, SENDER_B, SelectionReason.RANDOM),
         // 0 should go to first service
-        Arguments.of(Map.of(SENDER_A.getName(), 4, SENDER_B.getName(), 6), Collections.emptyMap(), "US", 0.0, SENDER_A),
+        Arguments.of(Map.of(SENDER_A.getName(), 4, SENDER_B.getName(), 6), Collections.emptyMap(), "US", 0.0, SENDER_A, SelectionReason.RANDOM),
         // <.4 should go to first service
-        Arguments.of(Map.of(SENDER_A.getName(), 4, SENDER_B.getName(), 6), Collections.emptyMap(), "US", 0.3999,
-            SENDER_A),
+        Arguments.of(Map.of(SENDER_A.getName(), 4, SENDER_B.getName(), 6), Collections.emptyMap(), "US", 0.3999, SENDER_A, SelectionReason.RANDOM),
         // > .4 should go to second service
-        Arguments.of(Map.of(SENDER_A.getName(), 4, SENDER_B.getName(), 6), Collections.emptyMap(), "US", 0.40001,
-            SENDER_B),
+        Arguments.of(Map.of(SENDER_A.getName(), 4, SENDER_B.getName(), 6), Collections.emptyMap(), "US", 0.40001, SENDER_B, SelectionReason.RANDOM),
         // 1.0 should go to second service
-        Arguments.of(Map.of(SENDER_A.getName(), 4, SENDER_B.getName(), 6), Collections.emptyMap(), "US", 1.0, SENDER_B)
+        Arguments.of(Map.of(SENDER_A.getName(), 4, SENDER_B.getName(), 6), Collections.emptyMap(), "US", 1.0, SENDER_B, SelectionReason.RANDOM)
     );
 
     return args.flatMap(arg -> Stream.of(MessageTransport.VOICE, MessageTransport.SMS)
@@ -71,11 +71,12 @@ public class DynamicSelectorTest {
   @MethodSource
   void select(
       final MessageTransport transport,
-      Map<String, Integer> defaults,
-      Map<String, Map<String, Integer>> overrides,
+      final Map<String, Integer> defaults,
+      final Map<String, Map<String, Integer>> overrides,
       final String region,
-      double randomValue,
-      VerificationCodeSender expected) {
+      final double randomValue,
+      final VerificationCodeSender expected,
+      final SenderSelectionStrategy.SelectionReason expectedReason) {
 
     // sort by name for deterministic order
     TreeMap<String, Integer> sortedDefaults = new TreeMap<>(defaults);
@@ -98,13 +99,14 @@ public class DynamicSelectorTest {
         config,
         List.of(SENDER_A, SENDER_B, UNSUPPORTED, SENDER_FALLBACK));
 
-    final VerificationCodeSender actual = ts.chooseVerificationCodeSender(
+    final SenderSelectionStrategy.SenderSelection actual = ts.chooseVerificationCodeSender(
         PhoneNumberUtil.getInstance().getExampleNumber(region),
         Collections.emptyList(),
         ClientType.IOS,
         null);
 
-    assertEquals(actual, expected);
+    assertEquals(expected, actual.sender());
+    assertEquals(expectedReason, actual.reason());
   }
 
   static Stream<Arguments> override() {
@@ -134,12 +136,13 @@ public class DynamicSelectorTest {
         regionOverrides);
 
     final DynamicSelector ts = buildSelector(config, SENDERS);
-    final VerificationCodeSender actual = ts.chooseVerificationCodeSender(
+    final SenderSelectionStrategy.SenderSelection actual = ts.chooseVerificationCodeSender(
         number,
         Collections.emptyList(),
         ClientType.IOS,
         null);
-    assertEquals(expected, actual);
+    assertEquals(expected, actual.sender());
+    assertEquals(SenderSelectionStrategy.SelectionReason.CONFIGURED, actual.reason());
   }
 
 
@@ -171,7 +174,7 @@ public class DynamicSelectorTest {
     final DynamicSelector ts = buildSelector(config, SENDERS);
     final Phonenumber.PhoneNumber num = PhoneNumberUtil.getInstance().getExampleNumber("US");
     final VerificationCodeSender actual = ts.chooseVerificationCodeSender(num, Collections.emptyList(),
-        ClientType.IOS, null);
+        ClientType.IOS, null).sender();
     assertEquals(actual, expected);
   }
 
@@ -185,12 +188,13 @@ public class DynamicSelectorTest {
         Map.of());
 
     final DynamicSelector ts = buildSelector(config, List.of(SENDER_FALLBACK, SENDER_A));
-    final VerificationCodeSender actual = ts.chooseVerificationCodeSender(
+    final SenderSelectionStrategy.SenderSelection actual = ts.chooseVerificationCodeSender(
         PhoneNumberUtil.getInstance().getExampleNumber("US"),
         Collections.emptyList(),
         ClientType.IOS,
         SENDER_A.getName());
-    assertEquals(SENDER_A, actual);
+    assertEquals(SENDER_A, actual.sender());
+    assertEquals(SenderSelectionStrategy.SelectionReason.PREFERRED, actual.reason());
   }
 
 
@@ -230,7 +234,7 @@ public class DynamicSelectorTest {
 
       @Override
       public boolean supportsTransport(final MessageTransport transport) {
-        return supports;
+        return true;
       }
 
       @Override

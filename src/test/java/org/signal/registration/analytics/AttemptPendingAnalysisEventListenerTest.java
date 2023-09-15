@@ -12,6 +12,7 @@ import org.apache.commons.lang3.RandomStringUtils;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
+import org.signal.registration.analytics.gcp.pubsub.CompletedAttemptPubSubMessageClient;
 import org.signal.registration.rpc.ClientType;
 import org.signal.registration.rpc.MessageTransport;
 import org.signal.registration.session.RegistrationAttempt;
@@ -36,13 +37,15 @@ class AttemptPendingAnalysisEventListenerTest {
 
   private AttemptPendingAnalysisRepository repository;
   private AttemptPendingAnalysisEventListener listener;
+  private CompletedAttemptPubSubMessageClient publisher;
 
   @BeforeEach
   void setUp() {
     repository = mock(AttemptPendingAnalysisRepository.class);
+    publisher = mock(CompletedAttemptPubSubMessageClient.class);
     when(repository.store(any())).thenReturn(CompletableFuture.completedFuture(null));
 
-    listener = new AttemptPendingAnalysisEventListener(repository, new SimpleMeterRegistry());
+    listener = new AttemptPendingAnalysisEventListener(repository, new SimpleMeterRegistry(), publisher);
   }
 
   @Test

@@ -5,6 +5,9 @@
 
 package org.signal.registration;
 
+import static org.signal.registration.sender.SenderSelectionStrategy.SelectionReason;
+import static org.signal.registration.sender.SenderSelectionStrategy.SenderSelection;
+
 import com.google.common.annotations.VisibleForTesting;
 import com.google.i18n.phonenumbers.NumberParseException;
 import com.google.i18n.phonenumbers.PhoneNumberUtil;
@@ -66,7 +69,9 @@ public class RegistrationService {
   @VisibleForTesting
   static final Duration SESSION_TTL_AFTER_LAST_ACTION = Duration.ofMinutes(10);
 
-  private record SenderAndAttemptData(VerificationCodeSender sender, AttemptData attemptData) {}
+  private record SenderAndAttemptData(
+      SenderSelection selection,
+      AttemptData attemptData) {}
 
   @VisibleForTesting
   record NextActionTimes(Optional<Instant> nextSms,
@@ -175,14 +180,14 @@ public class RegistrationService {
                   final Phonenumber.PhoneNumber phoneNumberFromSession =
                       PhoneNumberUtil.getInstance().parse(session.getPhoneNumber(), null);
 
-                  final VerificationCodeSender sender = senderSelectionStrategy.chooseVerificationCodeSender(
+                  final SenderSelection selection = senderSelectionStrategy.chooseVerificationCodeSender(
                       messageTransport, phoneNumberFromSession, languageRanges, clientType, senderName);
 
-                  return sender.sendVerificationCode(messageTransport,
+                  return selection.sender().sendVerificationCode(messageTransport,
                           phoneNumberFromSession,
                           languageRanges,
                           clientType)
-                      .thenApply(sessionData -> new SenderAndAttemptData(sender, sessionData));
+                      .thenApply(sessionData -> new SenderAndAttemptData(selection, sessionData));
                 } catch (final NumberParseException e) {
                   // This should never happen because we're parsing a phone number from the session, which means we've
                   // parsed it successfully in the past
@@ -194,11 +199,11 @@ public class RegistrationService {
           final RegistrationSession.Builder builder = session.toBuilder()
               .setCheckCodeAttempts(0)
               .setLastCheckCodeAttemptEpochMillis(0)
-              .addRegistrationAttempts(buildRegistrationAttempt(senderAndAttemptData.sender(),
+              .addRegistrationAttempts(buildRegistrationAttempt(senderAndAttemptData.selection(),
                   messageTransport,
                   clientType,
                   senderAndAttemptData.attemptData(),
-                  senderAndAttemptData.sender().getAttemptTtl()));
+                  senderAndAttemptData.selection().sender().getAttemptTtl()));
 
           builder.setExpirationEpochMillis(getSessionExpiration(builder.build()).toEpochMilli());
 
@@ -225,7 +230,7 @@ public class RegistrationService {
         });
   }
 
-  private RegistrationAttempt buildRegistrationAttempt(final VerificationCodeSender sender,
+  private RegistrationAttempt buildRegistrationAttempt(final SenderSelection selection,
       final MessageTransport messageTransport,
       final ClientType clientType,
       final AttemptData attemptData,
@@ -236,7 +241,8 @@ public class RegistrationService {
     final RegistrationAttempt.Builder registrationAttemptBuilder = RegistrationAttempt.newBuilder()
         .setTimestampEpochMillis(currentTime.toEpochMilli())
         .setExpirationEpochMillis(currentTime.plus(ttl).toEpochMilli())
-        .setSenderName(sender.getName())
+        .setSenderName(selection.sender().getName())
+        .setSelectionReason(selection.reason().toString())
         .setMessageTransport(MessageTransports.getRpcMessageTransportFromSenderTransport(messageTransport))
         .setClientType(ClientTypes.getRpcClientTypeFromSenderClientType(clientType))
         .setSenderData(ByteString.copyFrom(attemptData.senderData()));
