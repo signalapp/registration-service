@@ -66,7 +66,6 @@ public class BigtableAttemptPendingAnalysisRepository implements AttemptPendingA
       @Named(TaskExecutors.IO) final Executor executor,
       final BigtableAttemptPendingAnalysisRepositoryConfiguration configuration,
       final MeterRegistry meterRegistry) {
-
     this.bigtableDataClient = bigtableDataClient;
     this.executor = executor;
 

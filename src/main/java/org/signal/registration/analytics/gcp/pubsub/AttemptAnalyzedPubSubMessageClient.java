@@ -5,10 +5,12 @@
 
 package org.signal.registration.analytics.gcp.pubsub;
 
+import io.micronaut.context.annotation.Requires;
 import io.micronaut.gcp.pubsub.annotation.PubSubClient;
 import io.micronaut.gcp.pubsub.annotation.Topic;
 
 @PubSubClient
+@Requires(property = "analytics.pubsub.analyzed-attempts.topic")
 public interface AttemptAnalyzedPubSubMessageClient {
 
   @Topic(value = "${analytics.pubsub.analyzed-attempts.topic}", contentType = "application/protobuf")

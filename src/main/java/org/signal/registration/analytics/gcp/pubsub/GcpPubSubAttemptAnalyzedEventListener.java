@@ -9,13 +9,15 @@ import com.google.common.annotations.VisibleForTesting;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micronaut.context.event.ApplicationEventListener;
 import jakarta.inject.Singleton;
+
+import java.math.BigDecimal;
+import java.time.Instant;
+
 import org.signal.registration.analytics.AttemptAnalyzedEvent;
 import org.signal.registration.metrics.MetricsUtil;
 import org.signal.registration.util.UUIDUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import java.math.BigDecimal;
-import java.time.Instant;
 
 /**
  * A GCP pub/sub "analyzed event" listener dispatches messages to a GCP pub/sub topic. Pub/sub messages emitted by this
@@ -36,7 +38,6 @@ public class GcpPubSubAttemptAnalyzedEventListener implements ApplicationEventLi
 
   public GcpPubSubAttemptAnalyzedEventListener(final AttemptAnalyzedPubSubMessageClient pubSubClient,
       final MeterRegistry meterRegistry) {
-
     this.pubSubClient = pubSubClient;
     this.meterRegistry = meterRegistry;
   }
