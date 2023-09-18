@@ -5,6 +5,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.google.i18n.phonenumbers.PhoneNumberUtil;
 import com.google.i18n.phonenumbers.Phonenumber;
+import java.math.BigDecimal;
 import java.time.Duration;
 import java.util.Collections;
 import java.util.HashMap;
@@ -15,9 +16,14 @@ import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
+import java.util.stream.Stream;
 import org.apache.commons.math3.random.JDKRandomGenerator;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.signal.registration.cost.FixedCostConfiguration;
 import org.signal.registration.cost.FixedCostProvider;
 import org.signal.registration.sender.MessageTransport;
@@ -63,7 +69,7 @@ public class AdaptiveStrategyTest {
 
   Map<String, Integer> computeHistogram(final Map<String, VerificationStats> choices, final int samples) {
     final List<Distribution> dists = choices.entrySet().stream()
-        .map(c -> new Distribution(c.getKey(), c.getValue(), 1.0))
+        .map(c -> new Distribution(c.getKey(), c.getValue(), 1.0, 0.0))
         .toList();
     final Map<String, Integer> histogram = new HashMap<>();
     for (int j = 0; j < samples; j++) {
@@ -258,7 +264,8 @@ public class AdaptiveStrategyTest {
               s,
               successRate.getOrDefault(s, 0.0),
               failureRate.getOrDefault(s, 0.0),
-              1.0))
+              1.0,
+              0.0))
           .toList();
       final Distribution c = AdaptiveStrategy.sampleChoices(generator, choices);
       final String name = c.senderName();
@@ -306,7 +313,8 @@ public class AdaptiveStrategyTest {
     final AdaptiveStrategyConfiguration config = new AdaptiveStrategyConfiguration(
         MessageTransport.SMS,
         Set.of("A", "B", "C"),
-        Collections.emptyMap());
+        Collections.emptyMap(),
+        BigDecimal.valueOf(0.05));
     final AdaptiveStrategy strat = new AdaptiveStrategy(List.of(config),
         new FixedCostProvider(List.of(new FixedCostConfiguration(MessageTransport.SMS, Map.of("US", Map.of(
             "A", 10,
@@ -328,11 +336,26 @@ public class AdaptiveStrategyTest {
     assertEquals(.5, byName.get("C").relativeCost(), 0.01);
   }
 
+  @Test
+  public void costAdjustment() {
+    final JDKRandomGenerator randomGenerator = new JDKRandomGenerator();
+    final List<Distribution> distributions = List.of(
+        new Distribution("A", 75, 25, 1.0, 0.05),
+        new Distribution("B", 70, 30, 0.25, 0.05));
+    final Map<String, Long> selections = IntStream.range(0, 10_000)
+        .mapToObj(i -> AdaptiveStrategy.sampleChoices(randomGenerator, distributions))
+        .collect(Collectors.groupingBy(Distribution::senderName, Collectors.counting()));
+
+    assertTrue(selections.get("B") > selections.get("A"));
+  }
+
   private static Distribution addSuccesses(final Distribution choice, double count) {
-    return new Distribution(choice.senderName(), choice.successes() + count, choice.failures(), choice.relativeCost());
+    return new Distribution(choice.senderName(), choice.successes() + count, choice.failures(),
+        choice.relativeCost(), choice.costCoefficient());
   }
 
   private static Distribution addFailures(final Distribution choice, double count) {
-    return new Distribution(choice.senderName(), choice.successes(), choice.failures() + count, choice.relativeCost());
+    return new Distribution(choice.senderName(), choice.successes(), choice.failures() + count,
+        choice.relativeCost(), choice.costCoefficient());
   }
 }

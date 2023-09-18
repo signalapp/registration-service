@@ -70,8 +70,8 @@ class ScalingFactorSimulator implements Runnable {
     final double fa = 100.0 - sa;
     final double fb = 100.0 - sb;
     final List<Distribution> choices = List.of(
-        new Distribution("a", sa, fa, 1.0),
-        new Distribution("b", sb, fb, 1 / scaleFactor));
+        new Distribution("a", sa, fa, 1.0, 0.05),
+        new Distribution("b", sb, fb, 1 / scaleFactor, 0.05));
     int ca = 0;
     for (int i = 0; i < samples; i++) {
       final Distribution c = AdaptiveStrategy.sampleChoices(new JDKRandomGenerator(), choices);

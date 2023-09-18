@@ -13,6 +13,7 @@ import org.signal.registration.bandit.AdaptiveStrategy;
 import org.signal.registration.bandit.VerificationStats;
 import org.signal.registration.cost.CostProvider;
 
+import java.math.BigDecimal;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
@@ -65,7 +66,7 @@ public class DynamicSelectorBanditTest {
 
     final Set<String> defaultBanditChoices = Set.of(TV, MV);
     final AdaptiveStrategy adaptiveStrategy = new AdaptiveStrategy(
-        List.of(new AdaptiveStrategyConfiguration(transport, defaultBanditChoices, Map.of())),
+        List.of(new AdaptiveStrategyConfiguration(transport, defaultBanditChoices, Map.of(), BigDecimal.ZERO)),
         dummyCostProvider,
         verificationStatsProvider,
         random);

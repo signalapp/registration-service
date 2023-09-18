@@ -115,7 +115,8 @@ public class AdaptiveStrategy {
         .map(sender -> new Distribution(
             sender,
             choices.get(sender),
-            costs.get(sender).orElse(maxCost) / maxCost))
+            costs.get(sender).orElse(maxCost) / maxCost,
+            configs.get(messageTransport).costCoefficient().doubleValue()))
         .toList();
 
   }
