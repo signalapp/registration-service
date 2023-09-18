@@ -50,21 +50,17 @@ public interface VerificationCodeSender {
   boolean supportsTransport(MessageTransport transport);
 
   /**
-   * Indicates whether this sender can deliver messages to the given phone number using any of
-   * the given languages and for the given client type.
+   * Indicates whether this sender can deliver messages to the given phone number using any of the given languages.
    *
    * @param messageTransport the transport via which to send a verification code
    * @param phoneNumber      the phone number to which to send a verification code
    * @param languageRanges   the preferred languages in which to send verification codes
-   * @param clientType       the type of client receiving the verification code
-   *
    * @return {@code true} if this sender can send notifications to the given destination or {@code false} if not
    */
-  boolean supportsLanguageAndClient(
+  boolean supportsLanguage(
       MessageTransport messageTransport,
       Phonenumber.PhoneNumber phoneNumber,
-      List<Locale.LanguageRange> languageRanges,
-      ClientType clientType);
+      List<Locale.LanguageRange> languageRanges);
 
   /**
    * Asynchronously sends a verification code to the given phone number with the given preferred languages. The future

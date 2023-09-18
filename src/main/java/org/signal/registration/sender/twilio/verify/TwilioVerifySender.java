@@ -79,12 +79,10 @@ public class TwilioVerifySender implements VerificationCodeSender {
   }
 
   @Override
-  public boolean supportsLanguageAndClient(
+  public boolean supportsLanguage(
       final MessageTransport messageTransport,
       final Phonenumber.PhoneNumber phoneNumber,
-      final List<Locale.LanguageRange> languageRanges,
-      final ClientType clientType) {
-
+      final List<Locale.LanguageRange> languageRanges) {
     return Locale.lookupTag(languageRanges, configuration.supportedLanguages()) != null;
   }
 

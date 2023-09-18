@@ -150,7 +150,7 @@ public class DynamicSelector {
             ? new SenderSelection(senders.get(adaptivePick), SelectionReason.ADAPTIVE)
             : new SenderSelection(senders.get(name), SelectionReason.RANDOM));
 
-    final SenderSelection selection = findSupportedSender(sampledSelection, phoneNumber, languageRanges, clientType);
+    final SenderSelection selection = findSupportedSender(sampledSelection, phoneNumber, languageRanges);
     final boolean usedAdaptive = selection.reason().equals(SelectionReason.ADAPTIVE);
     meterRegistry.counter(ADAPTIVE_SAMPLING_COUNTER_NAME,
         MetricsUtil.REGION_CODE_TAG_NAME, region,
@@ -172,11 +172,10 @@ public class DynamicSelector {
   private SenderSelection findSupportedSender(
       final Optional<SenderSelection> choice,
       final Phonenumber.PhoneNumber phoneNumber,
-      final List<Locale.LanguageRange> languageRanges,
-      final ClientType clientType) {
+      final List<Locale.LanguageRange> languageRanges) {
 
-    final Predicate<VerificationCodeSender> supports = sender -> sender.supportsLanguageAndClient(
-        transport, phoneNumber, languageRanges, clientType);
+    final Predicate<VerificationCodeSender> supports = sender ->
+        languageRanges.isEmpty() || sender.supportsLanguage(transport, phoneNumber, languageRanges);
 
     // If we didn't make a choice, use the fallback sender
     if (choice.isEmpty() && supports.test(fallbackSenders.get(0))) {

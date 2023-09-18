@@ -72,10 +72,9 @@ public class FictitiousNumberVerificationCodeSender implements VerificationCodeS
   }
 
   @Override
-  public boolean supportsLanguageAndClient(final MessageTransport messageTransport,
+  public boolean supportsLanguage(final MessageTransport messageTransport,
       final Phonenumber.PhoneNumber phoneNumber,
-      final List<Locale.LanguageRange> languageRanges,
-      final ClientType clientType) {
+      final List<Locale.LanguageRange> languageRanges) {
 
     final String e164 = PhoneNumberUtil.getInstance().format(phoneNumber, PhoneNumberUtil.PhoneNumberFormat.E164);
 

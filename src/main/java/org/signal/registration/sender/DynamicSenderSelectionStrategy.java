@@ -47,10 +47,9 @@ public class DynamicSenderSelectionStrategy implements SenderSelectionStrategy {
       final ClientType clientType,
       final @Nullable String preferredSender) {
 
-    if (prescribedVerificationCodeSender.supportsLanguageAndClient(transport, phoneNumber, languageRanges, clientType)) {
+    if (prescribedVerificationCodeSender.supportsLanguage(transport, phoneNumber, languageRanges)) {
       return new SenderSelection(prescribedVerificationCodeSender, SelectionReason.CONFIGURED);
-    } else if (fictitiousNumberVerificationCodeSender.supportsLanguageAndClient(transport, phoneNumber, languageRanges,
-        clientType)) {
+    } else if (fictitiousNumberVerificationCodeSender.supportsLanguage(transport, phoneNumber, languageRanges)) {
       return new SenderSelection(fictitiousNumberVerificationCodeSender, SelectionReason.CONFIGURED);
     } else {
       return this.selectorsByTransport

@@ -3,10 +3,8 @@ package org.signal.registration.sender;
 import com.google.i18n.phonenumbers.Phonenumber;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
-import java.util.Map;
 import java.util.Optional;
 import java.util.Random;
 import java.util.concurrent.CompletableFuture;
@@ -40,11 +38,10 @@ public class TestVerificationCodeSender implements VerificationCodeSender {
   }
 
   @Override
-  public boolean supportsLanguageAndClient(
+  public boolean supportsLanguage(
       final MessageTransport messageTransport,
       final Phonenumber.PhoneNumber phoneNumber,
-      final List<Locale.LanguageRange> languageRanges,
-      final ClientType clientType) {
+      final List<Locale.LanguageRange> languageRanges) {
     return Locale.lookupTag(languageRanges, supportedLanguages) != null;
   }
 

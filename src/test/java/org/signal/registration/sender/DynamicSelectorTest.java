@@ -101,7 +101,7 @@ public class DynamicSelectorTest {
 
     final SenderSelectionStrategy.SenderSelection actual = ts.chooseVerificationCodeSender(
         PhoneNumberUtil.getInstance().getExampleNumber(region),
-        Collections.emptyList(),
+        Locale.LanguageRange.parse("en-US"),
         ClientType.IOS,
         null);
 
@@ -173,7 +173,7 @@ public class DynamicSelectorTest {
 
     final DynamicSelector ts = buildSelector(config, SENDERS);
     final Phonenumber.PhoneNumber num = PhoneNumberUtil.getInstance().getExampleNumber("US");
-    final VerificationCodeSender actual = ts.chooseVerificationCodeSender(num, Collections.emptyList(),
+    final VerificationCodeSender actual = ts.chooseVerificationCodeSender(num, Locale.LanguageRange.parse("en-US"),
         ClientType.IOS, null).sender();
     assertEquals(actual, expected);
   }
@@ -195,6 +195,26 @@ public class DynamicSelectorTest {
         SENDER_A.getName());
     assertEquals(SENDER_A, actual.sender());
     assertEquals(SenderSelectionStrategy.SelectionReason.PREFERRED, actual.reason());
+  }
+
+  @Test
+  public void noLanguages() {
+    final DynamicSelectorConfiguration config = new DynamicSelectorConfiguration(
+        MessageTransport.SMS,
+        List.of(SENDER_FALLBACK.getName()),
+        Map.of(UNSUPPORTED.getName(), 100),
+        Map.of(),
+        Map.of());
+
+    // sender doesn't support any languages, but use it anyway if no language is provided by the user
+    final DynamicSelector ts = buildSelector(config, List.of(SENDER_FALLBACK, UNSUPPORTED));
+    final SenderSelectionStrategy.SenderSelection actual = ts.chooseVerificationCodeSender(
+        PhoneNumberUtil.getInstance().getExampleNumber("US"),
+        Collections.emptyList(),
+        ClientType.IOS,
+        null);
+    assertEquals(UNSUPPORTED, actual.sender());
+    assertEquals(SelectionReason.RANDOM, actual.reason());
   }
 
 
@@ -238,11 +258,10 @@ public class DynamicSelectorTest {
       }
 
       @Override
-      public boolean supportsLanguageAndClient(
+      public boolean supportsLanguage(
           final MessageTransport messageTransport,
           final Phonenumber.PhoneNumber phoneNumber,
-          final List<Locale.LanguageRange> languageRanges,
-          final ClientType clientType
+          final List<Locale.LanguageRange> languageRanges
       ) {
         return supports;
       }

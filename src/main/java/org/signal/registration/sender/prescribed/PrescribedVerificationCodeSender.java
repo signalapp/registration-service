@@ -69,10 +69,9 @@ public class PrescribedVerificationCodeSender implements VerificationCodeSender 
   }
 
   @Override
-  public boolean supportsLanguageAndClient(final MessageTransport messageTransport,
+  public boolean supportsLanguage(final MessageTransport messageTransport,
       final Phonenumber.PhoneNumber phoneNumber,
-      final List<Locale.LanguageRange> languageRanges,
-      final ClientType clientType) {
+      final List<Locale.LanguageRange> languageRanges) {
 
     return prescribedVerificationCodes.get().containsKey(phoneNumber);
   }
