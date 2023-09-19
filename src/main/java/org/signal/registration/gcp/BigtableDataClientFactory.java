@@ -11,7 +11,6 @@ import io.micronaut.context.annotation.Requires;
 import io.micronaut.context.annotation.Value;
 import io.micronaut.context.env.Environment;
 import jakarta.inject.Singleton;
-import org.signal.registration.analytics.gcp.bigtable.BigtableAttemptPendingAnalysisRepositoryConfiguration;
 import java.io.IOException;
 
 @Factory

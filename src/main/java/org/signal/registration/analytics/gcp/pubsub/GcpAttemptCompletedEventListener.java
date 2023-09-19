@@ -5,19 +5,27 @@
 
 package org.signal.registration.analytics.gcp.pubsub;
 
+import com.google.cloud.pubsub.v1.Publisher;
 import com.google.i18n.phonenumbers.NumberParseException;
 import com.google.i18n.phonenumbers.PhoneNumberUtil;
 import com.google.i18n.phonenumbers.Phonenumber;
+import com.google.pubsub.v1.PubsubMessage;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micronaut.context.event.ApplicationEventListener;
-import io.micronaut.scheduling.annotation.Async;
+import io.micronaut.scheduling.TaskExecutors;
+import jakarta.inject.Named;
 import jakarta.inject.Singleton;
 import java.time.Instant;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.Executor;
 import org.apache.commons.lang3.StringUtils;
 import org.signal.registration.metrics.MetricsUtil;
 import org.signal.registration.session.RegistrationAttempt;
 import org.signal.registration.session.RegistrationSession;
 import org.signal.registration.session.SessionCompletedEvent;
+import org.signal.registration.util.GoogleApiUtil;
 import org.signal.registration.util.UUIDUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -27,9 +35,11 @@ import org.slf4j.LoggerFactory;
  */
 @Singleton
 public class GcpAttemptCompletedEventListener implements ApplicationEventListener<SessionCompletedEvent> {
+
   private static final Logger logger = LoggerFactory.getLogger(GcpAttemptCompletedEventListener.class);
 
-  private final CompletedAttemptPubSubMessageClient pubSubMessageClient;
+  private final Publisher pubSubMessageClient;
+  private Executor executor;
   private final MeterRegistry meterRegistry;
 
   private static final String EVENT_PROCESSED_COUNTER_NAME =
@@ -40,20 +50,22 @@ public class GcpAttemptCompletedEventListener implements ApplicationEventListene
 
   public GcpAttemptCompletedEventListener(
       final MeterRegistry meterRegistry,
-      final CompletedAttemptPubSubMessageClient pubSubMessageClient) {
+      final @Named(PubsubClientFactory.COMPLETED_ATTEMPTS) Publisher pubSubMessageClient,
+      final @Named(TaskExecutors.IO) Executor executor) {
     this.meterRegistry = meterRegistry;
     this.pubSubMessageClient = pubSubMessageClient;
+    this.executor = executor;
   }
 
   @Override
-  @Async
   public void onApplicationEvent(final SessionCompletedEvent event) {
     final RegistrationSession session = event.session();
     final Phonenumber.PhoneNumber phoneNumber = getPhoneNumber(session);
-    final String region = StringUtils.defaultIfBlank(PhoneNumberUtil.getInstance().getRegionCodeForNumber(phoneNumber), "XX");
+    final String region = StringUtils.defaultIfBlank(PhoneNumberUtil.getInstance().getRegionCodeForNumber(phoneNumber),
+        "XX");
 
-    for (int i = 0; i < event.session().getRegistrationAttemptsCount(); i++) {
-      final RegistrationAttempt registrationAttempt = event.session().getRegistrationAttempts(i);
+    for (int i = 0; i < session.getRegistrationAttemptsCount(); i++) {
+      final RegistrationAttempt registrationAttempt = session.getRegistrationAttempts(i);
       if (StringUtils.isBlank(registrationAttempt.getRemoteId())) {
         continue;
       }
@@ -76,17 +88,20 @@ public class GcpAttemptCompletedEventListener implements ApplicationEventListene
           .setSelectionReason(registrationAttempt.getSelectionReason())
           .build();
 
-      // immediately added table of finished attempts (sans analysis)
-      boolean success = false;
-      try {
-        pubSubMessageClient.send(completedAttempt.toByteArray());
-        success = true;
-      } catch (Exception e) {
-        logger.warn("Error processing session completion event", e);
-      } finally {
-        meterRegistry.counter(ATTEMPT_PUBLISHED_COUNTER_NAME, MetricsUtil.SUCCESS_TAG_NAME, String.valueOf(success))
-            .increment();
-      }
+      // immediately add to table of finished attempts (sans analysis)
+      GoogleApiUtil.toCompletableFuture(
+              pubSubMessageClient.publish(PubsubMessage.newBuilder()
+                  .putAttributes("Content-Type", "application/protobuf")
+                  .setData(completedAttempt.toByteString())
+                  .build()),
+              executor)
+          .whenComplete((v, throwable) -> {
+            if (throwable != null) {
+              logger.warn("Error processing session completion event", throwable);
+            }
+            meterRegistry.counter(ATTEMPT_PUBLISHED_COUNTER_NAME, MetricsUtil.SUCCESS_TAG_NAME,
+                String.valueOf(throwable == null)).increment();
+          });
     }
   }
 
