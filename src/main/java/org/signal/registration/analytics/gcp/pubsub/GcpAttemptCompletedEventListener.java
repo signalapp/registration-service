@@ -11,6 +11,7 @@ import com.google.i18n.phonenumbers.PhoneNumberUtil;
 import com.google.i18n.phonenumbers.Phonenumber;
 import com.google.pubsub.v1.PubsubMessage;
 import io.micrometer.core.instrument.MeterRegistry;
+import io.micrometer.core.instrument.Timer;
 import io.micronaut.context.event.ApplicationEventListener;
 import io.micronaut.scheduling.TaskExecutors;
 import jakarta.inject.Named;
@@ -39,8 +40,11 @@ public class GcpAttemptCompletedEventListener implements ApplicationEventListene
   private static final Logger logger = LoggerFactory.getLogger(GcpAttemptCompletedEventListener.class);
 
   private final Publisher pubSubMessageClient;
-  private Executor executor;
+  private final Executor executor;
   private final MeterRegistry meterRegistry;
+  private final Timer startPublishTimer;
+  private final Timer publishTimer;
+
 
   private static final String EVENT_PROCESSED_COUNTER_NAME =
       MetricsUtil.name(GcpAttemptCompletedEventListener.class, "eventProcessed");
@@ -55,6 +59,8 @@ public class GcpAttemptCompletedEventListener implements ApplicationEventListene
     this.meterRegistry = meterRegistry;
     this.pubSubMessageClient = pubSubMessageClient;
     this.executor = executor;
+    this.startPublishTimer = meterRegistry.timer(MetricsUtil.name(getClass(), "startPublish"));
+    this.publishTimer = meterRegistry.timer(MetricsUtil.name(getClass(), "publish"));
   }
 
   @Override
@@ -88,19 +94,25 @@ public class GcpAttemptCompletedEventListener implements ApplicationEventListene
           .setSelectionReason(registrationAttempt.getSelectionReason())
           .build();
 
+      final Timer.Sample startPublishSample = Timer.start();
+      final Timer.Sample totalPublishSample = Timer.start();
+
       // immediately add to table of finished attempts (sans analysis)
-      GoogleApiUtil.toCompletableFuture(
+      final CompletableFuture<String> future = GoogleApiUtil.toCompletableFuture(
               pubSubMessageClient.publish(PubsubMessage.newBuilder()
                   .putAttributes("Content-Type", "application/protobuf")
                   .setData(completedAttempt.toByteString())
                   .build()),
-              executor)
+              executor);
+      startPublishSample.stop(startPublishTimer);
+      future
           .whenComplete((v, throwable) -> {
             if (throwable != null) {
               logger.warn("Error processing session completion event", throwable);
             }
             meterRegistry.counter(ATTEMPT_PUBLISHED_COUNTER_NAME, MetricsUtil.SUCCESS_TAG_NAME,
                 String.valueOf(throwable == null)).increment();
+            totalPublishSample.stop(publishTimer);
           });
     }
   }
