@@ -133,12 +133,18 @@ class BigtableSessionRepository implements SessionRepository {
   }
 
   private Publisher<RegistrationSession> getSessionsPendingRemoval() {
+    // Sessions who are going to expire in the next REMOVAL_TTL_PADDING time interval
+    // are eligible to be processed. If we fail to remove these sessions, Bigtable will
+    // remove them after REMOVAL_TTL_PADDING time has elapsed
+    final Filters.ValueRangeFilter removalTimeRange = Filters.FILTERS.value().range().of(
+        EPOCH_BYTE_STRING,
+        instantToByteString(clock.instant().plus(REMOVAL_TTL_PADDING)));
     return ReactiveResponseObserver.<Row>asFlux(responseObserver -> bigtableDataClient.readRowsAsync(
         Query.create(configuration.tableName())
         .filter(Filters.FILTERS.condition(Filters.FILTERS.chain()
                 .filter(Filters.FILTERS.family().exactMatch(configuration.columnFamilyName()))
                 .filter(Filters.FILTERS.qualifier().exactMatch(REMOVAL_COLUMN_NAME))
-                .filter(Filters.FILTERS.value().range().of(EPOCH_BYTE_STRING, instantToByteString(clock.instant()))))
+                .filter(removalTimeRange))
             .then(Filters.FILTERS.chain()
                 .filter(Filters.FILTERS.pass())
                 .filter(Filters.FILTERS.limit().cellsPerColumn(1)))),
