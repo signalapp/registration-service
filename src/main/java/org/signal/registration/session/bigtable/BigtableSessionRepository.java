@@ -120,7 +120,13 @@ class BigtableSessionRepository implements SessionRepository {
   CompletableFuture<Void> deleteExpiredSessions() {
     return Flux.from(getSessionsPendingRemoval())
         .flatMap(this::removeExpiredSession)
-        .doOnNext(session -> sessionCompletedEventPublisher.publishEvent(new SessionCompletedEvent(session)))
+        .doOnNext(session -> {
+          try {
+            sessionCompletedEventPublisher.publishEvent(new SessionCompletedEvent(session));
+          } catch (Exception e) {
+            logger.error("Error publishing SessionCompletion event", e);
+          }
+        })
         .last()
         .toFuture()
         .thenAccept(ignored -> {});
