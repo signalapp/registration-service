@@ -77,6 +77,7 @@ public class BigQueryVerificationStatsProvider implements VerificationStatsProvi
     private final Executor executor;
     private final BigQuery bigQuery;
     private final MessageTransport messageTransport;
+    private String tableName;
     private final Duration windowSize;
     private final MeterRegistry meterRegistry;
     private final Map<Pair<String, String>, VerificationStats> currentStats;
@@ -88,11 +89,13 @@ public class BigQueryVerificationStatsProvider implements VerificationStatsProvi
         final Executor executor,
         final BigQuery bigQuery,
         final MessageTransport messageTransport,
+        final String tableName,
         final Duration windowSize,
         final MeterRegistry meterRegistry) {
       this.executor = executor;
       this.bigQuery = bigQuery;
       this.messageTransport = messageTransport;
+      this.tableName = tableName;
       this.windowSize = windowSize;
       this.meterRegistry = meterRegistry;
       this.currentStats = new HashMap<>();
@@ -135,10 +138,10 @@ public class BigQueryVerificationStatsProvider implements VerificationStatsProvi
                   region,
                   SUM(CAST(verified as integer)) as successes,
                   SUM(1) as total
-                FROM `registration.analyzed-attempts`
+                FROM `%s`
                 WHERE timestamp > @window_start_ts AND message_transport = @message_transport
                 GROUP BY sender_name, region;
-                """)
+                """.formatted(tableName))
             .addNamedParameter("window_start_ts", windowStart)
             .addNamedParameter("message_transport", transport)
             .setUseLegacySql(false)
@@ -203,7 +206,7 @@ public class BigQueryVerificationStatsProvider implements VerificationStatsProvi
       final MeterRegistry meterRegistry) {
     this.updaterByTransport = new EnumMap<>(Arrays.stream(MessageTransport.values()).collect(Collectors.toMap(
         Function.identity(),
-        mt -> new Updater(executor, bigQuery, mt, config.windowSize(), meterRegistry))));
+        mt -> new Updater(executor, bigQuery, mt, config.tableName(), config.windowSize(), meterRegistry))));
     this.updaterByTransport.forEach((messageTransport, updater) ->
         meterRegistry.gauge(REGION_COUNT_GAUGE_NAME,
             Tags.of(MetricsUtil.TRANSPORT_TAG_NAME, messageTransport.name()),
