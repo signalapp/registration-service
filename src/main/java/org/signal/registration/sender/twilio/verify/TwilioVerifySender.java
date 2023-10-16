@@ -25,6 +25,7 @@ import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
 import java.util.function.Supplier;
+import org.apache.commons.lang3.StringUtils;
 import org.signal.registration.sender.ApiClientInstrumenter;
 import org.signal.registration.sender.AttemptData;
 import org.signal.registration.sender.ClientType;
@@ -120,6 +121,10 @@ public class TwilioVerifySender implements VerificationCodeSender {
 
     if (clientType == ClientType.ANDROID_WITH_FCM) {
       verificationCreator.setAppHash(configuration.androidAppHash());
+    }
+
+    if (messageTransport == MessageTransport.SMS && StringUtils.isNotBlank(configuration.customTemplateSid())) {
+      verificationCreator.setTemplateSid(configuration.customTemplateSid());
     }
 
     final Timer.Sample sample = Timer.start();

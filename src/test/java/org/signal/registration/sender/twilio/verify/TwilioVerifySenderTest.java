@@ -42,7 +42,7 @@ class TwilioVerifySenderTest {
   @BeforeEach
   void setUp() {
     final TwilioVerifyConfiguration configuration =
-        new TwilioVerifyConfiguration("service-sid", "friendly-name", "app-hash", List.of("en"));
+        new TwilioVerifyConfiguration("service-sid", "friendly-name", "app-hash", null, List.of("en"));
 
     twilioVerifySender = new TwilioVerifySender(
         mock(TwilioRestClient.class),

@@ -17,6 +17,7 @@ import java.util.List;
 record TwilioVerifyConfiguration(@NotBlank String serviceSid,
                                  @Nullable String serviceFriendlyName,
                                  @NotBlank String androidAppHash,
+                                 @Nullable String customTemplateSid,
                                  List<@NotBlank String> supportedLanguages) {
 
   TwilioVerifyConfiguration {
