@@ -14,48 +14,14 @@ import java.util.List;
 
 @Context
 @ConfigurationProperties("twilio.verify")
-class TwilioVerifyConfiguration {
+record TwilioVerifyConfiguration(@NotBlank String serviceSid,
+                                 @Nullable String serviceFriendlyName,
+                                 @NotBlank String androidAppHash,
+                                 List<@NotBlank String> supportedLanguages) {
 
-  @NotBlank
-  private String serviceSid;
-
-  @Nullable
-  private String serviceFriendlyName;
-
-  @NotBlank
-  private String androidAppHash;
-
-  private List<@NotBlank String> supportedLanguages = Collections.emptyList();
-
-  public String getServiceSid() {
-    return serviceSid;
-  }
-
-  public void setServiceSid(final String serviceSid) {
-    this.serviceSid = serviceSid;
-  }
-
-  public String getServiceFriendlyName() {
-    return serviceFriendlyName;
-  }
-
-  public void setServiceFriendlyName(final String serviceFriendlyName) {
-    this.serviceFriendlyName = serviceFriendlyName;
-  }
-
-  public String getAndroidAppHash() {
-    return androidAppHash;
-  }
-
-  public void setAndroidAppHash(final String androidAppHash) {
-    this.androidAppHash = androidAppHash;
-  }
-
-  public List<String> getSupportedLanguages() {
-    return supportedLanguages;
-  }
-
-  public void setSupportedLanguages(final List<String> supportedLanguages) {
-    this.supportedLanguages = supportedLanguages;
+  TwilioVerifyConfiguration {
+    if (supportedLanguages == null) {
+      supportedLanguages = Collections.emptyList();
+    }
   }
 }

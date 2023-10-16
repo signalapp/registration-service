@@ -38,7 +38,6 @@ import org.slf4j.LoggerFactory;
 import reactor.core.Exceptions;
 import reactor.core.publisher.Mono;
 import reactor.util.retry.Retry;
-import reactor.util.retry.RetryBackoffSpec;
 
 /**
  * A Twilio Verify sender sends verification codes to end users via Twilio Verify.
@@ -60,7 +59,7 @@ public class TwilioVerifySender implements VerificationCodeSender {
       MessageTransport.VOICE, Verification.Channel.CALL
   ));
 
-  protected TwilioVerifySender(
+  TwilioVerifySender(
       final TwilioRestClient twilioRestClient,
       final TwilioVerifyConfiguration configuration,
       final ApiClientInstrumenter apiClientInstrumenter,
@@ -84,7 +83,8 @@ public class TwilioVerifySender implements VerificationCodeSender {
       final Phonenumber.PhoneNumber phoneNumber,
       final List<Locale.LanguageRange> languageRanges,
       final ClientType clientType) {
-    return Locale.lookupTag(languageRanges, configuration.getSupportedLanguages()) != null;
+
+    return Locale.lookupTag(languageRanges, configuration.supportedLanguages()) != null;
   }
 
   @Override
@@ -112,14 +112,14 @@ public class TwilioVerifySender implements VerificationCodeSender {
     }
 
     final VerificationCreator verificationCreator =
-        Verification.creator(configuration.getServiceSid(),
+        Verification.creator(configuration.serviceSid(),
                 PhoneNumberUtil.getInstance().format(phoneNumber, PhoneNumberUtil.PhoneNumberFormat.E164),
                 channel.toString())
-            .setCustomFriendlyName(configuration.getServiceFriendlyName())
-            .setLocale(Locale.lookupTag(languageRanges, configuration.getSupportedLanguages()));
+            .setCustomFriendlyName(configuration.serviceFriendlyName())
+            .setLocale(Locale.lookupTag(languageRanges, configuration.supportedLanguages()));
 
     if (clientType == ClientType.ANDROID_WITH_FCM) {
-      verificationCreator.setAppHash(configuration.getAndroidAppHash());
+      verificationCreator.setAppHash(configuration.androidAppHash());
     }
 
     final Timer.Sample sample = Timer.start();
@@ -160,7 +160,7 @@ public class TwilioVerifySender implements VerificationCodeSender {
       final Timer.Sample sample = Timer.start();
 
       final VerificationCheckCreator creator = VerificationCheck.creator(
-              configuration.getServiceSid())
+              configuration.serviceSid())
           .setVerificationSid(verificationSid)
           .setCode(verificationCode);
       return withRetries(() -> creator.createAsync(twilioRestClient), "verification_check.create")
