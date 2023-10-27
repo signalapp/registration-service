@@ -12,6 +12,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
@@ -34,11 +35,13 @@ public interface SenderSelectionStrategy {
    * Selects a verification code sender for the given message transport, destination phone number, language preferences,
    * and client type.
    *
-   * @param transport       the message transport via which to send a verification code
-   * @param phoneNumber     the phone number to which to send a verification code
-   * @param languageRanges  a prioritized list of language preferences for the receiver of the verification code
-   * @param clientType      the type of client receiving the verification code
-   * @param preferredSender if provided, a sender to use
+   * @param transport               the message transport via which to send a verification code
+   * @param phoneNumber             the phone number to which to send a verification code
+   * @param languageRanges          a prioritized list of language preferences for the receiver of the verification code
+   * @param clientType              the type of client receiving the verification code
+   * @param preferredSender         if provided, a sender to use
+   * @param previouslyFailedSenders senders that have previously been used in this verification session that have not
+   *                                produced a successful verification
    * @return a {@link SenderSelection} appropriate for the given message transport, phone number, language preferences,
    * and client type
    */
@@ -46,7 +49,8 @@ public interface SenderSelectionStrategy {
       Phonenumber.PhoneNumber phoneNumber,
       List<Locale.LanguageRange> languageRanges,
       ClientType clientType,
-      @Nullable String preferredSender);
+      @Nullable String preferredSender,
+      Set<String> previouslyFailedSenders);
 
   enum SelectionReason {
 

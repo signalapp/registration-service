@@ -13,6 +13,7 @@ import javax.annotation.Nullable;
 import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
+import java.util.Set;
 
 /**
  * A trivial sender selection strategy that unconditionally selects a
@@ -36,8 +37,8 @@ public class LastDigitsOfPhoneNumberSenderSelectionStrategy implements SenderSel
       final Phonenumber.PhoneNumber phoneNumber,
       final List<Locale.LanguageRange> languageRanges,
       final ClientType clientType,
-      final @Nullable String preferredSender) {
-
+      final @Nullable String preferredSender,
+      final Set<String> previouslyFailedSenders) {
     return new SenderSelection(lastDigitsSender, SelectionReason.CONFIGURED);
   }
 }

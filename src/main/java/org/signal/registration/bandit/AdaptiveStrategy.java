@@ -73,6 +73,7 @@ public class AdaptiveStrategy {
    * @param region         the region to which a verification should be sent
    * @param languageRanges the desired languages for the given verification
    * @param clientType     which type of client is requesting a verification
+   * @param failedSenders  names of senders we've previously tried and failed to verify with
    * @return the name of the sender which was selected
    */
   public String sample(
@@ -80,22 +81,43 @@ public class AdaptiveStrategy {
       final Phonenumber.PhoneNumber phoneNumber,
       final String region,
       final List<Locale.LanguageRange> languageRanges,
-      final ClientType clientType) {
+      final ClientType clientType,
+      final Set<String> failedSenders) {
 
-    final List<Distribution> choices = buildDistributions(messageTransport, region, phoneNumber);
+    final List<Distribution> choices = buildDistributions(messageTransport, region, phoneNumber, failedSenders);
     final String choice = sampleChoices(generator, choices).senderName();
 
     log.debug("sampling for region {} returned choice {} (from {} choices)", region, choice, choices.size());
     return choice;
   }
 
-  @VisibleForTesting
-  List<Distribution> buildDistributions(final MessageTransport messageTransport, final String region, final Phonenumber.PhoneNumber phoneNumber) {
+  private Set<String> candidateSenders(final MessageTransport messageTransport, final String region, Set<String> failedSenders) {
     // Get the configured list of senders for this region
     final Set<String> configuredSenders = configuredSenders(messageTransport, region);
+    if (failedSenders.isEmpty()) {
+      return configuredSenders;
+    }
+
+    // remove senders that have previous had a failed attempt in the session
+    final Set<String> sendersWithoutFailedAttempts = configuredSenders.stream()
+        .filter(sender -> !failedSenders.contains(sender))
+        .collect(Collectors.toSet());
+
+    // If there is at least one candidate that hasn't previously failed, consider only senders without failures.
+    // Otherwise, use the configured senders.
+    return sendersWithoutFailedAttempts.isEmpty() ? configuredSenders : sendersWithoutFailedAttempts;
+  }
+
+  @VisibleForTesting
+  List<Distribution> buildDistributions(
+      final MessageTransport messageTransport,
+      final String region,
+      final Phonenumber.PhoneNumber phoneNumber,
+      final Set<String> failedSenders) {
+    final Set<String> candidates = candidateSenders(messageTransport, region, failedSenders);
 
     // Get success/failure information about each sender
-    final Map<String, VerificationStats> choices = configuredSenders.stream()
+    final Map<String, VerificationStats> choices = candidates.stream()
         .collect(Collectors.toMap(
             Function.identity(),
             sender -> statsProvider
@@ -103,7 +125,7 @@ public class AdaptiveStrategy {
                 .orElseGet(VerificationStats::empty)));
 
     // Get cost information about each sender
-    final Map<String, Optional<Double>> costs = configuredSenders.stream()
+    final Map<String, Optional<Double>> costs = candidates.stream()
         .collect(Collectors.toMap(
             Function.identity(),
             sender -> costProvider.getCost(messageTransport, region, sender).map(Integer::doubleValue)));
@@ -111,7 +133,7 @@ public class AdaptiveStrategy {
     // Build distributions, computing the relative cost of each sender.
     // If none of the senders have cost information available, assign them all a cost of 1.0
     final double maxCost = costs.values().stream().flatMap(Optional::stream).max(Double::compareTo).orElse(1.0);
-    return configuredSenders.stream()
+    return candidates.stream()
         .map(sender -> new Distribution(
             sender,
             choices.get(sender),

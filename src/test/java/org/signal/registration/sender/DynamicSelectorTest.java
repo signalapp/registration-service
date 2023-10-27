@@ -103,7 +103,8 @@ public class DynamicSelectorTest {
         PhoneNumberUtil.getInstance().getExampleNumber(region),
         Locale.LanguageRange.parse("en-US"),
         ClientType.IOS,
-        null);
+        null,
+        Collections.emptySet());
 
     assertEquals(expected, actual.sender());
     assertEquals(expectedReason, actual.reason());
@@ -140,7 +141,8 @@ public class DynamicSelectorTest {
         number,
         Collections.emptyList(),
         ClientType.IOS,
-        null);
+        null,
+        Collections.emptySet());
     assertEquals(expected, actual.sender());
     assertEquals(SenderSelectionStrategy.SelectionReason.CONFIGURED, actual.reason());
   }
@@ -174,7 +176,7 @@ public class DynamicSelectorTest {
     final DynamicSelector ts = buildSelector(config, SENDERS);
     final Phonenumber.PhoneNumber num = PhoneNumberUtil.getInstance().getExampleNumber("US");
     final VerificationCodeSender actual = ts.chooseVerificationCodeSender(num, Locale.LanguageRange.parse("en-US"),
-        ClientType.IOS, null).sender();
+        ClientType.IOS, null, Collections.emptySet()).sender();
     assertEquals(actual, expected);
   }
 
@@ -192,7 +194,8 @@ public class DynamicSelectorTest {
         PhoneNumberUtil.getInstance().getExampleNumber("US"),
         Collections.emptyList(),
         ClientType.IOS,
-        SENDER_A.getName());
+        SENDER_A.getName(),
+        Collections.emptySet());
     assertEquals(SENDER_A, actual.sender());
     assertEquals(SenderSelectionStrategy.SelectionReason.PREFERRED, actual.reason());
   }
@@ -212,7 +215,8 @@ public class DynamicSelectorTest {
         PhoneNumberUtil.getInstance().getExampleNumber("US"),
         Collections.emptyList(),
         ClientType.IOS,
-        null);
+        null,
+        Collections.emptySet());
     assertEquals(UNSUPPORTED, actual.sender());
     assertEquals(SelectionReason.RANDOM, actual.reason());
   }
@@ -230,13 +234,13 @@ public class DynamicSelectorTest {
       }
     };
     final AdaptiveStrategy adaptiveStrategy = mock(AdaptiveStrategy.class);
-    when(adaptiveStrategy.sample(any(), any(), any(), any(), any())).thenReturn("an_adaptive_choice");
+    when(adaptiveStrategy.sample(any(), any(), any(), any(), any(), any())).thenReturn("an_adaptive_choice");
     return new DynamicSelector(rg, new SimpleMeterRegistry(), config, adaptiveStrategy, senders);
   }
 
   private static DynamicSelector buildSelector(DynamicSelectorConfiguration config, List<VerificationCodeSender> senders) {
     final AdaptiveStrategy adaptiveStrategy = mock(AdaptiveStrategy.class);
-    when(adaptiveStrategy.sample(any(), any(), any(), any(), any())).thenReturn("an_adaptive_choice");
+    when(adaptiveStrategy.sample(any(), any(), any(), any(), any(), any())).thenReturn("an_adaptive_choice");
     return new DynamicSelector(new JDKRandomGenerator(), new SimpleMeterRegistry(), config, adaptiveStrategy, senders);
   }
 

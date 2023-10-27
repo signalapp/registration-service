@@ -1,6 +1,7 @@
 package org.signal.registration.bandit;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.google.i18n.phonenumbers.PhoneNumberUtil;
@@ -326,7 +327,8 @@ public class AdaptiveStrategyTest {
             "C", new VerificationStats(3.0, 7.0)))),
         this.generator);
 
-    final List<Distribution> distributions = strat.buildDistributions(MessageTransport.SMS, "US", phoneNumber);
+    final List<Distribution> distributions = strat.buildDistributions(
+        MessageTransport.SMS, "US", phoneNumber, Collections.emptySet());
     assertEquals(distributions.size(), 3);
     final Map<String, Distribution> byName = distributions.stream()
         .collect(Collectors.toMap(Distribution::senderName, Function.identity()));
@@ -334,6 +336,49 @@ public class AdaptiveStrategyTest {
     assertEquals(1.0, byName.get("A").relativeCost(), 0.01);
     assertEquals(.1, byName.get("B").relativeCost(), 0.01);
     assertEquals(.5, byName.get("C").relativeCost(), 0.01);
+  }
+
+  @Test
+  public void avoidFailedSenders() {
+    final Phonenumber.PhoneNumber phoneNumber = PhoneNumberUtil.getInstance().getExampleNumber("US");
+
+    final AdaptiveStrategyConfiguration config = new AdaptiveStrategyConfiguration(
+        MessageTransport.SMS,
+        Set.of("A", "B", "C"),
+        Collections.emptyMap(),
+        BigDecimal.valueOf(0.05));
+    final AdaptiveStrategy strat = new AdaptiveStrategy(List.of(config),
+        new FixedCostProvider(List.of(new FixedCostConfiguration(MessageTransport.SMS, Map.of("US", Map.of(
+            "A", 10,
+            "B", 1,
+            "C", 5))))),
+        InMemoryVerificationStatsProvider.create(Map.of("US", Map.of(
+            "A", new VerificationStats(90.0, 100.0),
+            "B", new VerificationStats(8.0, 2.0),
+            "C", new VerificationStats(3.0, 7.0)))),
+        this.generator);
+
+    final List<Distribution> aFailed = strat.buildDistributions(MessageTransport.SMS, "US", phoneNumber,
+        Set.of("A"));
+    final List<Distribution> abFailed = strat.buildDistributions(MessageTransport.SMS, "US", phoneNumber,
+        Set.of("A", "B"));
+    final List<Distribution> allFailed = strat.buildDistributions(MessageTransport.SMS, "US", phoneNumber,
+        Set.of("A", "B", "C"));
+
+    // should be B, C
+    assertEquals(aFailed.size(), 2);
+    assertFalse(aFailed.stream().map(Distribution::senderName).anyMatch("A"::equals));
+    assertEquals(
+      aFailed.stream().collect(Collectors.toMap(Distribution::senderName, Distribution::relativeCost)),
+      Map.of("B", 0.2, "C", 1.0));
+
+    // should only be C
+    assertEquals(abFailed.size(), 1);
+    assertEquals(abFailed.get(0).senderName(), "C");
+    assertEquals(abFailed.get(0).relativeCost(), 1.0);
+
+    // should use all senders if all senders have had a prior failure
+    assertEquals(allFailed.size(), 3);
   }
 
   @Test

@@ -14,6 +14,7 @@ import org.signal.registration.bandit.VerificationStats;
 import org.signal.registration.cost.CostProvider;
 
 import java.math.BigDecimal;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
@@ -80,7 +81,8 @@ public class DynamicSelectorBanditTest {
           PhoneNumberUtil.getInstance().parse(phoneNumber, region),
           List.of(new Locale.LanguageRange(language)),
           ClientType.IOS,
-          null).sender().getName();
+          null,
+          Collections.emptySet()).sender().getName();
     } catch (NumberParseException e) {
       throw new RuntimeException(e);
     }

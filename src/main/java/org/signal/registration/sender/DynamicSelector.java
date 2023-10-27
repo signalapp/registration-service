@@ -9,6 +9,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.function.Function;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
@@ -124,7 +125,8 @@ public class DynamicSelector {
     final Phonenumber.PhoneNumber phoneNumber,
     final List<Locale.LanguageRange> languageRanges,
     final ClientType clientType,
-    final @Nullable String preferredSender) {
+    final @Nullable String preferredSender,
+    final Set<String> previouslyFailedSenders) {
 
     if (preferredSender != null && senders.containsKey(preferredSender)) {
       return new SenderSelection(senders.get(preferredSender), SelectionReason.PREFERRED);
@@ -134,13 +136,12 @@ public class DynamicSelector {
 
     // check for region based overrides
     if (this.regionOverrides.containsKey(region)) {
-      return new SenderSelection(
-          this.regionOverrides.get(region),
-          SelectionReason.CONFIGURED);
+      return new SenderSelection(this.regionOverrides.get(region), SelectionReason.CONFIGURED);
     }
 
     // determine what we would pick with the adaptive strategy
-    final String adaptivePick = strategy.sample(transport, phoneNumber, region, languageRanges, clientType);
+    final String adaptivePick = strategy.sample(transport, phoneNumber, region, languageRanges, clientType,
+        previouslyFailedSenders);
 
     // make a weighted selection if we have one configured
     final Optional<SenderSelection> sampledSelection = Optional

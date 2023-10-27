@@ -24,6 +24,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
@@ -180,8 +181,13 @@ public class RegistrationService {
                   final Phonenumber.PhoneNumber phoneNumberFromSession =
                       PhoneNumberUtil.getInstance().parse(session.getPhoneNumber(), null);
 
+                  final Set<String> previouslyFailedSenders = session.getRegistrationAttemptsList()
+                      .stream()
+                      .map(attempt -> attempt.getSenderName())
+                      .collect(Collectors.toSet());
+
                   final SenderSelection selection = senderSelectionStrategy.chooseVerificationCodeSender(
-                      messageTransport, phoneNumberFromSession, languageRanges, clientType, senderName);
+                      messageTransport, phoneNumberFromSession, languageRanges, clientType, senderName, previouslyFailedSenders);
 
                   return selection.sender().sendVerificationCode(messageTransport,
                           phoneNumberFromSession,
