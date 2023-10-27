@@ -39,6 +39,8 @@ public class BigQueryCostProvider implements CostProvider {
   private final Duration windowSize;
   private final BigQuery bigQuery;
   private final MeterRegistry meterRegistry;
+  private final String analyzedAttemptsTableName;
+  private final String completedAttemptsTableName;
 
   private volatile Map<MessageTransport, Map<String, Map<String, Integer>>> absoluteCosts = Collections.emptyMap();
 
@@ -49,6 +51,8 @@ public class BigQueryCostProvider implements CostProvider {
     this.bigQuery = bigQuery;
     this.meterRegistry = meterRegistry;
     this.windowSize = costProviderConfiguration.windowSize();
+    this.analyzedAttemptsTableName = costProviderConfiguration.analyzedAttemptsTableName();
+    this.completedAttemptsTableName = costProviderConfiguration.completedAttemptsTableName();
   }
 
   @Override
@@ -71,16 +75,22 @@ public class BigQueryCostProvider implements CostProvider {
         .newBuilder("""
             WITH prices AS (
               SELECT
-                timestamp, region, sender_name, message_transport,
+                completed.timestamp, completed.region, completed.sender_name, completed.message_transport,
                 COALESCE(price_micros, estimated_price_micros) as price_micros,
                 COALESCE(currency, estimated_price_currency) as currency
-              FROM `registration.analyzed-attempts`)
+              FROM `%s` as analyzed
+              JOIN `%s` as completed
+                ON analyzed.session_id=completed.session_id
+                AND analyzed.attempt_id=completed.attempt_id
+                AND completed.timestamp > @window_start_ts
+                AND analyzed.timestamp > @window_start_ts
+                AND currency is NOT NULL)
             SELECT
               message_transport, sender_name, region, currency, AVG(price_micros) as avg_price
             FROM prices
-            WHERE timestamp > @window_start_ts AND currency is NOT NULL
-            GROUP BY message_transport, region, sender_name, currency;
-            """)
+            GROUP BY message_transport, region, sender_name, currency
+            ORDER BY region, sender_name
+            """.formatted(analyzedAttemptsTableName, completedAttemptsTableName))
         .setUseLegacySql(false)
         .addNamedParameter("window_start_ts", windowStart)
         .build();
