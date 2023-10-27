@@ -82,6 +82,7 @@ public class BigQueryCostProvider implements CostProvider {
               JOIN `%s` as completed
                 ON analyzed.session_id=completed.session_id
                 AND analyzed.attempt_id=completed.attempt_id
+                AND analyzed.attempt_id=0
                 AND completed.timestamp > @window_start_ts
                 AND analyzed.timestamp > @window_start_ts
                 AND currency is NOT NULL)

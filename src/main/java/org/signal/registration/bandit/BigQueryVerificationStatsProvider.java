@@ -130,8 +130,13 @@ public class BigQueryVerificationStatsProvider implements VerificationStatsProvi
             Instant.now().minus(windowSize).toEpochMilli() * 1000L);
 
         final QueryParameterValue transport = QueryParameterValue.string(messageTransportColumnVal(messageTransport));
-
         final JobId jobId = JobId.of(UUID.randomUUID().toString());
+
+        // Fetch the success/failure counts by region for the provided time window. Filter to only the first attempt in
+        // each session. Since we use a different selection strategy when making multiple attempts on the same session,
+        // bias is introduced in the data. If a provider mostly receives only "second" attempts, (which are likely
+        // for numbers that are facing deliverability problems to begin with) their performance might be worse than if
+        // they were receiving a random sample of requests.
         final QueryJobConfiguration queryConfig = QueryJobConfiguration.newBuilder("""
                 SELECT
                   sender_name,
@@ -139,7 +144,9 @@ public class BigQueryVerificationStatsProvider implements VerificationStatsProvi
                   SUM(CAST(verified as integer)) as successes,
                   SUM(1) as total
                 FROM `%s`
-                WHERE timestamp > @window_start_ts AND message_transport = @message_transport
+                WHERE timestamp > @window_start_ts
+                AND message_transport = @message_transport
+                AND attempt_id = 0
                 GROUP BY sender_name, region;
                 """.formatted(tableName))
             .addNamedParameter("window_start_ts", windowStart)
