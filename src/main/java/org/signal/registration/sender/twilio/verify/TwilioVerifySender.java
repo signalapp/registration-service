@@ -13,6 +13,8 @@ import com.twilio.rest.verify.v2.service.Verification;
 import com.twilio.rest.verify.v2.service.VerificationCheck;
 import com.twilio.rest.verify.v2.service.VerificationCheckCreator;
 import com.twilio.rest.verify.v2.service.VerificationCreator;
+import io.micrometer.core.instrument.MeterRegistry;
+import io.micrometer.core.instrument.Tags;
 import io.micrometer.core.instrument.Timer;
 import io.micronaut.context.annotation.Value;
 import jakarta.inject.Singleton;
@@ -26,10 +28,12 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
 import java.util.function.Supplier;
 import org.apache.commons.lang3.StringUtils;
+import org.signal.registration.metrics.MetricsUtil;
 import org.signal.registration.sender.ApiClientInstrumenter;
 import org.signal.registration.sender.AttemptData;
 import org.signal.registration.sender.ClientType;
 import org.signal.registration.sender.MessageTransport;
+import org.signal.registration.sender.SenderInvalidParametersException;
 import org.signal.registration.sender.UnsupportedMessageTransportException;
 import org.signal.registration.sender.VerificationCodeSender;
 import org.signal.registration.sender.twilio.ApiExceptions;
@@ -45,15 +49,20 @@ import reactor.util.retry.Retry;
  */
 @Singleton
 public class TwilioVerifySender implements VerificationCodeSender {
+
   private static final Logger logger = LoggerFactory.getLogger(TwilioVerifySender.class);
 
+  public static final String SENDER_NAME = "twilio-verify";
+
+  private final MeterRegistry meterRegistry;
   private final TwilioRestClient twilioRestClient;
   private final TwilioVerifyConfiguration configuration;
   private final ApiClientInstrumenter apiClientInstrumenter;
   private final Duration minRetryWait;
   private final int maxRetries;
 
-  public static final String SENDER_NAME = "twilio-verify";
+
+  private static final String INVALID_PARAM_NAME = MetricsUtil.name(TwilioVerifySender.class, "invalidParam");
 
   private static final Map<MessageTransport, Verification.Channel> CHANNELS_BY_TRANSPORT = new EnumMap<>(Map.of(
       MessageTransport.SMS, Verification.Channel.SMS,
@@ -61,11 +70,13 @@ public class TwilioVerifySender implements VerificationCodeSender {
   ));
 
   TwilioVerifySender(
+      final MeterRegistry meterRegistry,
       final TwilioRestClient twilioRestClient,
       final TwilioVerifyConfiguration configuration,
       final ApiClientInstrumenter apiClientInstrumenter,
       final @Value("${twilio.min-retry-wait:100ms}") Duration minRetryWait,
       final @Value("${twilio.max-retries:5}") int maxRetries) {
+    this.meterRegistry = meterRegistry;
     this.twilioRestClient = twilioRestClient;
     this.configuration = configuration;
     this.apiClientInstrumenter = apiClientInstrumenter;
@@ -110,12 +121,13 @@ public class TwilioVerifySender implements VerificationCodeSender {
       throw new UnsupportedMessageTransportException();
     }
 
+    final String locale = Locale.lookupTag(languageRanges, configuration.supportedLanguages());
     final VerificationCreator verificationCreator =
         Verification.creator(configuration.serviceSid(),
                 PhoneNumberUtil.getInstance().format(phoneNumber, PhoneNumberUtil.PhoneNumberFormat.E164),
                 channel.toString())
             .setCustomFriendlyName(configuration.serviceFriendlyName())
-            .setLocale(Locale.lookupTag(languageRanges, configuration.supportedLanguages()));
+            .setLocale(locale);
 
     if (clientType == ClientType.ANDROID_WITH_FCM) {
       verificationCreator.setAppHash(configuration.androidAppHash());
@@ -151,7 +163,18 @@ public class TwilioVerifySender implements VerificationCodeSender {
                 .toByteArray());
           }
 
-          throw CompletionExceptions.wrap(ApiExceptions.toSenderException(throwable));
+          final Throwable exception = ApiExceptions.toSenderException(throwable);
+          if (exception instanceof SenderInvalidParametersException p) {
+            final Tags tags = p.getParamName().map(param -> switch (param) {
+                  case NUMBER -> Tags.of("paramType", "number",
+                      MetricsUtil.REGION_CODE_TAG_NAME,
+                      PhoneNumberUtil.getInstance().getRegionCodeForNumber(phoneNumber));
+                  case LOCALE -> Tags.of("paramType", "locale", "locale", locale);
+                })
+                .orElse(Tags.of("paramType", "unknown"));
+            meterRegistry.counter(INVALID_PARAM_NAME, tags).increment();
+          }
+          throw CompletionExceptions.wrap(exception);
         });
   }
 

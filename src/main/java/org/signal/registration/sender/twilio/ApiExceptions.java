@@ -5,15 +5,18 @@
 package org.signal.registration.sender.twilio;
 
 import com.twilio.exception.ApiException;
+import java.util.Optional;
 import java.util.Set;
 import javax.annotation.Nullable;
 import javax.validation.constraints.NotNull;
+import org.signal.registration.sender.SenderInvalidParametersException;
 import org.signal.registration.sender.SenderRejectedRequestException;
 import org.signal.registration.sender.SenderRejectedTransportException;
 import org.signal.registration.util.CompletionExceptions;
 
 public class ApiExceptions {
 
+  private static final int INVALID_PARAM_ERROR_CODE = 60200;
   private static final Set<Integer> REJECTED_REQUEST_ERROR_CODES = Set.of(
       20404, // Not found
       21211, // Invalid 'to' phone number
@@ -64,6 +67,21 @@ public class ApiExceptions {
     return false;
   }
 
+  private static Optional<SenderInvalidParametersException.ParamName> extractInvalidParameter(
+      @NotNull final ApiException apiException) {
+    // attempt to parse out specific information about why the request was rejected
+    // https://www.twilio.com/docs/api/errors/60200
+    return Optional
+        .ofNullable(apiException.getMessage())
+        .map(s -> s.split(":"))
+        .filter(parts -> parts.length > 1)
+        .flatMap(parts -> switch(parts[1].toLowerCase().trim()) {
+          case "to" -> Optional.of(SenderInvalidParametersException.ParamName.NUMBER);
+          case "locale" -> Optional.of(SenderInvalidParametersException.ParamName.LOCALE);
+          default -> Optional.empty();
+        });
+  }
+
   /**
    * Attempts to wrap a Twilio {@link ApiException} in a more specific exception type. If the given throwable is not
    * an {@code ApiException} or does not have a classifiable error code, then the original throwable is returned.
@@ -74,7 +92,9 @@ public class ApiExceptions {
    */
   public static Throwable toSenderException(final Throwable throwable) {
     if (CompletionExceptions.unwrap(throwable) instanceof ApiException apiException) {
-      if (REJECTED_REQUEST_ERROR_CODES.contains(apiException.getCode())) {
+      if (INVALID_PARAM_ERROR_CODE == apiException.getCode()) {
+        return new SenderInvalidParametersException(throwable, extractInvalidParameter(apiException));
+      } else if (REJECTED_REQUEST_ERROR_CODES.contains(apiException.getCode())) {
         return new SenderRejectedRequestException(throwable);
       } else if (REJECTED_TRANSPORT_ERROR_CODES.contains(apiException.getCode())) {
         return new SenderRejectedTransportException(throwable);

@@ -23,6 +23,7 @@ import java.util.concurrent.CompletionException;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Stream;
+import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import org.junit.Assert;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -45,6 +46,7 @@ class TwilioVerifySenderTest {
         new TwilioVerifyConfiguration("service-sid", "friendly-name", "app-hash", null, List.of("en"));
 
     twilioVerifySender = new TwilioVerifySender(
+        new SimpleMeterRegistry(),
         mock(TwilioRestClient.class),
         configuration,
         mock(ApiClientInstrumenter.class),
