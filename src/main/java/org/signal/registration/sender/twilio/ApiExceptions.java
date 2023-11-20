@@ -71,15 +71,22 @@ public class ApiExceptions {
       @NotNull final ApiException apiException) {
     // attempt to parse out specific information about why the request was rejected
     // https://www.twilio.com/docs/api/errors/60200
-    return Optional
-        .ofNullable(apiException.getMessage())
-        .map(s -> s.split(":"))
-        .filter(parts -> parts.length > 1)
-        .flatMap(parts -> switch(parts[1].toLowerCase().trim()) {
-          case "to" -> Optional.of(SenderInvalidParametersException.ParamName.NUMBER);
-          case "locale" -> Optional.of(SenderInvalidParametersException.ParamName.LOCALE);
-          default -> Optional.empty();
-        });
+    final String message = apiException.getMessage();
+    if (message == null) {
+      return Optional.empty();
+    }
+
+    // Invalid parameter `To`: +XXXXXXXXXXX
+    if (message.toLowerCase().contains("to")) {
+      return Optional.of(SenderInvalidParametersException.ParamName.NUMBER);
+    }
+
+    // Invalid parameter: Locale
+    if (message.toLowerCase().contains("locale")) {
+      return Optional.of(SenderInvalidParametersException.ParamName.LOCALE);
+    }
+
+    return Optional.empty();
   }
 
   /**
