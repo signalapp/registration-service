@@ -121,20 +121,22 @@ public class TwilioVerifySender implements VerificationCodeSender {
       throw new UnsupportedMessageTransportException();
     }
 
-    final String locale = Locale.lookupTag(languageRanges, configuration.supportedLanguages());
     final VerificationCreator verificationCreator =
         Verification.creator(configuration.serviceSid(),
                 PhoneNumberUtil.getInstance().format(phoneNumber, PhoneNumberUtil.PhoneNumberFormat.E164),
                 channel.toString())
-            .setCustomFriendlyName(configuration.serviceFriendlyName())
-            .setLocale(locale);
+            .setCustomFriendlyName(configuration.serviceFriendlyName());
+
+    List<String> supportedLangauges = configuration.supportedLanguages();
+    if (messageTransport == MessageTransport.SMS && StringUtils.isNotBlank(configuration.customTemplateSid())) {
+      supportedLangauges = configuration.customTemplateSupportedLanguages();
+      verificationCreator.setTemplateSid(configuration.customTemplateSid());
+    }
+    final String locale = Locale.lookupTag(languageRanges, supportedLangauges);
+    verificationCreator.setLocale(locale);
 
     if (clientType == ClientType.ANDROID_WITH_FCM) {
       verificationCreator.setAppHash(configuration.androidAppHash());
-    }
-
-    if (messageTransport == MessageTransport.SMS && StringUtils.isNotBlank(configuration.customTemplateSid())) {
-      verificationCreator.setTemplateSid(configuration.customTemplateSid());
     }
 
     final Timer.Sample sample = Timer.start();
@@ -165,11 +167,14 @@ public class TwilioVerifySender implements VerificationCodeSender {
 
           final Throwable exception = ApiExceptions.toSenderException(throwable);
           if (exception instanceof SenderInvalidParametersException p) {
+            final String regionCode = PhoneNumberUtil.getInstance().getRegionCodeForNumber(phoneNumber);
             final Tags tags = p.getParamName().map(param -> switch (param) {
                   case NUMBER -> Tags.of("paramType", "number",
-                      MetricsUtil.REGION_CODE_TAG_NAME,
-                      PhoneNumberUtil.getInstance().getRegionCodeForNumber(phoneNumber));
-                  case LOCALE -> Tags.of("paramType", "locale", "locale", locale);
+                      MetricsUtil.TRANSPORT_TAG_NAME, messageTransport.name(),
+                      MetricsUtil.REGION_CODE_TAG_NAME, regionCode);
+                  case LOCALE -> Tags.of("paramType", "locale",
+                      "locale", locale,
+                      MetricsUtil.TRANSPORT_TAG_NAME, messageTransport.name());
                 })
                 .orElse(Tags.of("paramType", "unknown"));
             meterRegistry.counter(INVALID_PARAM_NAME, tags).increment();

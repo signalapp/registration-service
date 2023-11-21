@@ -18,11 +18,15 @@ record TwilioVerifyConfiguration(@NotBlank String serviceSid,
                                  @Nullable String serviceFriendlyName,
                                  @NotBlank String androidAppHash,
                                  @Nullable String customTemplateSid,
-                                 List<@NotBlank String> supportedLanguages) {
+                                 @Nullable List<@NotBlank String> customTemplateSupportedLanguages,
+                                 @Nullable List<@NotBlank String> supportedLanguages) {
 
   TwilioVerifyConfiguration {
     if (supportedLanguages == null) {
       supportedLanguages = Collections.emptyList();
+    }
+    if (customTemplateSupportedLanguages == null) {
+      customTemplateSupportedLanguages = Collections.emptyList();
     }
   }
 }
