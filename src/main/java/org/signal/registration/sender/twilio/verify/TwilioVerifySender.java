@@ -171,7 +171,7 @@ public class TwilioVerifySender implements VerificationCodeSender {
             final Tags tags = p.getParamName().map(param -> switch (param) {
                   case NUMBER -> Tags.of("paramType", "number",
                       MetricsUtil.TRANSPORT_TAG_NAME, messageTransport.name(),
-                      MetricsUtil.REGION_CODE_TAG_NAME, regionCode);
+                      MetricsUtil.REGION_CODE_TAG_NAME, StringUtils.defaultIfBlank(regionCode, "XX"));
                   case LOCALE -> Tags.of("paramType", "locale",
                       "locale", locale,
                       MetricsUtil.TRANSPORT_TAG_NAME, messageTransport.name());
