@@ -7,12 +7,12 @@ package org.signal.registration.sender.messagebird;
 
 import io.micronaut.context.annotation.ConfigurationProperties;
 import io.micronaut.context.annotation.Context;
+import org.signal.registration.sender.SenderIdSelectorConfiguration;
 import javax.validation.constraints.NotBlank;
-import javax.validation.constraints.NotNull;
 import java.util.Map;
 
 @Context
 @ConfigurationProperties("messagebird")
 public record MessageBirdSenderConfiguration(
-    @NotBlank @NotNull String defaultSenderId,
-    Map<@NotBlank String, @NotBlank String> regionSenderIds) {}
+    @NotBlank String defaultSenderId,
+    Map<@NotBlank String, @NotBlank String> senderIdsByRegion) implements SenderIdSelectorConfiguration {}

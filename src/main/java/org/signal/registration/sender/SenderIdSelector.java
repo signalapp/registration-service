@@ -1,26 +1,24 @@
-package org.signal.registration.sender.messagebird;
+package org.signal.registration.sender;
 
 import com.google.i18n.phonenumbers.Phonenumber;
-import jakarta.inject.Singleton;
+import org.signal.registration.util.PhoneNumbers;
 import java.util.Map;
 import java.util.stream.Collectors;
-import org.signal.registration.util.PhoneNumbers;
 
-@Singleton
 public class SenderIdSelector {
   // Map from region to senderId to use for that region
-  private final Map<String, String> regionSenderIds;
-  private String defaultSenderId;
+  private final Map<String, String> senderIdsByRegion;
+  private final String defaultSenderId;
 
-  public SenderIdSelector(final MessageBirdSenderConfiguration configuration) {
-    this.regionSenderIds = configuration.regionSenderIds()
+  public SenderIdSelector(final Map<String, String> senderIdsByRegion, final String defaultSenderId) {
+    this.senderIdsByRegion = senderIdsByRegion
         .entrySet()
         .stream()
         .collect(Collectors.toMap(
             e -> e.getKey().toUpperCase(),
             Map.Entry::getValue
         ));
-    this.defaultSenderId = configuration.defaultSenderId();
+    this.defaultSenderId = defaultSenderId;
   }
 
 
@@ -32,7 +30,7 @@ public class SenderIdSelector {
    */
   public String getSenderId(final Phonenumber.PhoneNumber phoneNumber) {
     final String region = PhoneNumbers.regionCodeUpper(phoneNumber);
-    return regionSenderIds.getOrDefault(region, defaultSenderId);
+    return senderIdsByRegion.getOrDefault(region, defaultSenderId);
   }
 
 }

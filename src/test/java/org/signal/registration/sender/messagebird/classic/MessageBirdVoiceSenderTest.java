@@ -23,6 +23,7 @@ import com.messagebird.objects.MessageResponse;
 import com.messagebird.objects.VoiceMessage;
 import com.messagebird.objects.VoiceMessageResponse;
 import java.time.Duration;
+import java.util.Collections;
 import java.util.List;
 import java.util.Locale;
 import java.util.concurrent.CompletionException;
@@ -34,7 +35,7 @@ import org.signal.registration.sender.ClientType;
 import org.signal.registration.sender.MessageTransport;
 import org.signal.registration.sender.VerificationCodeGenerator;
 import org.signal.registration.sender.VerificationTTSBodyProvider;
-import org.signal.registration.sender.messagebird.SenderIdSelector;
+import org.signal.registration.sender.messagebird.MessageBirdSenderConfiguration;
 import org.signal.registration.util.CompletionExceptions;
 
 public class MessageBirdVoiceSenderTest {
@@ -59,13 +60,10 @@ public class MessageBirdVoiceSenderTest {
     client = mock(MessageBirdClient.class);
     bodyProvider = mock(VerificationTTSBodyProvider.class);
 
-    final SenderIdSelector senderId = mock(SenderIdSelector.class);
-
-    when(senderId.getSenderId(NUMBER)).thenReturn("test");
-
     sender = new MessageBirdVoiceSender(Runnable::run, config, codeGenerator, bodyProvider, client,
         mock(ApiClientInstrumenter.class),
-        senderId);
+        new MessageBirdSenderConfiguration("test",
+            Collections.emptyMap()));
   }
 
   private static VoiceMessageResponse response(int failedDeliveryCount) {

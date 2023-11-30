@@ -36,12 +36,13 @@ import org.signal.registration.sender.ApiClientInstrumenter;
 import org.signal.registration.sender.AttemptData;
 import org.signal.registration.sender.ClientType;
 import org.signal.registration.sender.MessageTransport;
+import org.signal.registration.sender.SenderIdSelector;
 import org.signal.registration.sender.SenderRejectedRequestException;
 import org.signal.registration.sender.UnsupportedMessageTransportException;
 import org.signal.registration.sender.VerificationCodeSender;
 import org.signal.registration.sender.VerificationSmsBodyProvider;
 import org.signal.registration.sender.messagebird.MessageBirdExceptions;
-import org.signal.registration.sender.messagebird.SenderIdSelector;
+import org.signal.registration.sender.messagebird.MessageBirdSenderConfiguration;
 import org.signal.registration.sender.messagebird.MessageBirdVerifySessionData;
 import org.signal.registration.util.CompletionExceptions;
 import org.slf4j.Logger;
@@ -76,13 +77,13 @@ public class MessageBirdVerifySender implements VerificationCodeSender {
       final MessageBirdClient messageBirdClient,
       final VerificationSmsBodyProvider verificationSmsBodyProvider,
       final ApiClientInstrumenter apiClientInstrumenter,
-      final SenderIdSelector senderIdSelector) {
+      final MessageBirdSenderConfiguration senderConfiguration) {
     this.configuration = configuration;
     this.executor = executor;
     this.client = messageBirdClient;
     this.apiClientInstrumenter = apiClientInstrumenter;
     this.verificationSmsBodyProvider = verificationSmsBodyProvider;
-    this.senderIdSelector = senderIdSelector;
+    this.senderIdSelector = new SenderIdSelector(senderConfiguration.senderIdsByRegion(), senderConfiguration.defaultSenderId());
   }
 
   @Override

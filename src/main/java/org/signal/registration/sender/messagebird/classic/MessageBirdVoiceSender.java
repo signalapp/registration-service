@@ -30,13 +30,14 @@ import org.signal.registration.sender.ApiClientInstrumenter;
 import org.signal.registration.sender.AttemptData;
 import org.signal.registration.sender.ClientType;
 import org.signal.registration.sender.MessageTransport;
+import org.signal.registration.sender.SenderIdSelector;
 import org.signal.registration.sender.UnsupportedMessageTransportException;
 import org.signal.registration.sender.VerificationCodeGenerator;
 import org.signal.registration.sender.VerificationCodeSender;
 import org.signal.registration.sender.VerificationTTSBodyProvider;
 import org.signal.registration.sender.messagebird.MessageBirdClassicSessionData;
 import org.signal.registration.sender.messagebird.MessageBirdExceptions;
-import org.signal.registration.sender.messagebird.SenderIdSelector;
+import org.signal.registration.sender.messagebird.MessageBirdSenderConfiguration;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -68,7 +69,7 @@ public class MessageBirdVoiceSender implements VerificationCodeSender {
       final VerificationTTSBodyProvider verificationTTSBodyProvider,
       final MessageBirdClient messageBirdClient,
       final ApiClientInstrumenter apiClientInstrumenter,
-      final SenderIdSelector senderIdSelector) {
+      final MessageBirdSenderConfiguration senderConfiguration) {
     this.configuration = configuration;
     this.supportedLanguages = supportedLanguages(configuration.supportedLanguages());
     this.executor = executor;
@@ -76,7 +77,7 @@ public class MessageBirdVoiceSender implements VerificationCodeSender {
     this.verificationTTSBodyProvider = verificationTTSBodyProvider;
     this.client = messageBirdClient;
     this.apiClientInstrumenter = apiClientInstrumenter;
-    this.senderIdSelector = senderIdSelector;
+    this.senderIdSelector = new SenderIdSelector(senderConfiguration.senderIdsByRegion(), senderConfiguration.defaultSenderId());
   }
 
   @Override

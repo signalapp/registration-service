@@ -12,10 +12,10 @@ import com.google.i18n.phonenumbers.Phonenumber;
 import com.messagebird.MessageBirdClient;
 import com.messagebird.exceptions.GeneralException;
 import com.messagebird.exceptions.UnauthorizedException;
-import com.messagebird.objects.ErrorReport;
 import com.messagebird.objects.Message;
 import com.messagebird.objects.MessageResponse;
 import java.time.Duration;
+import java.util.Collections;
 import java.util.List;
 import java.util.Locale;
 import org.apache.commons.lang3.RandomStringUtils;
@@ -28,7 +28,7 @@ import org.signal.registration.sender.MessageTransport;
 import org.signal.registration.sender.SenderRejectedRequestException;
 import org.signal.registration.sender.VerificationCodeGenerator;
 import org.signal.registration.sender.VerificationSmsBodyProvider;
-import org.signal.registration.sender.messagebird.SenderIdSelector;
+import org.signal.registration.sender.messagebird.MessageBirdSenderConfiguration;
 import org.signal.registration.util.CompletionExceptions;
 
 public class MessageBirdSmsSenderTest {
@@ -53,14 +53,13 @@ public class MessageBirdSmsSenderTest {
     codeGenerator = mock(VerificationCodeGenerator.class);
     bodyProvider = mock(VerificationSmsBodyProvider.class);
     client = mock(MessageBirdClient.class);
-    final SenderIdSelector senderId = mock(SenderIdSelector.class);
 
     when(codeGenerator.generateVerificationCode()).thenReturn(CODE);
     when(bodyProvider.getVerificationBody(NUMBER, ClientType.IOS, CODE, EN)).thenReturn(BODY);
-    when(senderId.getSenderId(NUMBER)).thenReturn("test");
 
     sender = new MessageBirdSmsSender(Runnable::run, config, codeGenerator, bodyProvider, client, mock(
-        ApiClientInstrumenter.class), senderId);
+        ApiClientInstrumenter.class), new MessageBirdSenderConfiguration("test",
+        Collections.emptyMap()));
   }
 
   private static MessageResponse response(int failedDeliveryCount) {

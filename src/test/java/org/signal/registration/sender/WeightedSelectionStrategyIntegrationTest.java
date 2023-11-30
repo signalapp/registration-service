@@ -28,6 +28,7 @@ import org.junit.jupiter.params.provider.MethodSource;
 import org.signal.registration.RegistrationService;
 import org.signal.registration.sender.fictitious.FictitiousNumberVerificationCodeRepository;
 import org.signal.registration.sender.fictitious.FictitiousNumberVerificationCodeSender;
+import org.signal.registration.sender.infobip.classic.InfobipSmsSender;
 import org.signal.registration.sender.messagebird.classic.MessageBirdSmsSender;
 import org.signal.registration.sender.messagebird.verify.MessageBirdVerifySender;
 import org.signal.registration.sender.prescribed.PrescribedVerificationCodeRepository;
@@ -42,6 +43,7 @@ import org.signal.registration.sender.twilio.verify.TwilioVerifySender;
 @Property(name = "selection.sms.default-weights.messagebird-verify", value = "0")
 @Property(name = "selection.sms.region-weights.is.messagebird-verify", value = "1")
 @Property(name = "selection.sms.region-weights.gl.messagebird-sms", value = "1")
+@Property(name = "selection.sms.region-weights.gb.infobip-sms", value = "1")
 @Property(name = "selection.sms.region-overrides.cn", value = "twilio-verify")
 @Property(name = "selection.sms.region-overrides.mx", value = "twilio-programmable-messaging")
 @Property(name = "selection.voice.fallback-senders", value = "twilio-verify,twilio-programmable-voice")
@@ -66,6 +68,9 @@ import org.signal.registration.sender.twilio.verify.TwilioVerifySender;
 @Property(name = "verification.sms.supported-languages", value = "en")
 @Property(name = "messagebird.access-key", value = "access-key")
 @Property(name = "messagebird.default-sender-id", value = "test")
+@Property(name = "infobip.default-sender-id", value="default")
+@Property(name = "infobip.api-key", value="api-key")
+@Property(name = "infobip.base-url", value="https://mmmex9.us.api.com")
 class WeightedSelectionStrategyIntegrationTest {
 
   @MockBean(RegistrationService.class)
@@ -110,6 +115,9 @@ class WeightedSelectionStrategyIntegrationTest {
 
   private static final Phonenumber.PhoneNumber USE_MB_SMS_NUMBER =
       PhoneNumberUtil.getInstance().getExampleNumber("GL");
+
+  private static final Phonenumber.PhoneNumber USE_INFOBIP_SMS_NUMBER =
+      PhoneNumberUtil.getInstance().getExampleNumber("GB");
 
   private static final Phonenumber.PhoneNumber USE_MB_E164_OVERRIDE_NUMBER;
   private static final Phonenumber.PhoneNumber FICTITIOUS_PHONE_NUMBER;
@@ -163,6 +171,7 @@ class WeightedSelectionStrategyIntegrationTest {
         Arguments.of(MessageTransport.VOICE, NEVER_USE_VERIFY_NUMBER,     "de", ClientType.IOS, TwilioVoiceSender.class),
         Arguments.of(MessageTransport.VOICE, NEVER_USE_VERIFY_NUMBER,     "fr", ClientType.IOS, TwilioVoiceSender.class),
         Arguments.of(MessageTransport.SMS,   USE_MB_VERIFY_NUMBER,        "en", ClientType.IOS, MessageBirdVerifySender.class),
-        Arguments.of(MessageTransport.SMS,   USE_MB_SMS_NUMBER,           "en", ClientType.IOS, MessageBirdSmsSender.class));
+        Arguments.of(MessageTransport.SMS,   USE_MB_SMS_NUMBER,           "en", ClientType.IOS, MessageBirdSmsSender.class),
+        Arguments.of(MessageTransport.SMS,   USE_INFOBIP_SMS_NUMBER,      "en", ClientType.IOS, InfobipSmsSender.class));
   }
 }

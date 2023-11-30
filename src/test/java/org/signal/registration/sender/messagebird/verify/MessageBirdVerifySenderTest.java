@@ -41,7 +41,7 @@ import org.signal.registration.sender.AttemptData;
 import org.signal.registration.sender.ClientType;
 import org.signal.registration.sender.MessageTransport;
 import org.signal.registration.sender.VerificationSmsBodyProvider;
-import org.signal.registration.sender.messagebird.SenderIdSelector;
+import org.signal.registration.sender.messagebird.MessageBirdSenderConfiguration;
 import javax.annotation.Nullable;
 
 public class MessageBirdVerifySenderTest {
@@ -62,7 +62,7 @@ public class MessageBirdVerifySenderTest {
     bodyProvider = mock(VerificationSmsBodyProvider.class);
     when(bodyProvider.getVerificationBody(any(), any(), any(), any())).thenReturn("test sms");
     sender = new MessageBirdVerifySender(config, Runnable::run, client, bodyProvider,
-        mock(ApiClientInstrumenter.class), mock(SenderIdSelector.class));
+        mock(ApiClientInstrumenter.class), new MessageBirdSenderConfiguration("test", Collections.emptyMap()));
   }
 
   public static Stream<Arguments> langSupport() {
