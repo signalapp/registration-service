@@ -25,8 +25,8 @@ public class SendVoiceVerificationCodeRateLimiter extends FixedDelayRegistration
   private final Duration delayAfterFirstSms;
 
   public SendVoiceVerificationCodeRateLimiter(
-      @Value("${rate-limits.send-voice-verification-code.delay-after-first-sms}") final Duration delayAfterFirstSms,
-      @Value("${rate-limits.send-voice-verification-code.delays}") final List<Duration> delays,
+      @Value("${rate-limits.send-voice-verification-code.delay-after-first-sms:1m}") final Duration delayAfterFirstSms,
+      @Value("${rate-limits.send-voice-verification-code.delays:1m,5m}") final List<Duration> delays,
       final Clock clock) {
 
     super(delays, clock);

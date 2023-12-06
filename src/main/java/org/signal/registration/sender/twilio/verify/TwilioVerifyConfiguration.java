@@ -21,9 +21,55 @@ record TwilioVerifyConfiguration(@NotBlank String serviceSid,
                                  @Nullable List<@NotBlank String> customTemplateSupportedLanguages,
                                  @Nullable List<@NotBlank String> supportedLanguages) {
 
+  //For a current list of supported languages, please see https://www.twilio.com/docs/verify/supported-languages
+  private static List<String> DEFAULT_SUPPORTED_LANGUAGES = List.of(
+      "af",
+      "ar",
+      "ca",
+      "zh",
+      "zh-CN",
+      "zh-HK",
+      "hr",
+      "cs",
+      "da",
+      "nl",
+      "en",
+      "en-GB",
+      "et",
+      "fi",
+      "fr",
+      "de",
+      "el",
+      "he",
+      "hi",
+      "hu",
+      "id",
+      "it",
+      "ja",
+      "kn",
+      "ko",
+      "lt",
+      "ms",
+      "mr",
+      "nb",
+      "pl",
+      "pt-BR",
+      "pt",
+      "ro",
+      "ru",
+      "sk",
+      "es",
+      "sv",
+      "tl",
+      "te",
+      "th",
+      "tr",
+      "uk",
+      "vi");
+
   TwilioVerifyConfiguration {
     if (supportedLanguages == null) {
-      supportedLanguages = Collections.emptyList();
+      supportedLanguages = DEFAULT_SUPPORTED_LANGUAGES;
     }
     if (customTemplateSupportedLanguages == null) {
       customTemplateSupportedLanguages = Collections.emptyList();

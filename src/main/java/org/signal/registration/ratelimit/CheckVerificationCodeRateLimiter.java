@@ -20,7 +20,7 @@ import java.util.Optional;
 public class CheckVerificationCodeRateLimiter extends FixedDelayRegistrationSessionRateLimiter {
 
   public CheckVerificationCodeRateLimiter(
-      @Value("${rate-limits.check-verification-code.delays}") final List<Duration> delays,
+      @Value("${rate-limits.check-verification-code.delays:0s,0s,1m,2m}") final List<Duration> delays,
       final Clock clock) {
 
     super(delays, clock);

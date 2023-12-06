@@ -1,0 +1,65 @@
+micronaut:
+  application:
+    name: registrationService
+
+  metrics:
+    binders:
+      netty:
+        queues:
+          enabled: true
+
+    export:
+      datadog:
+        enabled: true
+        step: 20s
+
+    tags:
+      # Note that an `instance` tag is added at runtime in `Application.java`
+      service: registration
+
+  executors:
+    scheduled:
+      type: scheduled
+      core-pool-size: 16
+
+selection:
+  sms:
+    fallback-senders:
+      - twilio-verify
+      - twilio-programmable-messaging
+    default-weights:
+      adaptive: 100
+  voice:
+    fallback-senders:
+      - twilio-verify
+      - twilio-programmable-voice
+    default-weights:
+      adaptive: 100
+
+adaptive:
+  sms:
+    default-choices:
+      - twilio-verify
+      - twilio-programmable-messaging
+  voice:
+    default-choices:
+      - twilio-verify
+      - twilio-programmable-voice
+twilio:
+  account-sid: ACCOUNT-SID
+  api-key-sid: API-KEY-SID
+  api-key-secret: API-KEY_SECRET
+  messaging:
+    nanpa-messaging-service-sid: NANPA-SID
+    global-messaging-service-sid: GLOBAL-SID
+  voice:
+    cdn-uri: https://cdn-ca.signal.org/verification/
+    phone-numbers:
+      - "+15551230123"
+  verify:
+    service-sid: SERVICE-SID
+    android-app-hash: MyAppHash
+
+verification:
+  sms:
+    android-app-hash: MyAppHash

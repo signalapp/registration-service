@@ -22,7 +22,7 @@ import org.signal.registration.session.RegistrationSession;
 public class SendSmsVerificationCodeRateLimiter extends FixedDelayRegistrationSessionRateLimiter {
 
   public SendSmsVerificationCodeRateLimiter(
-      @Value("${rate-limits.send-sms-verification-code.delays}") final List<Duration> delays,
+      @Value("${rate-limits.send-sms-verification-code.delays:1m,2m,5m,10m}") final List<Duration> delays,
       final Clock clock) {
 
     super(delays, clock);
