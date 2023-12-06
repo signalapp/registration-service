@@ -53,6 +53,8 @@ public class MessageBirdVoiceSender implements VerificationCodeSender {
 
   private static final Logger logger = LoggerFactory.getLogger(MessageBirdVoiceSender.class);
 
+  public static final String SENDER_NAME = "messagebird-voice";
+
   private final MessageBirdVoiceConfiguration configuration;
   private final Map<String, String> supportedLanguages;
   private final Executor executor;
@@ -82,7 +84,7 @@ public class MessageBirdVoiceSender implements VerificationCodeSender {
 
   @Override
   public String getName() {
-    return "messagebird-voice";
+    return SENDER_NAME;
   }
 
   @Override
