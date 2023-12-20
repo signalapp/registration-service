@@ -25,6 +25,7 @@ import org.signal.registration.TransportNotAllowedException;
 import org.signal.registration.ratelimit.RateLimitExceededException;
 import org.signal.registration.sender.ClientType;
 import org.signal.registration.sender.MessageTransport;
+import org.signal.registration.sender.SenderFraudBlockException;
 import org.signal.registration.sender.SenderRejectedRequestException;
 import org.signal.registration.session.SessionMetadata;
 import org.signal.registration.session.SessionNotFoundException;
@@ -144,6 +145,12 @@ public class RegistrationServiceGrpcEndpoint extends ReactorRegistrationServiceG
                       new IllegalStateException("Rate limit exception did not include a session reference"))))
               .build();
         }))
+        .onErrorReturn(SenderFraudBlockException.class, SendVerificationCodeResponse.newBuilder()
+            .setError(SendVerificationCodeError.newBuilder()
+                .setErrorType(SendVerificationCodeErrorType.SEND_VERIFICATION_CODE_ERROR_TYPE_SUSPECTED_FRAUD)
+                .setMayRetry(false)
+                .build())
+            .build())
         .onErrorReturn(SenderRejectedRequestException.class, SendVerificationCodeResponse.newBuilder()
                 .setError(SendVerificationCodeError.newBuilder()
                     .setErrorType(SendVerificationCodeErrorType.SEND_VERIFICATION_CODE_ERROR_TYPE_SENDER_REJECTED)

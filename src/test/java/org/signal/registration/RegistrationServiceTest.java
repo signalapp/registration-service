@@ -45,10 +45,12 @@ import org.signal.registration.rpc.RegistrationSessionMetadata;
 import org.signal.registration.sender.AttemptData;
 import org.signal.registration.sender.ClientType;
 import org.signal.registration.sender.MessageTransport;
+import org.signal.registration.sender.SenderFraudBlockException;
 import org.signal.registration.sender.SenderRejectedRequestException;
 import org.signal.registration.sender.SenderRejectedTransportException;
 import org.signal.registration.sender.SenderSelectionStrategy;
 import org.signal.registration.sender.VerificationCodeSender;
+import org.signal.registration.session.FailedSendReason;
 import org.signal.registration.session.MemorySessionRepository;
 import org.signal.registration.session.RegistrationAttempt;
 import org.signal.registration.session.RegistrationSession;
@@ -255,6 +257,42 @@ class RegistrationServiceTest {
     assertEquals(0, session.getRegistrationAttemptsCount());
     assertEquals(List.of(org.signal.registration.rpc.MessageTransport.MESSAGE_TRANSPORT_SMS),
         session.getRejectedTransportsList());
+  }
+
+  public static Stream<Arguments> sendVerificationCodeRejectionError() {
+    return Stream.of(
+        Arguments.of(new SenderRejectedRequestException(new RuntimeException()), FailedSendReason.FAILED_SEND_REASON_REJECTED),
+        Arguments.of(new SenderFraudBlockException(new RuntimeException()), FailedSendReason.FAILED_SEND_REASON_SUSPECTED_FRAUD),
+        Arguments.of(new RuntimeException(), FailedSendReason.FAILED_SEND_REASON_UNAVAILABLE)
+    );
+  }
+
+  @ParameterizedTest
+  @MethodSource
+  void sendVerificationCodeRejectionError(Throwable senderException, FailedSendReason expectedFailureReason) {
+    final UUID sessionId;
+    {
+      final RegistrationSession session = registrationService.createRegistrationSession(PHONE_NUMBER, SESSION_METADATA).join();
+      sessionId = UUIDUtil.uuidFromByteString(session.getId());
+    }
+
+    when(sender.sendVerificationCode(MessageTransport.SMS, PHONE_NUMBER, LANGUAGE_RANGES, CLIENT_TYPE))
+        .thenReturn(CompletableFuture.failedFuture(senderException));
+
+    assertThrows(CompletionException.class, () -> {
+      registrationService.sendVerificationCode(MessageTransport.SMS, sessionId, SENDER_NAME, LANGUAGE_RANGES, CLIENT_TYPE).join();
+    });
+
+    verify(sender).sendVerificationCode(MessageTransport.SMS, PHONE_NUMBER, LANGUAGE_RANGES, CLIENT_TYPE);
+    verify(sendSmsVerificationCodeRateLimiter).checkRateLimit(any());
+    verify(sendVoiceVerificationCodeRateLimiter, never()).checkRateLimit(any());
+    verify(sessionRepository).updateSession(eq(sessionId), any());
+
+    final RegistrationSession session = sessionRepository.getSession(sessionId).join();
+
+    assertEquals(0, session.getRegistrationAttemptsCount());
+    assertEquals(1, session.getFailedAttemptsCount());
+    assertEquals(session.getFailedAttempts(0).getFailedSendReason(), expectedFailureReason);
   }
 
   @Test

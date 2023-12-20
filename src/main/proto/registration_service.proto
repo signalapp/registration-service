@@ -289,8 +289,7 @@ enum SendVerificationCodeErrorType {
 
   /**
    * The sender received and understood the request to send a verification code,
-   * but declined to do so (e.g. due to rate limits, an invalid argument,
-   * or suspected fraud).
+   * but declined to do so (e.g. due to rate limits, an invalid argument).
    */
   SEND_VERIFICATION_CODE_ERROR_TYPE_SENDER_REJECTED = 1;
 
@@ -320,6 +319,11 @@ enum SendVerificationCodeErrorType {
    * transport.
    */
   SEND_VERIFICATION_CODE_ERROR_TYPE_TRANSPORT_NOT_ALLOWED = 6;
+
+  /**
+   * The sender declined to send the verification code due to suspected fraud
+   */
+  SEND_VERIFICATION_CODE_ERROR_TYPE_SUSPECTED_FRAUD = 7;
 }
 
 message CheckVerificationCodeRequest {

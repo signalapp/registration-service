@@ -14,6 +14,7 @@ import io.micronaut.context.event.ApplicationEventListener;
 import jakarta.inject.Singleton;
 import java.util.Optional;
 import org.apache.commons.lang3.StringUtils;
+import org.signal.registration.session.FailedSendAttempt;
 import org.signal.registration.session.RegistrationSession;
 import org.signal.registration.session.SessionCompletedEvent;
 import org.slf4j.Logger;
@@ -31,6 +32,9 @@ public class SessionOutcomeListener implements ApplicationEventListener<SessionC
   private static final String COUNTER_NAME =
       MetricsUtil.name(SessionOutcomeListener.class, "completedSessions");
 
+  private static final String SEND_ERROR_COUNTER_NAME =
+      MetricsUtil.name(SessionOutcomeListener.class, "sendErrors");
+
   private static final Logger logger = LoggerFactory.getLogger(SessionOutcomeListener.class);
 
   public SessionOutcomeListener(final MeterRegistry meterRegistry) {
@@ -44,6 +48,18 @@ public class SessionOutcomeListener implements ApplicationEventListener<SessionC
     try {
       final Phonenumber.PhoneNumber phoneNumber =
           PhoneNumberUtil.getInstance().parse(event.session().getPhoneNumber(), null);
+
+      for (int i = 0; i < session.getFailedAttemptsCount(); i++) {
+        final FailedSendAttempt failedAttempt = session.getFailedAttempts(i);
+        meterRegistry.counter(SEND_ERROR_COUNTER_NAME,
+                "error", failedAttempt.getFailedSendReason().toString(),
+                MetricsUtil.SENDER_TAG_NAME, failedAttempt.getSenderName(),
+                MetricsUtil.TRANSPORT_TAG_NAME, MetricsUtil.getMessageTransportTagValue(failedAttempt.getMessageTransport()),
+                MetricsUtil.COUNTRY_CODE_TAG_NAME, String.valueOf(phoneNumber.getCountryCode()),
+                MetricsUtil.REGION_CODE_TAG_NAME, Optional.ofNullable(PhoneNumberUtil.getInstance().getRegionCodeForNumber(phoneNumber))
+                    .orElse("XX"))
+            .increment();
+      }
 
       for (int i = 0; i < session.getRegistrationAttemptsCount(); i++) {
         // Assume that all verification attempts before the last one were not successfully verified

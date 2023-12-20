@@ -17,12 +17,12 @@ import io.micronaut.scheduling.TaskExecutors;
 import jakarta.inject.Named;
 import jakarta.inject.Singleton;
 import java.time.Instant;
-import java.util.ArrayList;
-import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
 import org.apache.commons.lang3.StringUtils;
 import org.signal.registration.metrics.MetricsUtil;
+import org.signal.registration.session.FailedSendAttempt;
+import org.signal.registration.session.FailedSendReason;
 import org.signal.registration.session.RegistrationAttempt;
 import org.signal.registration.session.RegistrationSession;
 import org.signal.registration.session.SessionCompletedEvent;
@@ -70,6 +70,30 @@ public class GcpAttemptCompletedEventListener implements ApplicationEventListene
     final String region = StringUtils.defaultIfBlank(PhoneNumberUtil.getInstance().getRegionCodeForNumber(phoneNumber),
         "XX");
 
+    for (int i = 0; i < session.getFailedAttemptsCount(); i++) {
+      final FailedSendAttempt failedAttempt = session.getFailedAttempts(i);
+      if (failedAttempt.getFailedSendReason() != FailedSendReason.FAILED_SEND_REASON_UNAVAILABLE) {
+        // Only ding a sender's verification ratio if it was unavailable. If the provider indicated that the message
+        // was undeliverable (either due to fraud, bad number, etc) assume that's accurate and don't penalize for it
+        continue;
+      }
+
+      final CompletedAttemptPubSubMessage completedAttempt = CompletedAttemptPubSubMessage.newBuilder()
+          .setSessionId(UUIDUtil.uuidFromByteString(session.getId()).toString())
+          .setAttemptId(i)
+          .setSenderName(failedAttempt.getSenderName())
+          .setMessageTransport(MetricsUtil.getMessageTransportTagValue(failedAttempt.getMessageTransport()))
+          .setClientType(MetricsUtil.getClientTypeTagValue(failedAttempt.getClientType()))
+          .setRegion(region)
+          .setTimestamp(Instant.ofEpochMilli(failedAttempt.getTimestampEpochMillis()).toString())
+          .setAccountExistsWithE164(session.getSessionMetadata().getAccountExistsWithE164())
+          .setVerified(false)
+          .setSelectionReason(failedAttempt.getSelectionReason())
+          .build();
+
+      publish(completedAttempt);
+    }
+
     for (int i = 0; i < session.getRegistrationAttemptsCount(); i++) {
       final RegistrationAttempt registrationAttempt = session.getRegistrationAttempts(i);
       if (StringUtils.isBlank(registrationAttempt.getRemoteId())) {
@@ -94,27 +118,33 @@ public class GcpAttemptCompletedEventListener implements ApplicationEventListene
           .setSelectionReason(registrationAttempt.getSelectionReason())
           .build();
 
-      final Timer.Sample startPublishSample = Timer.start();
-      final Timer.Sample totalPublishSample = Timer.start();
+      publish(completedAttempt);
 
-      // immediately add to table of finished attempts (sans analysis)
-      final CompletableFuture<String> future = GoogleApiUtil.toCompletableFuture(
-              pubSubMessageClient.publish(PubsubMessage.newBuilder()
-                  .putAttributes("Content-Type", "application/protobuf")
-                  .setData(completedAttempt.toByteString())
-                  .build()),
-              executor);
-      startPublishSample.stop(startPublishTimer);
-      future
-          .whenComplete((v, throwable) -> {
-            if (throwable != null) {
-              logger.warn("Error processing session completion event", throwable);
-            }
-            meterRegistry.counter(ATTEMPT_PUBLISHED_COUNTER_NAME, MetricsUtil.SUCCESS_TAG_NAME,
-                String.valueOf(throwable == null)).increment();
-            totalPublishSample.stop(publishTimer);
-          });
     }
+  }
+
+  private void publish(final CompletedAttemptPubSubMessage completedAttempt) {
+    final Timer.Sample startPublishSample = Timer.start();
+    final Timer.Sample totalPublishSample = Timer.start();
+
+    // immediately add to table of finished attempts (sans analysis)
+    final CompletableFuture<String> future = GoogleApiUtil.toCompletableFuture(
+        pubSubMessageClient.publish(PubsubMessage.newBuilder()
+            .putAttributes("Content-Type", "application/protobuf")
+            .setData(completedAttempt.toByteString())
+            .build()),
+        executor);
+    startPublishSample.stop(startPublishTimer);
+    future
+        .whenComplete((v, throwable) -> {
+          if (throwable != null) {
+            logger.warn("Error processing session completion event", throwable);
+          }
+          meterRegistry.counter(ATTEMPT_PUBLISHED_COUNTER_NAME, MetricsUtil.SUCCESS_TAG_NAME,
+              String.valueOf(throwable == null)).increment();
+          totalPublishSample.stop(publishTimer);
+        });
+
   }
 
   private static Phonenumber.PhoneNumber getPhoneNumber(final RegistrationSession session) {

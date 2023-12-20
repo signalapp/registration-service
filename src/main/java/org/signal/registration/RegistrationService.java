@@ -5,7 +5,6 @@
 
 package org.signal.registration;
 
-import static org.signal.registration.sender.SenderSelectionStrategy.SelectionReason;
 import static org.signal.registration.sender.SenderSelectionStrategy.SenderSelection;
 
 import com.google.common.annotations.VisibleForTesting;
@@ -37,10 +36,13 @@ import org.signal.registration.rpc.RegistrationSessionMetadata;
 import org.signal.registration.sender.AttemptData;
 import org.signal.registration.sender.ClientType;
 import org.signal.registration.sender.MessageTransport;
+import org.signal.registration.sender.SenderFraudBlockException;
 import org.signal.registration.sender.SenderRejectedRequestException;
 import org.signal.registration.sender.SenderRejectedTransportException;
 import org.signal.registration.sender.SenderSelectionStrategy;
 import org.signal.registration.sender.VerificationCodeSender;
+import org.signal.registration.session.FailedSendAttempt;
+import org.signal.registration.session.FailedSendReason;
 import org.signal.registration.session.RegistrationAttempt;
 import org.signal.registration.session.RegistrationSession;
 import org.signal.registration.session.SessionMetadata;
@@ -70,9 +72,6 @@ public class RegistrationService {
   @VisibleForTesting
   static final Duration SESSION_TTL_AFTER_LAST_ACTION = Duration.ofMinutes(10);
 
-  private record SenderAndAttemptData(
-      SenderSelection selection,
-      AttemptData attemptData) {}
 
   @VisibleForTesting
   record NextActionTimes(Optional<Instant> nextSms,
@@ -174,65 +173,82 @@ public class RegistrationService {
           if (StringUtils.isNotBlank(session.getVerifiedCode())) {
             return CompletableFuture.failedFuture(new SessionAlreadyVerifiedException(session));
           }
-
-          return rateLimiter.checkRateLimit(session)
-              .thenCompose(ignored -> {
-                try {
-                  final Phonenumber.PhoneNumber phoneNumberFromSession =
-                      PhoneNumberUtil.getInstance().parse(session.getPhoneNumber(), null);
-
-                  final Set<String> previouslyFailedSenders = session.getRegistrationAttemptsList()
-                      .stream()
-                      .map(attempt -> attempt.getSenderName())
-                      .collect(Collectors.toSet());
-
-                  final SenderSelection selection = senderSelectionStrategy.chooseVerificationCodeSender(
-                      messageTransport, phoneNumberFromSession, languageRanges, clientType, senderName, previouslyFailedSenders);
-
-                  return selection.sender().sendVerificationCode(messageTransport,
-                          phoneNumberFromSession,
-                          languageRanges,
-                          clientType)
-                      .thenApply(sessionData -> new SenderAndAttemptData(selection, sessionData));
-                } catch (final NumberParseException e) {
-                  // This should never happen because we're parsing a phone number from the session, which means we've
-                  // parsed it successfully in the past
-                  throw new CompletionException(e);
-                }
-              });
+          return rateLimiter.checkRateLimit(session).thenApply(ignored -> session);
         })
-        .thenCompose(senderAndAttemptData -> sessionRepository.updateSession(sessionId, session -> {
-          final RegistrationSession.Builder builder = session.toBuilder()
-              .setCheckCodeAttempts(0)
-              .setLastCheckCodeAttemptEpochMillis(0)
-              .addRegistrationAttempts(buildRegistrationAttempt(senderAndAttemptData.selection(),
-                  messageTransport,
-                  clientType,
-                  senderAndAttemptData.attemptData(),
-                  senderAndAttemptData.selection().sender().getAttemptTtl()));
-
-          builder.setExpirationEpochMillis(getSessionExpiration(builder.build()).toEpochMilli());
-
-          return builder.build();
-        }))
-        .exceptionallyCompose(throwable -> {
-          if (CompletionExceptions.unwrap(throwable) instanceof SenderRejectedTransportException) {
-            return sessionRepository.updateSession(sessionId, session -> {
-                  final RegistrationSession.Builder builder = session.toBuilder()
-                      .setCheckCodeAttempts(0)
-                      .setLastCheckCodeAttemptEpochMillis(0)
-                      .addRejectedTransports(MessageTransports.getRpcMessageTransportFromSenderTransport(messageTransport));
-
-                  builder.setExpirationEpochMillis(getSessionExpiration(builder.build()).toEpochMilli());
-
-                  return builder.build();
-                })
-                .thenApply(session -> {
-                  throw CompletionExceptions.wrap(new TransportNotAllowedException(throwable, session));
-                });
-          } else {
-            throw CompletionExceptions.wrap(throwable);
+        .thenCompose(session -> {
+          final Phonenumber.PhoneNumber phoneNumberFromSession;
+          try {
+            phoneNumberFromSession = PhoneNumberUtil.getInstance().parse(session.getPhoneNumber(), null);
+          } catch (final NumberParseException e) {
+            // This should never happen because we're parsing a phone number from the session, which means we've
+            // parsed it successfully in the past
+            throw new CompletionException(e);
           }
+          final Set<String> previouslyFailedSenders = session.getRegistrationAttemptsList()
+              .stream()
+              .map(RegistrationAttempt::getSenderName)
+              .collect(Collectors.toSet());
+
+          final SenderSelection selection = senderSelectionStrategy.chooseVerificationCodeSender(
+              messageTransport, phoneNumberFromSession, languageRanges, clientType, senderName,
+              previouslyFailedSenders);
+
+          return selection.sender()
+              .sendVerificationCode(messageTransport, phoneNumberFromSession, languageRanges, clientType)
+              .thenCompose(attemptData -> sessionRepository.updateSession(sessionId, sessionToUpdate -> {
+                final RegistrationSession.Builder builder = sessionToUpdate.toBuilder()
+                    .setCheckCodeAttempts(0)
+                    .setLastCheckCodeAttemptEpochMillis(0)
+                    .addRegistrationAttempts(buildRegistrationAttempt(selection,
+                        messageTransport,
+                        clientType,
+                        attemptData,
+                        selection.sender().getAttemptTtl()));
+
+                builder.setExpirationEpochMillis(getSessionExpiration(builder.build()).toEpochMilli());
+                return builder.build();
+              }))
+              .exceptionallyCompose(throwable -> {
+                final Throwable unwrapped = CompletionExceptions.unwrap(throwable);
+                if (unwrapped instanceof SenderRejectedTransportException e) {
+                  return sessionRepository.updateSession(sessionId, sessionToUpdate -> {
+                        final RegistrationSession.Builder builder = sessionToUpdate.toBuilder()
+                            .setCheckCodeAttempts(0)
+                            .setLastCheckCodeAttemptEpochMillis(0)
+                            .addRejectedTransports(
+                                MessageTransports.getRpcMessageTransportFromSenderTransport(messageTransport));
+
+                        builder.setExpirationEpochMillis(getSessionExpiration(builder.build()).toEpochMilli());
+                        return builder.build();
+                      })
+                      .thenApply(updatedSession -> {
+                        throw CompletionExceptions.wrap(new TransportNotAllowedException(e, updatedSession));
+                      });
+                }
+
+                final FailedSendReason failedSendReason;
+                if (unwrapped instanceof SenderFraudBlockException) {
+                  failedSendReason = FailedSendReason.FAILED_SEND_REASON_SUSPECTED_FRAUD;
+                } else if (unwrapped instanceof SenderRejectedRequestException) {
+                  failedSendReason = FailedSendReason.FAILED_SEND_REASON_REJECTED;
+                } else {
+                  failedSendReason = FailedSendReason.FAILED_SEND_REASON_UNAVAILABLE;
+                }
+
+                return sessionRepository.updateSession(sessionId, sessionToUpdate -> sessionToUpdate.toBuilder()
+                        .addFailedAttempts(FailedSendAttempt.newBuilder()
+                            .setTimestampEpochMillis(clock.instant().toEpochMilli())
+                            .setSenderName(selection.sender().getName())
+                            .setSelectionReason(selection.reason().toString())
+                            .setMessageTransport(
+                                MessageTransports.getRpcMessageTransportFromSenderTransport(messageTransport))
+                            .setClientType(ClientTypes.getRpcClientTypeFromSenderClientType(clientType))
+                            .setFailedSendReason(failedSendReason))
+                        .build())
+                    .thenApply(ignored -> {
+                      throw CompletionExceptions.wrap(throwable);
+                    });
+              });
         });
   }
 

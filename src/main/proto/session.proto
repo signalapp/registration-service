@@ -70,6 +70,61 @@ message RegistrationSession {
    * send verification codes in the scope of this session.
    */
   repeated org.signal.registration.rpc.MessageTransport rejected_transports = 12;
+
+  /**
+   * A list of attempts that failed to send
+   */
+  repeated FailedSendAttempt failed_attempts = 13;
+}
+
+message FailedSendAttempt {
+  /**
+ * The UNIX timestamp (in milliseconds) when this attempt was created.
+ */
+  uint64 timestamp_epoch_millis = 1;
+
+  /**
+   * The name of the `VerificationCodeSender` used in this attempt.
+   */
+  string sender_name = 2;
+
+  /**
+   * The message transport used in the failed attempt
+   */
+  org.signal.registration.rpc.MessageTransport message_transport = 3;
+
+  /**
+  * The type of client that initiated this attempt.
+  */
+  org.signal.registration.rpc.ClientType client_type = 4;
+
+  FailedSendReason failed_send_reason = 5;
+
+  /**
+   * Indicates the reason we selected particular sender. (e.g. 'adaptive',
+   * 'configured', 'lang_support', 'random')
+   */
+  string selection_reason = 6;
+}
+
+enum FailedSendReason {
+  FAILED_SEND_REASON_UNSPECIFIED = 0;
+
+  /**
+   * The attempt was not sent due to suspected fraud
+   */
+  FAILED_SEND_REASON_SUSPECTED_FRAUD = 1;
+
+  /**
+   * The attempt was refused by the sender
+   */
+  FAILED_SEND_REASON_REJECTED = 2;
+
+  /**
+   * The attempt failed because the sender could not be reached or had an
+   * unexpected error
+   */
+  FAILED_SEND_REASON_UNAVAILABLE = 3;
 }
 
 message RegistrationAttempt {
