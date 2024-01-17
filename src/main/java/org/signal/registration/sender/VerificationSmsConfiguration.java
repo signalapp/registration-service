@@ -79,13 +79,15 @@ public class VerificationSmsConfiguration {
       "th",
       "tl",
       "tr",
+      "ug",
       "uk",
       "ur",
       "vi",
       "zh",
       "zh-CN",
       "zh-HK",
-      "zh-TW");
+      "zh-TW",
+      "zh-YU");
 
   /**
    * A map of region codes (e.g. "US" or "MX") to message body "variant" names. Variant names should have corresponding
