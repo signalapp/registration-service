@@ -62,7 +62,7 @@ public class InfobipSmsSender implements VerificationCodeSender {
   private final SmsApi smsApiClient;
   private final ApiClientInstrumenter apiClientInstrumenter;
   private final SenderIdSelector senderIdSelector;
-  private static final String SENDER_NAME = "infobip-sms";
+  public static final String SENDER_NAME = "infobip-sms";
 
   public InfobipSmsSender(
       final @Named(TaskExecutors.IO) Executor executor,
