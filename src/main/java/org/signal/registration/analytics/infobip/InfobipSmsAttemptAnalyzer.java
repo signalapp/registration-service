@@ -9,6 +9,7 @@ import com.infobip.ApiException;
 import com.infobip.api.SmsApi;
 import com.infobip.model.SmsPrice;
 import com.infobip.model.SmsReport;
+import io.micronaut.context.annotation.Value;
 import io.micronaut.context.event.ApplicationEventPublisher;
 import io.micronaut.scheduling.TaskExecutors;
 import io.micronaut.scheduling.annotation.Scheduled;
@@ -21,6 +22,7 @@ import org.signal.registration.analytics.AttemptAnalyzedEvent;
 import org.signal.registration.analytics.AttemptPendingAnalysis;
 import org.signal.registration.analytics.AttemptPendingAnalysisRepository;
 import org.signal.registration.analytics.Money;
+import org.signal.registration.cli.bigtable.BigtableInfobipDefaultSmsPricesRepository;
 import org.signal.registration.sender.infobip.classic.InfobipSmsSender;
 import org.signal.registration.util.CompletionExceptions;
 import org.slf4j.Logger;
@@ -36,19 +38,25 @@ import java.util.concurrent.Executor;
 @Singleton
 class InfobipSmsAttemptAnalyzer extends AbstractAttemptAnalyzer {
   private final SmsApi infobipSmsApiClient;
+  private final Executor executor;
+  private final BigtableInfobipDefaultSmsPricesRepository defaultSmsPricesRepository;
+  private final Currency defaultPriceCurrency;
   private static final Logger logger = LoggerFactory.getLogger(InfobipSmsAttemptAnalyzer.class);
   private static final int MIN_MCC_MNC_LENGTH = 5;
-  private final Executor executor;
 
   protected InfobipSmsAttemptAnalyzer(
       final AttemptPendingAnalysisRepository repository,
       final ApplicationEventPublisher<AttemptAnalyzedEvent> attemptAnalyzedEventPublisher,
       final Clock clock,
       final SmsApi infobipSmsApiClient,
-      @Named(TaskExecutors.IO) final Executor executor) {
+      @Named(TaskExecutors.IO) final Executor executor,
+      final BigtableInfobipDefaultSmsPricesRepository defaultSmsPricesRepository,
+      @Value("${analytics.infobip.sms.default-price-currency:USD}") final String defaultPriceCurrency) {
     super(repository, attemptAnalyzedEventPublisher, clock);
     this.infobipSmsApiClient = infobipSmsApiClient;
     this.executor = executor;
+    this.defaultSmsPricesRepository = defaultSmsPricesRepository;
+    this.defaultPriceCurrency = Currency.getInstance(defaultPriceCurrency);
   }
 
   @Override
@@ -69,8 +77,7 @@ class InfobipSmsAttemptAnalyzer extends AbstractAttemptAnalyzer {
           final MccMnc mccMnc = MccMnc.fromString(report.getMccMnc());
           return new AttemptAnalysis(
               extractPrice(report),
-              // Leaving out estimating prices until we store default prices in Bigtable and plumb those in
-              Optional.empty(),
+              estimatePrice(mccMnc, attemptPendingAnalysis),
               Optional.ofNullable(mccMnc.mcc()),
               Optional.ofNullable(mccMnc.mnc()));
         }).orElse(AttemptAnalysis.EMPTY))
@@ -108,6 +115,12 @@ class InfobipSmsAttemptAnalyzer extends AbstractAttemptAnalyzer {
         : Optional.empty();
   }
 
+  private Optional<Money> estimatePrice(final MccMnc mccMnc, final AttemptPendingAnalysis attemptPendingAnalysis) {
+    return defaultSmsPricesRepository.get(mccMnc.toString())
+        .or(() -> defaultSmsPricesRepository.get(attemptPendingAnalysis.getRegion()))
+        .map(price -> new Money(price, defaultPriceCurrency));
+  }
+
   @VisibleForTesting
   record MccMnc(String mcc, String mnc) {
     private static final MccMnc EMPTY = new MccMnc(null, null);
@@ -121,6 +134,10 @@ class InfobipSmsAttemptAnalyzer extends AbstractAttemptAnalyzer {
 
       // Mobile country code is always 3 digits: https://en.wikipedia.org/wiki/Mobile_country_code
       return new MccMnc(mccMnc.substring(0, 3), mccMnc.substring(3));
+    }
+    
+    public String toString() {
+      return mcc + mnc;
     }
   }
 }
