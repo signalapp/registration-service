@@ -14,7 +14,7 @@ import jakarta.inject.Singleton;
 import java.io.IOException;
 
 @Factory
-@Requires(env = Environment.GOOGLE_COMPUTE)
+@Requires(env = {Environment.GOOGLE_COMPUTE, Environment.CLI})
 @Requires(property = "gcp.bigtable.project-id")
 @Requires(property = "gcp.bigtable.instance-id")
 public class BigtableDataClientFactory {
