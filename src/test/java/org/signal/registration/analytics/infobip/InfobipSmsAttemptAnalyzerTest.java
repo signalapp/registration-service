@@ -23,7 +23,8 @@ public class InfobipSmsAttemptAnalyzerTest {
   private static Stream<Arguments> parseMccMnc() {
     return Stream.of(
         Arguments.of("2401", new InfobipSmsAttemptAnalyzer.MccMnc(null, null)),
-        Arguments.of("24015", new InfobipSmsAttemptAnalyzer.MccMnc("240", "15"))
+        Arguments.of("24015", new InfobipSmsAttemptAnalyzer.MccMnc("240", "15")),
+        Arguments.of(null, new InfobipSmsAttemptAnalyzer.MccMnc(null, null))
     );
   }
 }

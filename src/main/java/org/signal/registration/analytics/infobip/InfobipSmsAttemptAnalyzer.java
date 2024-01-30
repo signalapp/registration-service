@@ -27,6 +27,8 @@ import org.signal.registration.sender.infobip.classic.InfobipSmsSender;
 import org.signal.registration.util.CompletionExceptions;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import javax.annotation.Nullable;
 import java.math.BigDecimal;
 import java.time.Clock;
 import java.util.Currency;
@@ -103,7 +105,7 @@ class InfobipSmsAttemptAnalyzer extends AbstractAttemptAnalyzer {
       }
 
       return smsReports.stream()
-          .filter(smsReport -> smsReport.getPrice() != null && smsReport.getMccMnc() != null)
+          .filter(smsReport -> smsReport.getPrice() != null)
           .findFirst();
     }, executor);
   }
@@ -126,7 +128,11 @@ class InfobipSmsAttemptAnalyzer extends AbstractAttemptAnalyzer {
     private static final MccMnc EMPTY = new MccMnc(null, null);
 
     @VisibleForTesting
-    static MccMnc fromString(final String mccMnc) {
+    static MccMnc fromString(@Nullable final String mccMnc) {
+      if (mccMnc == null) {
+        return EMPTY;
+      }
+
       if (mccMnc.length() < MIN_MCC_MNC_LENGTH) {
         logger.debug("Invalid mccMnc string {}", mccMnc);
         return EMPTY;
