@@ -9,6 +9,7 @@ import com.infobip.ApiException;
 import com.infobip.api.SmsApi;
 import com.infobip.model.SmsPrice;
 import com.infobip.model.SmsReport;
+import io.micrometer.core.instrument.MeterRegistry;
 import io.micronaut.context.annotation.Value;
 import io.micronaut.context.event.ApplicationEventPublisher;
 import io.micronaut.scheduling.TaskExecutors;
@@ -23,6 +24,7 @@ import org.signal.registration.analytics.AttemptPendingAnalysis;
 import org.signal.registration.analytics.AttemptPendingAnalysisRepository;
 import org.signal.registration.analytics.Money;
 import org.signal.registration.cli.bigtable.BigtableInfobipDefaultSmsPricesRepository;
+import org.signal.registration.metrics.MetricsUtil;
 import org.signal.registration.sender.infobip.classic.InfobipSmsSender;
 import org.signal.registration.util.CompletionExceptions;
 import org.slf4j.Logger;
@@ -43,6 +45,7 @@ class InfobipSmsAttemptAnalyzer extends AbstractAttemptAnalyzer {
   private final Executor executor;
   private final BigtableInfobipDefaultSmsPricesRepository defaultSmsPricesRepository;
   private final Currency defaultPriceCurrency;
+  private final MeterRegistry meterRegistry;
   private static final Logger logger = LoggerFactory.getLogger(InfobipSmsAttemptAnalyzer.class);
   private static final int MIN_MCC_MNC_LENGTH = 5;
 
@@ -53,12 +56,14 @@ class InfobipSmsAttemptAnalyzer extends AbstractAttemptAnalyzer {
       final SmsApi infobipSmsApiClient,
       @Named(TaskExecutors.IO) final Executor executor,
       final BigtableInfobipDefaultSmsPricesRepository defaultSmsPricesRepository,
-      @Value("${analytics.infobip.sms.default-price-currency:USD}") final String defaultPriceCurrency) {
+      @Value("${analytics.infobip.sms.default-price-currency:USD}") final String defaultPriceCurrency,
+      final MeterRegistry meterRegistry) {
     super(repository, attemptAnalyzedEventPublisher, clock);
     this.infobipSmsApiClient = infobipSmsApiClient;
     this.executor = executor;
     this.defaultSmsPricesRepository = defaultSmsPricesRepository;
     this.defaultPriceCurrency = Currency.getInstance(defaultPriceCurrency);
+    this.meterRegistry = meterRegistry;
   }
 
   @Override
@@ -78,7 +83,7 @@ class InfobipSmsAttemptAnalyzer extends AbstractAttemptAnalyzer {
         .thenApply(maybeReport -> maybeReport.map(report -> {
           final MccMnc mccMnc = MccMnc.fromString(report.getMccMnc());
           return new AttemptAnalysis(
-              extractPrice(report),
+              extractPrice(report.getPrice()),
               estimatePrice(mccMnc, attemptPendingAnalysis),
               Optional.ofNullable(mccMnc.mcc()),
               Optional.ofNullable(mccMnc.mnc()));
@@ -93,28 +98,39 @@ class InfobipSmsAttemptAnalyzer extends AbstractAttemptAnalyzer {
         smsReports = infobipSmsApiClient.getOutboundSmsMessageDeliveryReports()
             .messageId(attemptPendingAnalysis.getRemoteId()).execute().getResults();
       } catch (ApiException e) {
+        meterRegistry.counter(MetricsUtil.name(getClass(), "infobipException"),
+                "statusCode", String.valueOf(e.responseStatusCode()),
+                "error", e.details().getMessageId()).increment();
         throw CompletionExceptions.wrap(e);
       }
 
       if (smsReports == null || smsReports.isEmpty()) {
+        meterRegistry.counter(MetricsUtil.name(getClass(), "emptyResults")).increment();
         return Optional.empty();
       }
 
       if (smsReports.size() > 1) {
+        meterRegistry.counter(MetricsUtil.name(getClass(), "moreThanOneSmsReport"),
+                "numReports", String.valueOf(smsReports.size())).increment();
         logger.debug("More than one SMS report with message IDs {}", smsReports.stream().map(SmsReport::getMessageId).toList());
       }
 
       return smsReports.stream()
-          .filter(smsReport -> smsReport.getPrice() != null)
+          .filter(smsReport -> {
+            final boolean hasPrice = smsReport.getPrice() != null;
+            meterRegistry.counter(MetricsUtil.name(getClass(), "smsReport"), "hasPriceObject", String.valueOf(hasPrice)).increment();
+            return hasPrice;
+          })
           .findFirst();
     }, executor);
   }
 
-  private Optional<Money> extractPrice(final SmsReport report) {
-    final SmsPrice smsPrice = report.getPrice();
-    return smsPrice != null && smsPrice.getPricePerMessage() != null && smsPrice.getCurrency() != null
-        ? Optional.of(new Money(BigDecimal.valueOf(smsPrice.getPricePerMessage()), Currency.getInstance(smsPrice.getCurrency())))
-        : Optional.empty();
+  private Optional<Money> extractPrice(final SmsPrice smsPrice) {
+    final boolean hasPriceData = smsPrice.getPricePerMessage() != null && smsPrice.getCurrency() != null;
+    meterRegistry.counter(MetricsUtil.name(getClass(), "extractPrice"), "hasPriceData", String.valueOf(hasPriceData)).increment();
+    return hasPriceData
+            ? Optional.of(new Money(BigDecimal.valueOf(smsPrice.getPricePerMessage()), Currency.getInstance(smsPrice.getCurrency())))
+            : Optional.empty();
   }
 
   private Optional<Money> estimatePrice(final MccMnc mccMnc, final AttemptPendingAnalysis attemptPendingAnalysis) {
