@@ -80,14 +80,16 @@ class InfobipSmsAttemptAnalyzer extends AbstractAttemptAnalyzer {
   @Override
   protected CompletableFuture<AttemptAnalysis> analyzeAttempt(final AttemptPendingAnalysis attemptPendingAnalysis) {
     return getSmsReport(attemptPendingAnalysis)
-        .thenApply(maybeReport -> maybeReport.map(report -> {
-          final MccMnc mccMnc = MccMnc.fromString(report.getMccMnc());
+        .thenApply(maybeReport -> {
+          final Optional<Money> maybeActualPrice = maybeReport.flatMap(report -> extractPrice(report.getPrice()));
+          final Optional<MccMnc> maybeMccMnc = maybeReport.map(report -> MccMnc.fromString(report.getMccMnc()));
+          final Optional<Money> maybeEstimatedPriceByMccMnc = maybeMccMnc.flatMap(mccMnc -> estimatePrice(mccMnc.toString()));
           return new AttemptAnalysis(
-              extractPrice(report.getPrice()),
-              estimatePrice(mccMnc, attemptPendingAnalysis),
-              Optional.ofNullable(mccMnc.mcc()),
-              Optional.ofNullable(mccMnc.mnc()));
-        }).orElse(AttemptAnalysis.EMPTY))
+                  maybeActualPrice,
+                  maybeEstimatedPriceByMccMnc.or(() -> estimatePrice(attemptPendingAnalysis.getRegion())),
+                  maybeMccMnc.map(MccMnc::mcc),
+                  maybeMccMnc.map(MccMnc::mnc));
+        })
         .exceptionally(ignored -> AttemptAnalysis.EMPTY);
   }
 
@@ -133,9 +135,8 @@ class InfobipSmsAttemptAnalyzer extends AbstractAttemptAnalyzer {
             : Optional.empty();
   }
 
-  private Optional<Money> estimatePrice(final MccMnc mccMnc, final AttemptPendingAnalysis attemptPendingAnalysis) {
-    return defaultSmsPricesRepository.get(mccMnc.toString())
-        .or(() -> defaultSmsPricesRepository.get(attemptPendingAnalysis.getRegion()))
+  private Optional<Money> estimatePrice(final String key) {
+    return defaultSmsPricesRepository.get(key)
         .map(price -> new Money(price, defaultPriceCurrency));
   }
 
