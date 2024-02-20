@@ -8,7 +8,9 @@ package org.signal.registration.analytics.infobip;
 import com.infobip.ApiException;
 import com.infobip.api.SmsApi;
 import com.infobip.model.SmsLog;
+import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.MeterRegistry;
+import io.micrometer.core.instrument.Metrics;
 import io.micronaut.context.annotation.Value;
 import io.micronaut.context.event.ApplicationEventPublisher;
 import io.micronaut.scheduling.TaskExecutors;
@@ -60,6 +62,7 @@ class InfobipSmsAttemptAnalyzer {
   private static final Duration MIN_BACKOFF = Duration.ofMillis(500);
   private static final Duration MAX_BACKOFF = Duration.ofSeconds(8);
   private static final int HTTP_TOO_MANY_REQUESTS_CODE = 429;
+  private static final Counter ATTEMPTS_READ_COUNTER = Metrics.counter(MetricsUtil.name(InfobipSmsAttemptAnalyzer.class, "attemptRead"));
 
   protected InfobipSmsAttemptAnalyzer(
       final AttemptPendingAnalysisRepository repository,
@@ -86,7 +89,7 @@ class InfobipSmsAttemptAnalyzer {
     // has a ratelimit that prevents us from querying one by one for each attempt pending analysis.
     // Instead, we fetch fewer, larger pages and reconcile them against what we have stored locally.
     Flux.from(repository.getBySender(InfobipSmsSender.SENDER_NAME))
-        .doOnNext(ignored -> meterRegistry.counter(MetricsUtil.name(getClass(), "attemptRead")).increment())
+        .doOnNext(ignored -> ATTEMPTS_READ_COUNTER.increment())
         .buffer(PAGE_SIZE)
         .flatMap(attemptsPendingAnalysis -> fetchSmsLogsWithBackoff(attemptsPendingAnalysis.stream().map(AttemptPendingAnalysis::getRemoteId).toList())
             .flatMapMany(smsLogsByRemoteId -> Flux.fromIterable(attemptsPendingAnalysis)
