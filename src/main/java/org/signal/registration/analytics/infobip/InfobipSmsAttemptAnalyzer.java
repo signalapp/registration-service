@@ -11,6 +11,8 @@ import com.infobip.model.SmsLog;
 import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.Metrics;
+import io.micrometer.core.instrument.Tag;
+import io.micrometer.core.instrument.Tags;
 import io.micronaut.context.annotation.Value;
 import io.micronaut.context.event.ApplicationEventPublisher;
 import io.micronaut.scheduling.TaskExecutors;
@@ -147,9 +149,13 @@ class InfobipSmsAttemptAnalyzer {
         meterRegistry.counter(MetricsUtil.name(getClass(), "getSmsLogs")).increment(smsLogs.size());
         return smsLogs;
       } catch (ApiException e) {
-        meterRegistry.counter(MetricsUtil.name(getClass(), "infobipException"),
-                "statusCode", String.valueOf(e.responseStatusCode()),
-                "error", e.details().getMessageId()).increment();
+        Tags tags = Tags.of("statusCode", String.valueOf(e.responseStatusCode()));
+        if (e.details() != null) {
+          // The `getMessageId` method name is misleading. This actually logs an error identifier like "UNAUTHORIZED".
+          // https://www.infobip.com/docs/api/channels/sms/sms-messaging/logs-and-status-reports/get-outbound-sms-message-logs
+          tags = tags.and("error", e.details().getMessageId());
+        }
+        meterRegistry.counter(MetricsUtil.name(getClass(), "infobipException"), tags).increment();
         throw CompletionExceptions.wrap(e);
       }}, executor);
   }
