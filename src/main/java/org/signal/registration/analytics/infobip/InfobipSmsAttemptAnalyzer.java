@@ -115,7 +115,7 @@ class InfobipSmsAttemptAnalyzer {
                   }
 
                   return new AttemptAnalyzedEvent(attemptPendingAnalysis, attemptAnalysis);
-                })))
+                })), Runtime.getRuntime().availableProcessors())
         .filter(attemptAnalyzedEvent -> {
           final Instant attemptTimestamp = Instant.ofEpochMilli(attemptAnalyzedEvent.attemptPendingAnalysis().getTimestampEpochMillis());
           final boolean pricingDeadlineExpired =
@@ -132,7 +132,7 @@ class InfobipSmsAttemptAnalyzer {
   }
 
   private Mono<Map<String, SmsLog>> fetchSmsLogsWithBackoff(final List<String> remoteIds) {
-    return Mono.fromFuture(getSmsLogs(remoteIds))
+    return Mono.fromFuture(() -> getSmsLogs(remoteIds))
         .retryWhen(Retry.backoff(MAX_RETRIES, MIN_BACKOFF)
             .filter(throwable -> CompletionExceptions.unwrap(throwable) instanceof ApiException apiException &&
                 apiException.responseStatusCode() == HTTP_TOO_MANY_REQUESTS_CODE)
