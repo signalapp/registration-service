@@ -57,9 +57,9 @@ class InfobipSmsAttemptAnalyzer {
   private final BigtableInfobipDefaultSmsPricesRepository defaultSmsPricesRepository;
   private final Currency defaultPriceCurrency;
   private final MeterRegistry meterRegistry;
+  private final int pageSize;
   private static final Logger logger = LoggerFactory.getLogger(InfobipSmsAttemptAnalyzer.class);
   private static final int MIN_MCC_MNC_LENGTH = 5;
-  private static final int PAGE_SIZE = 1_000;
   private static final int MAX_RETRIES = 10;
   private static final Duration MIN_BACKOFF = Duration.ofMillis(500);
   private static final Duration MAX_BACKOFF = Duration.ofSeconds(8);
@@ -74,7 +74,8 @@ class InfobipSmsAttemptAnalyzer {
       @Named(TaskExecutors.IO) final Executor executor,
       final BigtableInfobipDefaultSmsPricesRepository defaultSmsPricesRepository,
       @Value("${analytics.infobip.sms.default-price-currency:USD}") final String defaultPriceCurrency,
-      final MeterRegistry meterRegistry) {
+      final MeterRegistry meterRegistry,
+      @Value("${analytics.infobip.sms.page-size:80}") final int pageSize) {
     this.repository = repository;
     this.attemptAnalyzedEventPublisher = attemptAnalyzedEventPublisher;
     this.clock = clock;
@@ -83,6 +84,7 @@ class InfobipSmsAttemptAnalyzer {
     this.defaultSmsPricesRepository = defaultSmsPricesRepository;
     this.defaultPriceCurrency = Currency.getInstance(defaultPriceCurrency);
     this.meterRegistry = meterRegistry;
+    this.pageSize = pageSize;
   }
 
   @Scheduled(fixedDelay = "${analytics.infobip.sms.analysis-interval:4h}")
@@ -92,7 +94,7 @@ class InfobipSmsAttemptAnalyzer {
     // Instead, we fetch fewer, larger pages and reconcile them against what we have stored locally.
     Flux.from(repository.getBySender(InfobipSmsSender.SENDER_NAME))
         .doOnNext(ignored -> ATTEMPTS_READ_COUNTER.increment())
-        .buffer(PAGE_SIZE)
+        .buffer(pageSize)
         .flatMap(attemptsPendingAnalysis -> fetchSmsLogsWithBackoff(attemptsPendingAnalysis.stream().map(AttemptPendingAnalysis::getRemoteId).toList())
             .flatMapMany(smsLogsByRemoteId -> Flux.fromIterable(attemptsPendingAnalysis)
                 .map(attemptPendingAnalysis -> {
