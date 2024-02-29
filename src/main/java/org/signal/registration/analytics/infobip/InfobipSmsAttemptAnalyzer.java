@@ -62,7 +62,7 @@ class InfobipSmsAttemptAnalyzer {
   private static final int MIN_MCC_MNC_LENGTH = 5;
   private static final int MAX_RETRIES = 10;
   private static final Duration MIN_BACKOFF = Duration.ofMillis(500);
-  private static final Duration MAX_BACKOFF = Duration.ofSeconds(8);
+  private static final Duration MAX_BACKOFF = Duration.ofSeconds(60);
   private static final int HTTP_TOO_MANY_REQUESTS_CODE = 429;
   private static final Counter ATTEMPTS_READ_COUNTER = Metrics.counter(MetricsUtil.name(InfobipSmsAttemptAnalyzer.class, "attemptRead"));
 
