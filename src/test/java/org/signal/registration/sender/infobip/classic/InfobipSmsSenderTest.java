@@ -11,7 +11,7 @@ import com.infobip.ApiException;
 import com.infobip.api.SmsApi;
 import com.infobip.model.SmsResponse;
 import com.infobip.model.SmsResponseDetails;
-import com.infobip.model.SmsStatus;
+import com.infobip.model.MessageStatus;
 import java.time.Duration;
 import java.util.Collections;
 import java.util.List;
@@ -63,7 +63,7 @@ public class InfobipSmsSenderTest {
     final SmsApi.SendSmsMessageRequest messageRequest = mock(SmsApi.SendSmsMessageRequest.class);
     final SmsResponse response = mock(SmsResponse.class);
     final SmsResponseDetails details = mock(SmsResponseDetails.class);
-    final SmsStatus status = mock(SmsStatus.class);
+    final MessageStatus status = mock(MessageStatus.class);
 
     when(codeGenerator.generateVerificationCode()).thenReturn("123456");
     when(client.sendSmsMessage(any())).thenReturn(messageRequest);

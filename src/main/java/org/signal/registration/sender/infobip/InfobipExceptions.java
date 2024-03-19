@@ -6,7 +6,7 @@
 package org.signal.registration.sender.infobip;
 
 import com.infobip.ApiException;
-import com.infobip.model.SmsStatus;
+import com.infobip.model.MessageStatus;
 import io.micronaut.http.HttpStatus;
 import org.signal.registration.sender.SenderRejectedRequestException;
 import org.signal.registration.util.CompletionExceptions;
@@ -67,7 +67,7 @@ public class InfobipExceptions {
     return null;
   }
 
-  public static void maybeThrowInfobipRejectedRequestException(final SmsStatus status) throws InfobipRejectedRequestException {
+  public static void maybeThrowInfobipRejectedRequestException(final MessageStatus status) throws InfobipRejectedRequestException {
     if (REJECTED_GROUP_IDS.contains(status.getGroupId())) {
       throw new InfobipRejectedRequestException(status);
     }

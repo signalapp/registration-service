@@ -151,9 +151,7 @@ class InfobipSmsAttemptAnalyzer {
       } catch (ApiException e) {
         Tags tags = Tags.of("statusCode", String.valueOf(e.responseStatusCode()));
         if (e.details() != null) {
-          // The `getMessageId` method name is misleading. This actually logs an error identifier like "UNAUTHORIZED".
-          // https://www.infobip.com/docs/api/channels/sms/sms-messaging/logs-and-status-reports/get-outbound-sms-message-logs
-          tags = tags.and("error", e.details().getMessageId());
+          tags = tags.and("error", e.details().getDescription());
         }
         meterRegistry.counter(MetricsUtil.name(getClass(), "infobipException"), tags).increment();
         throw CompletionExceptions.wrap(e);
