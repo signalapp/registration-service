@@ -21,7 +21,7 @@ import org.slf4j.LoggerFactory;
 /**
  * Class responsible for choosing verification code senders based on a multi-armed bandit strategy.
  * <p>
- * This class is responsible for combining the statistics returned by the BanditStatsProvider with the configuration
+ * This class is responsible for combining the statistics returned by the {@link VerificationStatsProvider} with the configuration
  * specified by {@link AdaptiveStrategyConfiguration} in order to decide which sender to use for a particular messages.
  * When running a bandit we will choose from a pool of configured senders for that bandit (which is configured globally
  * with regional overrides).
