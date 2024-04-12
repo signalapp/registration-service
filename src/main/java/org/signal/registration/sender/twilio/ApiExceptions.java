@@ -20,6 +20,7 @@ public class ApiExceptions {
   private static final int INVALID_PARAM_ERROR_CODE = 60200;
 
   private static final Set<Integer> SUSPECTED_FRAUD_ERROR_CODES = Set.of(
+      30450, // Message delivery blocked (SMS Pumping Protection)
       60410, // Verification delivery attempt blocked (Fraud Guard)
       60605  // Verification delivery attempt blocked (geo permissions)
   );
