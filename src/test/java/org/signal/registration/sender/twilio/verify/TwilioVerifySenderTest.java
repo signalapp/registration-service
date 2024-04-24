@@ -8,7 +8,9 @@ package org.signal.registration.sender.twilio.verify;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
 import com.google.i18n.phonenumbers.NumberParseException;
 import com.google.i18n.phonenumbers.PhoneNumberUtil;
@@ -30,6 +32,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
+import org.signal.registration.ratelimit.RateLimitExceededException;
 import org.signal.registration.sender.ApiClientInstrumenter;
 import org.signal.registration.sender.ClientType;
 import org.signal.registration.sender.MessageTransport;
@@ -37,8 +40,8 @@ import org.signal.registration.sender.MessageTransport;
 class TwilioVerifySenderTest {
   private static final int MAX_RETRIES = 5;
 
+  private final TwilioRestClient twilioRestClient = mock(TwilioRestClient.class);
   private TwilioVerifySender twilioVerifySender;
-
 
   @BeforeEach
   void setUp() {
@@ -47,7 +50,7 @@ class TwilioVerifySenderTest {
 
     twilioVerifySender = new TwilioVerifySender(
         new SimpleMeterRegistry(),
-        mock(TwilioRestClient.class),
+        twilioRestClient,
         configuration,
         mock(ApiClientInstrumenter.class),
         Duration.ofMillis(1),
@@ -69,14 +72,20 @@ class TwilioVerifySenderTest {
   }
 
   @Test
-  public void maxRetriesExceeded() {
+  public void maxRetriesExceeded() throws Exception {
     final AtomicInteger callCounter = new AtomicInteger();
-    final CompletionException exception = assertThrows(CompletionException.class,
-        () -> twilioVerifySender.withRetries(() -> {
+    when(twilioRestClient.request(any())).then(
+        ignored -> {
           callCounter.incrementAndGet();
           throw new ApiException("test", 20429, "", 200, null);
-        }, "test").toCompletableFuture().join());
-    assertInstanceOf(ApiException.class, exception.getCause());
+        });
+
+    final Phonenumber.PhoneNumber phoneNumber = PhoneNumberUtil.getInstance().parse("+12025550123", null);
+    final CompletionException exception = assertThrows(
+        CompletionException.class,
+        () -> twilioVerifySender.sendVerificationCode(
+            MessageTransport.VOICE, phoneNumber, Locale.LanguageRange.parse("en"), ClientType.IOS).join());
+    assertInstanceOf(RateLimitExceededException.class, exception.getCause());
     assertEquals(1 + MAX_RETRIES, callCounter.get());
   }
 

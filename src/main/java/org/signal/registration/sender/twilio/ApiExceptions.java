@@ -5,10 +5,14 @@
 package org.signal.registration.sender.twilio;
 
 import com.twilio.exception.ApiException;
+
+import java.time.Duration;
 import java.util.Optional;
 import java.util.Set;
 import javax.annotation.Nullable;
 import javax.validation.constraints.NotNull;
+
+import org.signal.registration.ratelimit.RateLimitExceededException;
 import org.signal.registration.sender.SenderFraudBlockException;
 import org.signal.registration.sender.SenderInvalidParametersException;
 import org.signal.registration.sender.SenderRejectedRequestException;
@@ -48,6 +52,8 @@ public class ApiExceptions {
   private static final Set<Integer> INTERNAL_RETRY_ERROR_CODES = Set.of(
       20429 // Too Many Requests
   );
+
+  private static final Duration EXTERNAL_RETRY_INTERVAL = Duration.ofMinutes(1);
 
   private ApiExceptions() {}
 
@@ -113,6 +119,8 @@ public class ApiExceptions {
         return new SenderRejectedRequestException(throwable);
       } else if (REJECTED_TRANSPORT_ERROR_CODES.contains(apiException.getCode())) {
         return new SenderRejectedTransportException(throwable);
+      } else if (INTERNAL_RETRY_ERROR_CODES.contains(apiException.getCode())) {
+        return new RateLimitExceededException(EXTERNAL_RETRY_INTERVAL);
       }
     }
 
