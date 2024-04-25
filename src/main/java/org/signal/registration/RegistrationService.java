@@ -31,6 +31,7 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 import javax.annotation.Nullable;
 import org.apache.commons.lang3.StringUtils;
+import org.signal.registration.ratelimit.RateLimitExceededException;
 import org.signal.registration.ratelimit.RateLimiter;
 import org.signal.registration.rpc.RegistrationSessionMetadata;
 import org.signal.registration.sender.AttemptData;
@@ -245,7 +246,11 @@ public class RegistrationService {
                             .setClientType(ClientTypes.getRpcClientTypeFromSenderClientType(clientType))
                             .setFailedSendReason(failedSendReason))
                         .build())
-                    .thenApply(ignored -> {
+                    .thenApply(updatedSession -> {
+                      if (unwrapped instanceof RateLimitExceededException e) {
+                        throw CompletionExceptions.wrap(
+                            new RateLimitExceededException(e.getRetryAfterDuration().orElse(null), e.getRegistrationSession().orElse(updatedSession)));
+                      }
                       throw CompletionExceptions.wrap(throwable);
                     });
               });
