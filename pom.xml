@@ -123,8 +123,9 @@
     <dependency>
       <groupId>com.twilio.sdk</groupId>
       <artifactId>twilio</artifactId>
-      <version>9.4.0</version>
+      <version>10.1.5</version>
 
+      <!-- Conflicts with pretty much everything in com.google.cloud:* -->
       <exclusions>
         <exclusion>
           <groupId>org.apache.httpcomponents</groupId>
