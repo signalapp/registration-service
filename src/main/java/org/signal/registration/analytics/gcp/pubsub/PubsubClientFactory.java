@@ -5,7 +5,6 @@
 
 package org.signal.registration.analytics.gcp.pubsub;
 
-import com.google.cloud.bigtable.data.v2.BigtableDataClient;
 import com.google.cloud.pubsub.v1.Publisher;
 import com.google.pubsub.v1.TopicName;
 import io.micronaut.context.annotation.Factory;
