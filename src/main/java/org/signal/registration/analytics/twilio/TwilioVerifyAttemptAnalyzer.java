@@ -149,6 +149,7 @@ class TwilioVerifyAttemptAnalyzer {
           repository.remove(TwilioVerifySender.SENDER_NAME, analyzedAttempt.attemptPendingAnalysis().getRemoteId());
           attemptAnalyzedEventPublisher.publishEvent(analyzedAttempt);
         })
+        .doOnError(throwable -> logger.error("Unexpected error when fetching verification attempts", throwable))
         .blockLast();
   }
 

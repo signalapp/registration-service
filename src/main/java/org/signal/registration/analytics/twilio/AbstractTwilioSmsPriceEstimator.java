@@ -13,6 +13,8 @@ import org.signal.registration.analytics.AttemptPendingAnalysis;
 import org.signal.registration.analytics.Money;
 import org.signal.registration.analytics.PriceEstimator;
 import org.signal.registration.rpc.MessageTransport;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import javax.annotation.Nullable;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
@@ -31,6 +33,8 @@ abstract class AbstractTwilioSmsPriceEstimator implements PriceEstimator {
 
   private volatile Map<String, EnumMap<InboundSmsPrice.Type, Money>> pricesByMccMnc = Collections.emptyMap();
   private volatile Map<String, EnumMap<InboundSmsPrice.Type, Money>> averagePricesByRegion = Collections.emptyMap();
+
+  private final Logger logger = LoggerFactory.getLogger(getClass());
 
   AbstractTwilioSmsPriceEstimator(final TwilioSmsPriceProvider dataSource) {
     this.dataSource = dataSource;
@@ -56,6 +60,7 @@ abstract class AbstractTwilioSmsPriceEstimator implements PriceEstimator {
             });
           }
         })
+        .doOnError(throwable -> logger.error("Failed to refresh prices", throwable))
         .then()
         .block();
 

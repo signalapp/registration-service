@@ -36,6 +36,7 @@ class ReaderUtil {
     return Mono.fromSupplier(pageSupplier)
         .retryWhen(Retry.backoff(10, Duration.ofMillis(500))
             .filter(throwable -> throwable instanceof ApiException apiException && apiException.getCode() == TOO_MANY_REQUESTS_CODE)
-            .maxBackoff(Duration.ofSeconds(8)));
+            .maxBackoff(Duration.ofSeconds(8))
+            .onRetryExhaustedThrow((backoffSpec, retrySignal) -> retrySignal.failure()));
   }
 }
