@@ -8,6 +8,7 @@ package org.signal.registration.sender.infobip;
 import com.infobip.ApiException;
 import com.infobip.model.MessageStatus;
 import io.micronaut.http.HttpStatus;
+import org.signal.registration.sender.SenderFraudBlockException;
 import org.signal.registration.sender.SenderRejectedRequestException;
 import org.signal.registration.util.CompletionExceptions;
 import javax.annotation.Nullable;
@@ -21,6 +22,7 @@ public class InfobipExceptions {
       HttpStatus.UNAUTHORIZED
   );
 
+  // See https://www.infobip.com/docs/essentials/response-status-and-error-codes
   private static final Set<Integer> REJECTED_GROUP_IDS = Set.of(
       2, // Message not delivered
       4, // Expired
@@ -65,6 +67,14 @@ public class InfobipExceptions {
     }
 
     return null;
+  }
+
+  public static void maybeThrowSenderFraudBlockException(final MessageStatus status) throws SenderFraudBlockException {
+    // Group 4 is "EXPIRED" and ID 87 is "SIGNALS_BLOCKED", which is defined as "Message has been rejected due to an
+    // anti-fraud mechanism"
+    if (status.getGroupId() == 4 && status.getId() == 87) {
+      throw new SenderFraudBlockException("Message has been rejected due to an anti-fraud mechanism");
+    }
   }
 
   public static void maybeThrowInfobipRejectedRequestException(final MessageStatus status) throws InfobipRejectedRequestException {

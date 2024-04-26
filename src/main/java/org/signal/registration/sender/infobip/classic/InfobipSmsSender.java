@@ -164,8 +164,9 @@ public class InfobipSmsSender implements VerificationCodeSender {
         .findFirst()
         .orElseThrow(() -> new SenderRejectedRequestException("No SMS response with a message ID"));
 
-    // Infobip enabled our account to return a 200 response with groupId 5 ("rejected") in the response body
-    // for a create SMS request, so we check for that and convert it into an exception.
+    // Infobip enabled our account to return a 200 response with groupId 4 ("expired") or 5 ("rejected") in the response
+    // body for a create SMS request, so we check for that and convert it into an exception.
+    InfobipExceptions.maybeThrowSenderFraudBlockException(finalResponseDetail.getStatus());
     InfobipExceptions.maybeThrowInfobipRejectedRequestException(finalResponseDetail.getStatus());
     return finalResponseDetail.getMessageId();
   }
