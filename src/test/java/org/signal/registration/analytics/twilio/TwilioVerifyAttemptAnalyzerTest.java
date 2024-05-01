@@ -6,9 +6,11 @@
 package org.signal.registration.analytics.twilio;
 
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoMoreInteractions;
 import static org.mockito.Mockito.when;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -27,6 +29,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.stream.Stream;
 import javax.annotation.Nullable;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
@@ -185,5 +188,28 @@ class TwilioVerifyAttemptAnalyzerTest {
         Arguments.of(VerificationAttempt.fromJson(PRICING_DEADLINE_PASSED_ATTEMPT_JSON, objectMapper), true, pricingDeadlinePassedAnalysis),
         Arguments.of(VerificationAttempt.fromJson(PRICING_DEADLINE_PASSED_ATTEMPT_JSON, objectMapper), false, null)
     );
+  }
+
+  @Test
+  void fallbackAnalyzeAttempts() {
+    final AttemptPendingAnalysis oldAttempt = AttemptPendingAnalysis.newBuilder()
+        .setRemoteId("old-attempt")
+        .setTimestampEpochMillis(CURRENT_TIME.minus(TwilioVerifyAttemptAnalyzer.MAX_ATTEMPT_AGE).minusMillis(1).toEpochMilli())
+        .build();
+
+    final AttemptPendingAnalysis currentAttempt = AttemptPendingAnalysis.newBuilder()
+        .setRemoteId("current-attempt")
+        .setTimestampEpochMillis(CURRENT_TIME.toEpochMilli())
+        .build();
+
+    twilioVerifyAttemptAnalyzer.fallbackAnalyzeAttempts(Flux.just(oldAttempt, currentAttempt));
+
+    verify(repository).remove(TwilioVerifySender.SENDER_NAME, oldAttempt.getRemoteId());
+    verify(repository, never()).remove(TwilioVerifySender.SENDER_NAME, currentAttempt.getRemoteId());
+
+    verify(attemptAnalyzedEventPublisher).publishEvent(argThat(event ->
+        event.attemptPendingAnalysis().getRemoteId().equalsIgnoreCase(oldAttempt.getRemoteId())));
+
+    verifyNoMoreInteractions(attemptAnalyzedEventPublisher);
   }
 }

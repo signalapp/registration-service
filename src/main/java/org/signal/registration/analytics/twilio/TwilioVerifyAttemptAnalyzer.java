@@ -17,6 +17,7 @@ import jakarta.inject.Singleton;
 import java.math.BigDecimal;
 import java.time.Clock;
 import java.time.Duration;
+import java.time.Instant;
 import java.time.ZonedDateTime;
 import java.util.Currency;
 import java.util.Locale;
@@ -26,6 +27,7 @@ import org.apache.commons.lang3.StringUtils;
 import org.signal.registration.analytics.AbstractAttemptAnalyzer;
 import org.signal.registration.analytics.AttemptAnalysis;
 import org.signal.registration.analytics.AttemptAnalyzedEvent;
+import org.signal.registration.analytics.AttemptPendingAnalysis;
 import org.signal.registration.analytics.AttemptPendingAnalysisRepository;
 import org.signal.registration.analytics.Money;
 import org.signal.registration.metrics.MetricsUtil;
@@ -53,13 +55,16 @@ class TwilioVerifyAttemptAnalyzer {
 
   private final Counter attemptReadCounter;
   private final Counter attemptAnalyzedCounter;
+  private final Counter fallbackAttemptEstimatedCounter;
 
   private static final String CURRENCY_KEY = "currency";
   private static final String VALUE_KEY = "value";
   private static final String MCC_KEY = "mcc";
   private static final String MNC_KEY = "mnc";
 
-  private static final Duration MAX_ATTEMPT_AGE = Duration.ofHours(36);
+  @VisibleForTesting
+  static final Duration MAX_ATTEMPT_AGE = Duration.ofHours(36);
+
   private static final int PAGE_SIZE = 1_000;
 
   private static final Logger logger = LoggerFactory.getLogger(TwilioVerifyAttemptAnalyzer.class);
@@ -81,7 +86,8 @@ class TwilioVerifyAttemptAnalyzer {
     this.verifyServiceSid = verifyServiceSid;
 
     this.attemptReadCounter = meterRegistry.counter(MetricsUtil.name(getClass(), "attemptRead"));
-    this.attemptAnalyzedCounter = meterRegistry.counter(MetricsUtil.name(getClass(), "attemptAnalyzed"));
+    this.attemptAnalyzedCounter = meterRegistry.counter(MetricsUtil.name(getClass(), "attemptAnalyzed"), "fallback", "false");
+    this.fallbackAttemptEstimatedCounter = meterRegistry.counter(MetricsUtil.name(getClass(), "attemptAnalyzed"), "fallback", "true");
   }
 
   @Scheduled(fixedDelay = "${analytics.twilio.verify.analysis-interval:4h}")
@@ -95,6 +101,10 @@ class TwilioVerifyAttemptAnalyzer {
         .setVerifyServiceSid(verifyServiceSid)
         .setDateCreatedAfter(ZonedDateTime.now().minus(MAX_ATTEMPT_AGE))
         .setPageSize(PAGE_SIZE), twilioRestClient));
+
+    // The Verification Attempts API is not guaranteed to produce results for every attempt. Rather than letting
+    // attempts simply evaporate, fall back to estimated pricing for attempts that have "aged out."
+    fallbackAnalyzeAttempts(Flux.from(repository.getBySender(TwilioVerifySender.SENDER_NAME)));
   }
 
   @VisibleForTesting
@@ -150,7 +160,28 @@ class TwilioVerifyAttemptAnalyzer {
           attemptAnalyzedEventPublisher.publishEvent(analyzedAttempt);
         })
         .doOnError(throwable -> logger.error("Unexpected error when fetching verification attempts", throwable))
-        .blockLast();
+        .then()
+        .block();
+  }
+
+  @VisibleForTesting
+  void fallbackAnalyzeAttempts(final Flux<AttemptPendingAnalysis> attemptsPendingAnalysis) {
+    final Instant fallbackAttemptThreshold = clock.instant().minus(MAX_ATTEMPT_AGE);
+
+    attemptsPendingAnalysis
+        .filter(attemptPendingAnalysis -> Instant.ofEpochMilli(attemptPendingAnalysis.getTimestampEpochMillis()).isBefore(fallbackAttemptThreshold))
+        .map(fallbackAttemptPendingAnalysis -> new AttemptAnalyzedEvent(fallbackAttemptPendingAnalysis, new AttemptAnalysis(Optional.empty(),
+            twilioVerifyPriceEstimator.estimatePrice(fallbackAttemptPendingAnalysis, null, null),
+            Optional.empty(),
+            Optional.empty())))
+        .doOnNext(attemptAnalyzedEvent -> {
+          fallbackAttemptEstimatedCounter.increment();
+
+          repository.remove(TwilioVerifySender.SENDER_NAME, attemptAnalyzedEvent.attemptPendingAnalysis().getRemoteId());
+          attemptAnalyzedEventPublisher.publishEvent(attemptAnalyzedEvent);
+        })
+        .then()
+        .block();
   }
 
   private static boolean hasPrice(final VerificationAttempt verificationAttempt) {
