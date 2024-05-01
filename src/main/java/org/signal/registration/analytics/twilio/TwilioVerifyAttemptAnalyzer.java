@@ -59,7 +59,7 @@ class TwilioVerifyAttemptAnalyzer {
   private static final String MCC_KEY = "mcc";
   private static final String MNC_KEY = "mnc";
 
-  private static final Duration MAX_ATTEMPT_AGE = Duration.ofDays(2);
+  private static final Duration MAX_ATTEMPT_AGE = Duration.ofHours(36);
   private static final int PAGE_SIZE = 1_000;
 
   private static final Logger logger = LoggerFactory.getLogger(TwilioVerifyAttemptAnalyzer.class);
