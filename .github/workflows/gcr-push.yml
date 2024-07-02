@@ -21,11 +21,11 @@ jobs:
       - name: Checkout main project
         uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
 
-      - name: Set up JDK 17
+      - name: Set up JDK 21
         uses: actions/setup-java@9704b39bf258b59bc04b50fa2dd55e9ed76b47a8 # v4.1.0
         with:
           distribution: 'temurin'
-          java-version: 17
+          java-version: 21
           cache: 'maven'
 
       - name: Authenticate to GCP
