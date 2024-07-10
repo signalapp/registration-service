@@ -26,9 +26,8 @@
     <exec.mainClass>org.signal.registration.Application</exec.mainClass>
 
     <firestore.emulator.version>483.0.0-emulators</firestore.emulator.version>
-    <micronaut.picocli.version>4.3.0</micronaut.picocli.version>
     <reactive.grpc.version>1.2.4</reactive.grpc.version>
-    <testcontainers.version>1.17.5</testcontainers.version>
+    <testcontainers.version>1.19.8</testcontainers.version>
   </properties>
 
   <repositories>
@@ -59,7 +58,7 @@
       <dependency>
         <groupId>org.testcontainers</groupId>
         <artifactId>testcontainers-bom</artifactId>
-        <version>1.17.3</version>
+        <version>${testcontainers.version}</version>
         <type>pom</type>
         <scope>import</scope>
       </dependency>
@@ -304,7 +303,7 @@
         <groupId>io.micronaut.build</groupId>
         <artifactId>micronaut-maven-plugin</artifactId>
       </plugin>
-      
+
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-compiler-plugin</artifactId>
