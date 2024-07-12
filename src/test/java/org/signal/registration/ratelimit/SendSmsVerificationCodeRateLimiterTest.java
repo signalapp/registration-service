@@ -7,6 +7,8 @@ package org.signal.registration.ratelimit;
 
 import org.junit.jupiter.api.Test;
 import org.signal.registration.rpc.MessageTransport;
+import org.signal.registration.session.FailedSendAttempt;
+import org.signal.registration.session.FailedSendReason;
 import org.signal.registration.session.RegistrationAttempt;
 import org.signal.registration.session.RegistrationSession;
 
@@ -34,6 +36,38 @@ class SendSmsVerificationCodeRateLimiterTest {
             .build())
         .build()));
 
+    assertEquals(0, rateLimiter.getPriorAttemptCount(RegistrationSession.newBuilder()
+        .addFailedAttempts(FailedSendAttempt.newBuilder()
+            .setMessageTransport(MessageTransport.MESSAGE_TRANSPORT_VOICE)
+            .setFailedSendReason(FailedSendReason.FAILED_SEND_REASON_SUSPECTED_FRAUD)
+            .setTimestampEpochMillis(System.currentTimeMillis())
+            .build())
+        .build()));
+
+    assertEquals(0, rateLimiter.getPriorAttemptCount(RegistrationSession.newBuilder()
+        .addFailedAttempts(FailedSendAttempt.newBuilder()
+            .setMessageTransport(MessageTransport.MESSAGE_TRANSPORT_SMS)
+            .setFailedSendReason(FailedSendReason.FAILED_SEND_REASON_UNAVAILABLE)
+            .setTimestampEpochMillis(System.currentTimeMillis())
+            .build())
+        .build()));
+
+    assertEquals(1, rateLimiter.getPriorAttemptCount(RegistrationSession.newBuilder()
+        .addFailedAttempts(FailedSendAttempt.newBuilder()
+            .setMessageTransport(MessageTransport.MESSAGE_TRANSPORT_SMS)
+            .setFailedSendReason(FailedSendReason.FAILED_SEND_REASON_SUSPECTED_FRAUD)
+            .setTimestampEpochMillis(System.currentTimeMillis())
+            .build())
+        .build()));
+
+    assertEquals(1, rateLimiter.getPriorAttemptCount(RegistrationSession.newBuilder()
+        .addFailedAttempts(FailedSendAttempt.newBuilder()
+            .setMessageTransport(MessageTransport.MESSAGE_TRANSPORT_SMS)
+            .setFailedSendReason(FailedSendReason.FAILED_SEND_REASON_REJECTED)
+            .setTimestampEpochMillis(System.currentTimeMillis())
+            .build())
+        .build()));
+
     assertEquals(1, rateLimiter.getPriorAttemptCount(RegistrationSession.newBuilder()
         .addRegistrationAttempts(RegistrationAttempt.newBuilder()
             .setMessageTransport(MessageTransport.MESSAGE_TRANSPORT_SMS)
@@ -50,15 +84,35 @@ class SendSmsVerificationCodeRateLimiterTest {
             .setMessageTransport(MessageTransport.MESSAGE_TRANSPORT_VOICE)
             .setTimestampEpochMillis(System.currentTimeMillis())
             .build())
+        .addFailedAttempts(FailedSendAttempt.newBuilder()
+            .setMessageTransport(MessageTransport.MESSAGE_TRANSPORT_VOICE)
+            .setFailedSendReason(FailedSendReason.FAILED_SEND_REASON_REJECTED)
+            .setTimestampEpochMillis(System.currentTimeMillis())
+            .build())
+        .addFailedAttempts(FailedSendAttempt.newBuilder()
+            .setMessageTransport(MessageTransport.MESSAGE_TRANSPORT_SMS)
+            .setFailedSendReason(FailedSendReason.FAILED_SEND_REASON_UNAVAILABLE)
+            .setTimestampEpochMillis(System.currentTimeMillis())
+            .build())
         .build()));
 
-    assertEquals(2, rateLimiter.getPriorAttemptCount(RegistrationSession.newBuilder()
+    assertEquals(4, rateLimiter.getPriorAttemptCount(RegistrationSession.newBuilder()
         .addRegistrationAttempts(RegistrationAttempt.newBuilder()
             .setMessageTransport(MessageTransport.MESSAGE_TRANSPORT_SMS)
             .setTimestampEpochMillis(System.currentTimeMillis())
             .build())
         .addRegistrationAttempts(RegistrationAttempt.newBuilder()
             .setMessageTransport(MessageTransport.MESSAGE_TRANSPORT_SMS)
+            .setTimestampEpochMillis(System.currentTimeMillis())
+            .build())
+        .addFailedAttempts(FailedSendAttempt.newBuilder()
+            .setMessageTransport(MessageTransport.MESSAGE_TRANSPORT_SMS)
+            .setFailedSendReason(FailedSendReason.FAILED_SEND_REASON_REJECTED)
+            .setTimestampEpochMillis(System.currentTimeMillis())
+            .build())
+        .addFailedAttempts(FailedSendAttempt.newBuilder()
+            .setMessageTransport(MessageTransport.MESSAGE_TRANSPORT_SMS)
+            .setFailedSendReason(FailedSendReason.FAILED_SEND_REASON_SUSPECTED_FRAUD)
             .setTimestampEpochMillis(System.currentTimeMillis())
             .build())
         .build()));

@@ -9,6 +9,7 @@ import io.micronaut.context.annotation.Value;
 import jakarta.inject.Named;
 import jakarta.inject.Singleton;
 import org.signal.registration.rpc.MessageTransport;
+import org.signal.registration.session.FailedSendReason;
 import org.signal.registration.session.RegistrationSession;
 import java.time.Clock;
 import java.time.Duration;
@@ -73,7 +74,11 @@ public class SendVoiceVerificationCodeRateLimiter extends FixedDelayRegistration
 
     return (int) session.getRegistrationAttemptsList().stream()
         .filter(attempt -> attempt.getMessageTransport() == MessageTransport.MESSAGE_TRANSPORT_VOICE)
-        .count();
+        .count() +
+            (int) session.getFailedAttemptsList().stream()
+                    .filter(attempt -> attempt.getMessageTransport() == MessageTransport.MESSAGE_TRANSPORT_VOICE
+                            && attempt.getFailedSendReason() != FailedSendReason.FAILED_SEND_REASON_UNAVAILABLE)
+                    .count();
   }
 
   @Override

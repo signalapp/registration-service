@@ -15,6 +15,7 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.Optional;
 import org.signal.registration.rpc.MessageTransport;
+import org.signal.registration.session.FailedSendReason;
 import org.signal.registration.session.RegistrationSession;
 
 @Singleton
@@ -38,7 +39,11 @@ public class SendSmsVerificationCodeRateLimiter extends FixedDelayRegistrationSe
 
     return (int) session.getRegistrationAttemptsList().stream()
         .filter(attempt -> attempt.getMessageTransport() == MessageTransport.MESSAGE_TRANSPORT_SMS)
-        .count();
+        .count() +
+            (int) session.getFailedAttemptsList().stream()
+                    .filter(attempt -> attempt.getMessageTransport() == MessageTransport.MESSAGE_TRANSPORT_SMS
+                            && attempt.getFailedSendReason() != FailedSendReason.FAILED_SEND_REASON_UNAVAILABLE)
+                    .count();
   }
 
   @Override
