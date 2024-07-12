@@ -14,6 +14,8 @@ import java.time.Instant;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Optional;
+import java.util.stream.Stream;
+
 import org.signal.registration.rpc.MessageTransport;
 import org.signal.registration.session.FailedSendReason;
 import org.signal.registration.session.RegistrationSession;
@@ -41,16 +43,22 @@ public class SendSmsVerificationCodeRateLimiter extends FixedDelayRegistrationSe
         .filter(attempt -> attempt.getMessageTransport() == MessageTransport.MESSAGE_TRANSPORT_SMS)
         .count() +
             (int) session.getFailedAttemptsList().stream()
-                    .filter(attempt -> attempt.getMessageTransport() == MessageTransport.MESSAGE_TRANSPORT_SMS
-                            && attempt.getFailedSendReason() != FailedSendReason.FAILED_SEND_REASON_UNAVAILABLE)
+                    .filter(attempt -> attempt.getMessageTransport() == MessageTransport.MESSAGE_TRANSPORT_SMS)
+                    .filter(attempt -> attempt.getFailedSendReason() != FailedSendReason.FAILED_SEND_REASON_UNAVAILABLE)
                     .count();
   }
 
   @Override
   protected Optional<Instant> getLastAttemptTime(final RegistrationSession session) {
-    return session.getRegistrationAttemptsList().stream()
-        .filter(attempt -> attempt.getMessageTransport() == MessageTransport.MESSAGE_TRANSPORT_SMS)
-        .map(attempt -> Instant.ofEpochMilli(attempt.getTimestampEpochMillis()))
-        .max(Comparator.naturalOrder());
+    return Stream.concat(
+            session.getRegistrationAttemptsList().stream()
+                    .filter(attempt -> attempt.getMessageTransport() == MessageTransport.MESSAGE_TRANSPORT_SMS)
+                    .map(attempt -> Instant.ofEpochMilli(attempt.getTimestampEpochMillis())),
+            session.getFailedAttemptsList().stream()
+                    .filter(attempt -> attempt.getMessageTransport() == MessageTransport.MESSAGE_TRANSPORT_SMS)
+                    .filter(attempt -> attempt.getFailedSendReason() != FailedSendReason.FAILED_SEND_REASON_UNAVAILABLE)
+                    .map(attempt -> Instant.ofEpochMilli(attempt.getTimestampEpochMillis()))
+            )
+            .max(Comparator.naturalOrder());
   }
 }

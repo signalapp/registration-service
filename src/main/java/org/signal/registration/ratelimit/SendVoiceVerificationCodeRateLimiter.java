@@ -18,6 +18,7 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
+import java.util.stream.Stream;
 
 @Singleton
 @Named("send-voice-verification-code")
@@ -76,16 +77,21 @@ public class SendVoiceVerificationCodeRateLimiter extends FixedDelayRegistration
         .filter(attempt -> attempt.getMessageTransport() == MessageTransport.MESSAGE_TRANSPORT_VOICE)
         .count() +
             (int) session.getFailedAttemptsList().stream()
-                    .filter(attempt -> attempt.getMessageTransport() == MessageTransport.MESSAGE_TRANSPORT_VOICE
-                            && attempt.getFailedSendReason() != FailedSendReason.FAILED_SEND_REASON_UNAVAILABLE)
+                    .filter(attempt -> attempt.getMessageTransport() == MessageTransport.MESSAGE_TRANSPORT_VOICE)
+                    .filter(attempt -> attempt.getFailedSendReason() != FailedSendReason.FAILED_SEND_REASON_UNAVAILABLE)
                     .count();
   }
 
   @Override
   protected Optional<Instant> getLastAttemptTime(final RegistrationSession session) {
-    return session.getRegistrationAttemptsList().stream()
-        .filter(attempt -> attempt.getMessageTransport() == MessageTransport.MESSAGE_TRANSPORT_VOICE)
-        .map(attempt -> Instant.ofEpochMilli(attempt.getTimestampEpochMillis()))
+    return Stream.concat(
+            session.getRegistrationAttemptsList().stream()
+                    .filter(attempt -> attempt.getMessageTransport() == MessageTransport.MESSAGE_TRANSPORT_VOICE)
+                    .map(attempt -> Instant.ofEpochMilli(attempt.getTimestampEpochMillis())),
+            session.getFailedAttemptsList().stream()
+                    .filter(attempt -> attempt.getMessageTransport() == MessageTransport.MESSAGE_TRANSPORT_VOICE)
+                    .filter(attempt -> attempt.getFailedSendReason() != FailedSendReason.FAILED_SEND_REASON_UNAVAILABLE)
+                    .map(attempt -> Instant.ofEpochMilli(attempt.getTimestampEpochMillis())))
         .max(Comparator.naturalOrder());
   }
 }

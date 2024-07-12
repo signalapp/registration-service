@@ -221,6 +221,16 @@ class SendVoiceVerificationCodeRateLimiterTest {
             .setMessageTransport(MessageTransport.MESSAGE_TRANSPORT_SMS)
             .setTimestampEpochMillis(System.currentTimeMillis())
             .build())
+        .addFailedAttempts(FailedSendAttempt.newBuilder()
+            .setMessageTransport(MessageTransport.MESSAGE_TRANSPORT_SMS)
+            .setFailedSendReason(FailedSendReason.FAILED_SEND_REASON_REJECTED)
+            .setTimestampEpochMillis(System.currentTimeMillis())
+            .build())
+        .addFailedAttempts(FailedSendAttempt.newBuilder()
+            .setMessageTransport(MessageTransport.MESSAGE_TRANSPORT_VOICE)
+            .setFailedSendReason(FailedSendReason.FAILED_SEND_REASON_UNAVAILABLE)
+            .setTimestampEpochMillis(System.currentTimeMillis())
+            .build())
         .build()));
 
     final long firstTimestamp = 37;
@@ -236,8 +246,40 @@ class SendVoiceVerificationCodeRateLimiterTest {
 
     assertEquals(Optional.of(Instant.ofEpochMilli(firstTimestamp)),
         rateLimiter.getLastAttemptTime(RegistrationSession.newBuilder()
+            .addFailedAttempts(FailedSendAttempt.newBuilder()
+                .setMessageTransport(MessageTransport.MESSAGE_TRANSPORT_VOICE)
+                .setFailedSendReason(FailedSendReason.FAILED_SEND_REASON_REJECTED)
+                .setTimestampEpochMillis(firstTimestamp)
+                .build())
+            .build()));
+
+    assertEquals(Optional.of(Instant.ofEpochMilli(firstTimestamp)),
+        rateLimiter.getLastAttemptTime(RegistrationSession.newBuilder()
             .addRegistrationAttempts(RegistrationAttempt.newBuilder()
                 .setMessageTransport(MessageTransport.MESSAGE_TRANSPORT_VOICE)
+                .setTimestampEpochMillis(firstTimestamp)
+                .build())
+            .addRegistrationAttempts(RegistrationAttempt.newBuilder()
+                .setMessageTransport(MessageTransport.MESSAGE_TRANSPORT_SMS)
+                .setTimestampEpochMillis(secondTimestamp)
+                .build())
+            .addFailedAttempts(FailedSendAttempt.newBuilder()
+                .setMessageTransport(MessageTransport.MESSAGE_TRANSPORT_VOICE)
+                .setFailedSendReason(FailedSendReason.FAILED_SEND_REASON_UNAVAILABLE)
+                .setTimestampEpochMillis(secondTimestamp)
+                .build())
+            .addFailedAttempts(FailedSendAttempt.newBuilder()
+                .setMessageTransport(MessageTransport.MESSAGE_TRANSPORT_SMS)
+                .setFailedSendReason(FailedSendReason.FAILED_SEND_REASON_REJECTED)
+                .setTimestampEpochMillis(secondTimestamp)
+                .build())
+            .build()));
+
+    assertEquals(Optional.of(Instant.ofEpochMilli(firstTimestamp)),
+        rateLimiter.getLastAttemptTime(RegistrationSession.newBuilder()
+            .addFailedAttempts(FailedSendAttempt.newBuilder()
+                .setMessageTransport(MessageTransport.MESSAGE_TRANSPORT_VOICE)
+                .setFailedSendReason(FailedSendReason.FAILED_SEND_REASON_REJECTED)
                 .setTimestampEpochMillis(firstTimestamp)
                 .build())
             .addRegistrationAttempts(RegistrationAttempt.newBuilder()
@@ -254,6 +296,19 @@ class SendVoiceVerificationCodeRateLimiterTest {
                 .build())
             .addRegistrationAttempts(RegistrationAttempt.newBuilder()
                 .setMessageTransport(MessageTransport.MESSAGE_TRANSPORT_VOICE)
+                .setTimestampEpochMillis(secondTimestamp)
+                .build())
+            .build()));
+
+    assertEquals(Optional.of(Instant.ofEpochMilli(secondTimestamp)),
+        rateLimiter.getLastAttemptTime(RegistrationSession.newBuilder()
+            .addRegistrationAttempts(RegistrationAttempt.newBuilder()
+                .setMessageTransport(MessageTransport.MESSAGE_TRANSPORT_VOICE)
+                .setTimestampEpochMillis(firstTimestamp)
+                .build())
+            .addFailedAttempts(FailedSendAttempt.newBuilder()
+                .setMessageTransport(MessageTransport.MESSAGE_TRANSPORT_VOICE)
+                .setFailedSendReason(FailedSendReason.FAILED_SEND_REASON_REJECTED)
                 .setTimestampEpochMillis(secondTimestamp)
                 .build())
             .build()));
