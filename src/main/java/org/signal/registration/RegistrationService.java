@@ -421,8 +421,10 @@ public class RegistrationService {
           .map(nextAction -> nextAction.plus(SESSION_TTL_AFTER_LAST_ACTION))
           .ifPresent(candidateExpirations::add);
 
+      // If a session never has a successful registration attempt and exhausts all SMS and voice ratelimits,
+      // fall back to the expiration set at session creation time
       expiration = candidateExpirations.stream().max(Comparator.naturalOrder())
-          .orElseThrow(() -> new IllegalStateException("An unverified session must have an allowed next action or at least one registration attempt"));
+              .orElse(Instant.ofEpochMilli(session.getExpirationEpochMillis()));
     } else {
       // The session must have been verified as a result of the last check
       expiration = Instant.ofEpochMilli(session.getLastCheckCodeAttemptEpochMillis()).plus(SESSION_TTL_AFTER_LAST_ACTION);
@@ -460,7 +462,10 @@ public class RegistrationService {
       // Callers may not request codes via phone call until they've attempted an SMS
       final boolean hasAttemptedSms = session.getRegistrationAttemptsList().stream().anyMatch(attempt ->
           attempt.getMessageTransport() == org.signal.registration.rpc.MessageTransport.MESSAGE_TRANSPORT_SMS) ||
-          session.getRejectedTransportsList().contains(org.signal.registration.rpc.MessageTransport.MESSAGE_TRANSPORT_SMS);
+          session.getRejectedTransportsList().contains(org.signal.registration.rpc.MessageTransport.MESSAGE_TRANSPORT_SMS) ||
+              session.getFailedAttemptsList().stream().anyMatch(attempt ->
+                  attempt.getMessageTransport() == org.signal.registration.rpc.MessageTransport.MESSAGE_TRANSPORT_SMS
+                      && attempt.getFailedSendReason() != FailedSendReason.FAILED_SEND_REASON_SUSPECTED_FRAUD);
 
       if (hasAttemptedSms) {
         nextVoiceCall = sendVoiceVerificationCodeRateLimiter.getTimeOfNextAction(session).join();

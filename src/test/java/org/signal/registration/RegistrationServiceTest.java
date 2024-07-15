@@ -50,6 +50,7 @@ import org.signal.registration.sender.SenderRejectedRequestException;
 import org.signal.registration.sender.SenderRejectedTransportException;
 import org.signal.registration.sender.SenderSelectionStrategy;
 import org.signal.registration.sender.VerificationCodeSender;
+import org.signal.registration.session.FailedSendAttempt;
 import org.signal.registration.session.FailedSendReason;
 import org.signal.registration.session.MemorySessionRepository;
 import org.signal.registration.session.RegistrationAttempt;
@@ -649,6 +650,26 @@ class RegistrationServiceTest {
             false, true, true,
             false, true, false),
 
+        // Unverified session with one failed, non-fraud SMS attempt
+        Arguments.of(getBaseSessionBuilder()
+                .addFailedAttempts(FailedSendAttempt.newBuilder()
+                    .setMessageTransport(org.signal.registration.rpc.MessageTransport.MESSAGE_TRANSPORT_SMS)
+                    .setFailedSendReason(FailedSendReason.FAILED_SEND_REASON_REJECTED)
+                    .build())
+                .build(),
+            true, true, true,
+            true, true, false),
+
+        // Unverified session with one failed, fraud SMS attempt
+        Arguments.of(getBaseSessionBuilder()
+                .addFailedAttempts(FailedSendAttempt.newBuilder()
+                    .setMessageTransport(org.signal.registration.rpc.MessageTransport.MESSAGE_TRANSPORT_SMS)
+                    .setFailedSendReason(FailedSendReason.FAILED_SEND_REASON_SUSPECTED_FRAUD)
+                    .build())
+                .build(),
+            true, true, true,
+            true, false, false),
+
         // Unverified session with voice calls exhausted
         Arguments.of(getBaseSessionBuilder()
                 .addRegistrationAttempts(RegistrationAttempt.newBuilder()
@@ -749,6 +770,7 @@ class RegistrationServiceTest {
 
     final RegistrationSession.Builder sessionBuilder = RegistrationSession.newBuilder()
         .setCreatedEpochMillis(sessionCreation.toEpochMilli())
+        .setExpirationEpochMillis(sessionCreation.plus(RegistrationService.SESSION_TTL_AFTER_LAST_ACTION).toEpochMilli())
         .setLastCheckCodeAttemptEpochMillis(lastCodeCheck.toEpochMilli());
 
     if (verified) {
@@ -790,7 +812,7 @@ class RegistrationServiceTest {
             List.of(CURRENT_TIME.plus(RegistrationService.SESSION_TTL_AFTER_LAST_ACTION).plus(Duration.ofMinutes(3))),
             CURRENT_TIME.plus(RegistrationService.SESSION_TTL_AFTER_LAST_ACTION).plus(Duration.ofMinutes(3))),
 
-        // Verification code never checked; two recent registration attempts
+        // Verification code never checked; two recent successful registration attempts
         Arguments.of(CURRENT_TIME.minusSeconds(600),
             false,
             Instant.ofEpochMilli(0),
@@ -807,7 +829,17 @@ class RegistrationServiceTest {
             Instant.ofEpochMilli(0),
             Optional.of(CURRENT_TIME.minus(RegistrationService.SESSION_TTL_AFTER_LAST_ACTION.dividedBy(2))),
             List.of(),
-            CURRENT_TIME.plus(RegistrationService.SESSION_TTL_AFTER_LAST_ACTION.dividedBy(2)))
+            CURRENT_TIME.plus(RegistrationService.SESSION_TTL_AFTER_LAST_ACTION.dividedBy(2))),
+
+        // No successful registration attempts, not allowed to request another SMS
+        Arguments.of(
+            CURRENT_TIME,
+            false,
+            Instant.ofEpochMilli(0),
+            Optional.empty(),
+            List.of(),
+            CURRENT_TIME.plus(RegistrationService.SESSION_TTL_AFTER_LAST_ACTION)
+        )
     );
   }
 }
