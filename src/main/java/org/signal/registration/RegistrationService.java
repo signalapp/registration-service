@@ -190,6 +190,13 @@ public class RegistrationService {
               .map(RegistrationAttempt::getSenderName)
               .collect(Collectors.toSet());
 
+          // Add senders from failed attempts with a "provider unavailable" error
+          session.getFailedAttemptsList()
+              .stream()
+              .filter(attempt -> attempt.getFailedSendReason() == FailedSendReason.FAILED_SEND_REASON_UNAVAILABLE)
+              .map(FailedSendAttempt::getSenderName)
+              .forEach(previouslyFailedSenders::add);
+
           final SenderSelection selection = senderSelectionStrategy.chooseVerificationCodeSender(
               messageTransport, phoneNumberFromSession, languageRanges, clientType, senderName,
               previouslyFailedSenders);
