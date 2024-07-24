@@ -27,7 +27,7 @@
 
     <firestore.emulator.version>483.0.0-emulators</firestore.emulator.version>
     <reactive.grpc.version>1.2.4</reactive.grpc.version>
-    <testcontainers.version>1.19.8</testcontainers.version>
+    <testcontainers.version>1.20.0</testcontainers.version>
   </properties>
 
   <repositories>
