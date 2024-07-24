@@ -14,6 +14,7 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.spy;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -29,6 +30,7 @@ import java.time.temporal.ChronoUnit;
 import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
@@ -39,6 +41,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
+import org.mockito.ArgumentCaptor;
 import org.signal.registration.ratelimit.RateLimitExceededException;
 import org.signal.registration.ratelimit.RateLimiter;
 import org.signal.registration.rpc.RegistrationSessionMetadata;
@@ -72,6 +75,7 @@ class RegistrationServiceTest {
   private RateLimiter<RegistrationSession> sendVoiceVerificationCodeRateLimiter;
   private RateLimiter<RegistrationSession> checkVerificationCodeRateLimiter;
   private Clock clock;
+  private SenderSelectionStrategy senderSelectionStrategy;
 
   private static final Phonenumber.PhoneNumber PHONE_NUMBER = PhoneNumberUtil.getInstance().getExampleNumber("US");
   private static final String SENDER_NAME = "mock-sender";
@@ -96,7 +100,7 @@ class RegistrationServiceTest {
     //noinspection unchecked
     sessionRepository = spy(new MemorySessionRepository(mock(ApplicationEventPublisher.class), clock));
 
-    final SenderSelectionStrategy senderSelectionStrategy = mock(SenderSelectionStrategy.class);
+    senderSelectionStrategy = mock(SenderSelectionStrategy.class);
     when(senderSelectionStrategy.chooseVerificationCodeSender(any(), any(), any(), any(), any(), any()))
         .thenReturn(new SenderSelectionStrategy.SenderSelection(sender, SenderSelectionStrategy.SelectionReason.CONFIGURED));
 
@@ -182,6 +186,62 @@ class RegistrationServiceTest {
     assertEquals(remoteId, session.getRegistrationAttempts(0).getRemoteId());
     assertEquals(org.signal.registration.rpc.MessageTransport.MESSAGE_TRANSPORT_SMS,
         session.getRegistrationAttemptsList().get(0).getMessageTransport());
+  }
+
+  @Test
+  void previouslyFailedSenders() {
+    RegistrationSession session = registrationService.createRegistrationSession(PHONE_NUMBER, SESSION_METADATA).join();
+    final UUID sessionId = UUIDUtil.uuidFromByteString(session.getId());
+
+    // attempt failed due to sender being unavailable
+    when(sender.getName()).thenReturn("sender1");
+    when(sender.sendVerificationCode(MessageTransport.SMS, PHONE_NUMBER, LANGUAGE_RANGES, CLIENT_TYPE))
+        .thenReturn(CompletableFuture.failedFuture(new Exception("sender unavailable")));
+
+    assertThrows(CompletionException.class, () -> {
+      registrationService.sendVerificationCode(MessageTransport.SMS, sessionId, "sender1", LANGUAGE_RANGES, CLIENT_TYPE).join();
+    });
+
+    // attempt failed due to fraud block
+    when(sender.getName()).thenReturn("sender2");
+    when(sender.sendVerificationCode(MessageTransport.SMS, PHONE_NUMBER, LANGUAGE_RANGES, CLIENT_TYPE))
+        .thenReturn(CompletableFuture.failedFuture(new SenderFraudBlockException("fraud block")));
+
+    assertThrows(CompletionException.class, () -> {
+      registrationService.sendVerificationCode(MessageTransport.SMS, sessionId, "sender2", LANGUAGE_RANGES, CLIENT_TYPE).join();
+    });
+
+    // successful send that is not verified will be in the failed sender list after a subsequent send
+    when(sender.getName()).thenReturn("sender3");
+    when(sender.sendVerificationCode(MessageTransport.SMS, PHONE_NUMBER, LANGUAGE_RANGES, CLIENT_TYPE))
+        .thenReturn(CompletableFuture.completedFuture(new AttemptData(Optional.of("third"), "code".getBytes(StandardCharsets.UTF_8))));
+
+    registrationService.sendVerificationCode(MessageTransport.SMS, sessionId, "sender3", LANGUAGE_RANGES, CLIENT_TYPE).join();
+
+    // last attempt
+    when(sender.sendVerificationCode(MessageTransport.SMS, PHONE_NUMBER, LANGUAGE_RANGES, CLIENT_TYPE))
+        .thenReturn(CompletableFuture.completedFuture(new AttemptData(Optional.of("fourth"), "code".getBytes(StandardCharsets.UTF_8))));
+    registrationService.sendVerificationCode(MessageTransport.SMS, sessionId, "sender4", LANGUAGE_RANGES, CLIENT_TYPE).join();
+
+    session = sessionRepository.getSession(sessionId).join();
+
+    assertEquals(2, session.getRegistrationAttemptsCount());
+    assertEquals(2, session.getFailedAttemptsCount());
+
+    //noinspection unchecked
+    final ArgumentCaptor<Set<String>> previouslyFailedSenderListCaptor =
+        ArgumentCaptor.forClass(Set.class);
+
+    verify(senderSelectionStrategy, times(4)).chooseVerificationCodeSender(
+        eq(MessageTransport.SMS),
+        eq(PHONE_NUMBER),
+        eq(LANGUAGE_RANGES),
+        eq(CLIENT_TYPE),
+        any(),
+        previouslyFailedSenderListCaptor.capture()
+    );
+
+    assertEquals(Set.of("sender1", "sender3"), previouslyFailedSenderListCaptor.getValue());
   }
 
   @Test
