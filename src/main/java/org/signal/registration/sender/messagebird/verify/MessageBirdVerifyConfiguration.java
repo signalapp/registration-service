@@ -8,9 +8,7 @@ package org.signal.registration.sender.messagebird.verify;
 import io.micronaut.context.annotation.ConfigurationProperties;
 import io.micronaut.context.annotation.Context;
 import io.micronaut.core.bind.annotation.Bindable;
-
-import javax.annotation.Nullable;
-import javax.validation.constraints.NotNull;
+import jakarta.validation.constraints.NotNull;
 import java.time.Duration;
 
 /**

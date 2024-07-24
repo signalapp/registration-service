@@ -7,8 +7,7 @@ package org.signal.registration.twilio;
 
 import io.micronaut.context.annotation.ConfigurationProperties;
 import io.micronaut.context.annotation.Context;
-
-import javax.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotBlank;
 
 @Context
 @ConfigurationProperties("twilio")

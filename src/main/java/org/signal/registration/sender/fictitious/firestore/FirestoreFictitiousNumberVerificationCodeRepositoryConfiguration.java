@@ -6,7 +6,7 @@
 package org.signal.registration.sender.fictitious.firestore;
 
 import io.micronaut.context.annotation.ConfigurationProperties;
-import javax.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotBlank;
 
 @ConfigurationProperties("fictitious-numbers.firestore")
 class FirestoreFictitiousNumberVerificationCodeRepositoryConfiguration {

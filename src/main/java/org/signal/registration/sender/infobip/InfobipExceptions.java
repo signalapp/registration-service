@@ -8,13 +8,13 @@ package org.signal.registration.sender.infobip;
 import com.infobip.ApiException;
 import com.infobip.model.MessageStatus;
 import io.micronaut.http.HttpStatus;
+import jakarta.validation.constraints.NotNull;
+import java.util.Optional;
+import java.util.Set;
+import javax.annotation.Nullable;
 import org.signal.registration.sender.SenderFraudBlockException;
 import org.signal.registration.sender.SenderRejectedRequestException;
 import org.signal.registration.util.CompletionExceptions;
-import javax.annotation.Nullable;
-import javax.validation.constraints.NotNull;
-import java.util.Optional;
-import java.util.Set;
 
 public class InfobipExceptions {
   private static final Set<HttpStatus> REJECTED_HTTP_STATUS_CODES = Set.of(

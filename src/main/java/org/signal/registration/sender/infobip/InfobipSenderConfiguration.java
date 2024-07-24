@@ -5,14 +5,11 @@
 
 package org.signal.registration.sender.infobip;
 
-import com.google.i18n.phonenumbers.Phonenumber;
 import io.micronaut.context.annotation.ConfigurationProperties;
 import io.micronaut.context.annotation.Context;
-import org.signal.registration.sender.SenderIdSelectorConfiguration;
-import org.signal.registration.util.PhoneNumbers;
-import javax.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotBlank;
 import java.util.Map;
-import java.util.stream.Collectors;
+import org.signal.registration.sender.SenderIdSelectorConfiguration;
 
 @Context
 @ConfigurationProperties("infobip")

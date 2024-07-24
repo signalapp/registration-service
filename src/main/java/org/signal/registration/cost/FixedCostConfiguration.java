@@ -3,10 +3,10 @@ package org.signal.registration.cost;
 
 import io.micronaut.context.annotation.EachProperty;
 import io.micronaut.context.annotation.Parameter;
+import jakarta.validation.constraints.NotBlank;
+import java.util.Map;
 import org.signal.registration.sender.MessageTransport;
 import org.signal.registration.util.MapUtil;
-import javax.validation.constraints.NotBlank;
-import java.util.Map;
 
 /**
  * An implementation of a {@link CostProvider} that has been statically configured

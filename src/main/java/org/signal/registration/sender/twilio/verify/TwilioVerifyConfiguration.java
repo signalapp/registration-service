@@ -7,10 +7,10 @@ package org.signal.registration.sender.twilio.verify;
 
 import io.micronaut.context.annotation.ConfigurationProperties;
 import io.micronaut.context.annotation.Context;
-import javax.annotation.Nullable;
-import javax.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotBlank;
 import java.util.Collections;
 import java.util.List;
+import javax.annotation.Nullable;
 
 @Context
 @ConfigurationProperties("twilio.verify")

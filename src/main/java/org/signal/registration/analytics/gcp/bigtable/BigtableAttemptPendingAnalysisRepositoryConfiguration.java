@@ -7,7 +7,7 @@ package org.signal.registration.analytics.gcp.bigtable;
 
 import io.micronaut.context.annotation.ConfigurationProperties;
 import io.micronaut.context.annotation.Context;
-import javax.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotBlank;
 
 @Context
 @ConfigurationProperties("analytics.bigtable")

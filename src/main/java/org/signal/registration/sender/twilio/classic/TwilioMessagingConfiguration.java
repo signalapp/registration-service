@@ -7,8 +7,8 @@ package org.signal.registration.sender.twilio.classic;
 
 import io.micronaut.context.annotation.ConfigurationProperties;
 import io.micronaut.context.annotation.Context;
+import jakarta.validation.constraints.NotBlank;
 import java.time.Duration;
-import javax.validation.constraints.NotBlank;
 
 @Context
 @ConfigurationProperties("twilio.messaging")

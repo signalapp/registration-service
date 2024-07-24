@@ -10,6 +10,7 @@ import io.lettuce.core.RedisClient;
 import io.lettuce.core.RedisException;
 import io.lettuce.core.RedisFuture;
 import io.lettuce.core.RedisURI;
+import io.lettuce.core.ScriptOutputType;
 import io.lettuce.core.api.StatefulRedisConnection;
 import io.lettuce.core.api.async.RedisAsyncCommands;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
@@ -34,9 +35,11 @@ import java.util.concurrent.CompletionException;
 
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
@@ -165,7 +168,7 @@ class RedisLeakyBucketRateLimiterTest {
           assertThrows(CompletionException.class, () -> rateLimiter.checkRateLimit("test").join(),
               "Checking a rate limit before permits have generated should not succeed");
 
-      assertTrue(CompletionExceptions.unwrap(completionException) instanceof RateLimitExceededException);
+      assertInstanceOf(RateLimitExceededException.class, CompletionExceptions.unwrap(completionException));
 
       final RateLimitExceededException rateLimitExceededException =
           (RateLimitExceededException) CompletionExceptions.unwrap(completionException);
@@ -188,7 +191,8 @@ class RedisLeakyBucketRateLimiterTest {
     when(failedFuture.toCompletableFuture()).thenReturn(CompletableFuture.failedFuture(new RedisException("Test")));
 
     final RedisAsyncCommands<String, String> failureProneCommands = mock(RedisAsyncCommands.class);
-    when(failureProneCommands.evalsha(any(), any(), any(), any())).thenReturn(failedFuture);
+    when(failureProneCommands.evalsha(anyString(), any(ScriptOutputType.class), any(String[].class),
+        any(String[].class))).thenReturn(failedFuture);
 
     final StatefulRedisConnection<String, String> failureProneConnection = mock(StatefulRedisConnection.class);
     when(failureProneConnection.async()).thenReturn(failureProneCommands);

@@ -7,12 +7,12 @@ package org.signal.registration.bandit;
 import io.micronaut.context.annotation.EachProperty;
 import io.micronaut.context.annotation.Parameter;
 import io.micronaut.core.bind.annotation.Bindable;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotEmpty;
 import java.math.BigDecimal;
 import java.util.Map;
 import java.util.Set;
 import javax.annotation.Nullable;
-import javax.validation.constraints.NotBlank;
-import javax.validation.constraints.NotEmpty;
 import org.signal.registration.sender.MessageTransport;
 import org.signal.registration.util.MapUtil;
 

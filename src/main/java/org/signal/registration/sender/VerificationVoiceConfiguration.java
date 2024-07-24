@@ -6,11 +6,9 @@
 package org.signal.registration.sender;
 
 import io.micronaut.context.annotation.ConfigurationProperties;
-import io.micronaut.core.bind.annotation.Bindable;
-
-import javax.annotation.Nullable;
-import javax.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotBlank;
 import java.util.List;
+import javax.annotation.Nullable;
 
 @ConfigurationProperties("verification.voice")
 public record VerificationVoiceConfiguration(@Nullable List<@NotBlank String> supportedLanguages) {

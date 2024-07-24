@@ -5,13 +5,11 @@
 package org.signal.registration.sender.twilio;
 
 import com.twilio.exception.ApiException;
-
+import jakarta.validation.constraints.NotNull;
 import java.time.Duration;
 import java.util.Optional;
 import java.util.Set;
 import javax.annotation.Nullable;
-import javax.validation.constraints.NotNull;
-
 import org.signal.registration.ratelimit.RateLimitExceededException;
 import org.signal.registration.sender.SenderFraudBlockException;
 import org.signal.registration.sender.SenderInvalidParametersException;

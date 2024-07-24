@@ -7,9 +7,9 @@ package org.signal.registration.sender.messagebird;
 
 import io.micronaut.context.annotation.ConfigurationProperties;
 import io.micronaut.context.annotation.Context;
-import org.signal.registration.sender.SenderIdSelectorConfiguration;
-import javax.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotBlank;
 import java.util.Map;
+import org.signal.registration.sender.SenderIdSelectorConfiguration;
 
 @Context
 @ConfigurationProperties("messagebird")

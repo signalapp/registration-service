@@ -9,16 +9,16 @@ import com.messagebird.exceptions.GeneralException;
 import com.messagebird.exceptions.MessageBirdException;
 import com.messagebird.exceptions.NotFoundException;
 import com.messagebird.exceptions.UnauthorizedException;
-import javax.annotation.Nullable;
-import javax.validation.constraints.NotNull;
 import com.messagebird.objects.ErrorReport;
 import io.micronaut.http.HttpStatus;
-import org.signal.registration.sender.SenderRejectedRequestException;
-import org.signal.registration.util.CompletionExceptions;
+import jakarta.validation.constraints.NotNull;
 import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
+import javax.annotation.Nullable;
+import org.signal.registration.sender.SenderRejectedRequestException;
+import org.signal.registration.util.CompletionExceptions;
 
 public class MessageBirdExceptions {
 

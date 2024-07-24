@@ -6,7 +6,7 @@
 package org.signal.registration.sender;
 
 import io.micronaut.context.annotation.ConfigurationProperties;
-import javax.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotBlank;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;

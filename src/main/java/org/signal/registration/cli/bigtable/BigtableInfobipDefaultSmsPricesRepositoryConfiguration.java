@@ -6,7 +6,7 @@
 package org.signal.registration.cli.bigtable;
 
 import io.micronaut.context.annotation.ConfigurationProperties;
-import javax.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotBlank;
 
 @ConfigurationProperties("infobip.sms.prices.bigtable")
 public record BigtableInfobipDefaultSmsPricesRepositoryConfiguration(@NotBlank String tableId,
