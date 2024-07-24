@@ -98,7 +98,6 @@ public class InfobipSmsSenderTest {
     when(response.getMessages()).thenReturn(List.of(details));
     when(details.getStatus()).thenReturn(status);
     when(details.getMessageId()).thenReturn(RandomStringUtils.randomNumeric(22));
-    when(status.getGroupId()).thenReturn(4);
     when(status.getId()).thenReturn(87);
 
     final CompletionException completionException = assertThrows(CompletionException.class,

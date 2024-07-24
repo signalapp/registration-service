@@ -70,9 +70,8 @@ public class InfobipExceptions {
   }
 
   public static void maybeThrowSenderFraudBlockException(final MessageStatus status) throws SenderFraudBlockException {
-    // Group 4 is "EXPIRED" and ID 87 is "SIGNALS_BLOCKED", which is defined as "Message has been rejected due to an
-    // anti-fraud mechanism"
-    if (status.getGroupId() == 4 && status.getId() == 87) {
+    // ID 87 is "SIGNALS_BLOCKED", which is defined as "Message has been rejected due to an anti-fraud mechanism"
+    if (status.getId() == 87) {
       throw new SenderFraudBlockException("Message has been rejected due to an anti-fraud mechanism");
     }
   }
