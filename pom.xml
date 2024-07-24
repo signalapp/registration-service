@@ -248,6 +248,12 @@
       <scope>runtime</scope>
     </dependency>
 
+    <dependency>
+      <groupId>io.micronaut</groupId>
+      <artifactId>micronaut-jackson-databind</artifactId>
+      <version>4.4.6</version>
+    </dependency>
+
     <!-- required to fix transitive exclusion by google-cloud-bigtable -->
     <dependency>
       <groupId>org.apache.httpcomponents</groupId>
