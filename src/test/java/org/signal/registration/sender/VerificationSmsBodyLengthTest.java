@@ -24,14 +24,14 @@ import java.util.stream.Stream;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
-import threegpp.charset.gsm.GSMCharset;
+import threegpp.charset.gsm.GSM7BitPackedCharset;
 import threegpp.charset.ucs2.UCS2Charset80;
 
 class VerificationSmsBodyLengthTest {
 
-  private static final int SMS_SEGMENT_LENGTH = 160;
+  private static final int SMS_SEGMENT_LENGTH_OCTETS = 140;
 
-  private static final CharsetEncoder GSM7_ENCODER = new GSMCharset().newEncoder();
+  private static final CharsetEncoder GSM7_ENCODER = new GSM7BitPackedCharset().newEncoder();
   private static final CharsetEncoder UCS2_ENCODER = new UCS2Charset80().newEncoder();
 
   @ParameterizedTest
@@ -47,13 +47,13 @@ class VerificationSmsBodyLengthTest {
         .replace("{code}", "123456")
         .replace("{appHash}", "12345678901");
 
-    assertTrue(getEncodedMessageLength(message) <= SMS_SEGMENT_LENGTH);
+    assertTrue(getEncodedMessageLengthOctets(message) <= SMS_SEGMENT_LENGTH_OCTETS);
   }
 
-  private static int getEncodedMessageLength(final String message) throws CharacterCodingException {
-    try {
+  private static int getEncodedMessageLengthOctets(final String message) throws CharacterCodingException {
+    if (GSM7_ENCODER.canEncode(message)) {
       return GSM7_ENCODER.encode(CharBuffer.wrap(message)).remaining();
-    } catch (final CharacterCodingException e) {
+    } else {
       return UCS2_ENCODER.encode(CharBuffer.wrap(message)).remaining();
     }
   }
