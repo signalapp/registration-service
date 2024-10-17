@@ -15,7 +15,7 @@
   <parent>
     <groupId>io.micronaut.platform</groupId>
     <artifactId>micronaut-parent</artifactId>
-    <version>4.5.1</version>
+    <version>4.6.3</version>
   </parent>
 
   <properties>
@@ -42,7 +42,7 @@
       <dependency>
         <groupId>com.google.cloud</groupId>
         <artifactId>libraries-bom</artifactId>
-        <version>26.42.0</version>
+        <version>26.49.0</version>
         <type>pom</type>
         <scope>import</scope>
       </dependency>
@@ -123,21 +123,31 @@
       <artifactId>twilio</artifactId>
       <version>10.6.1</version>
 
-      <!-- Conflicts with pretty much everything in com.google.cloud:* -->
       <exclusions>
+        <!-- Conflicts with pretty much everything in com.google.cloud:*, which has a newer version -->
         <exclusion>
           <groupId>org.apache.httpcomponents</groupId>
           <artifactId>httpcore</artifactId>
         </exclusion>
-        <exclusion>
-          <groupId>org.apache.httpcomponents</groupId>
-          <artifactId>httpclient</artifactId>
-        </exclusion>
+
         <exclusion>
           <groupId>commons-codec</groupId>
           <artifactId>commons-codec</artifactId>
         </exclusion>
+
+        <exclusion>
+          <groupId>org.apache.httpcomponents</groupId>
+          <artifactId>httpclient</artifactId>
+        </exclusion>
       </exclusions>
+    </dependency>
+
+    <!-- Compensate for transitive dependencies knocked out by Twilio's exclusions -->
+    <dependency>
+      <groupId>commons-logging</groupId>
+      <artifactId>commons-logging</artifactId>
+      <version>1.3.4</version>
+      <scope>runtime</scope>
     </dependency>
 
     <dependency>
@@ -147,36 +157,46 @@
     <dependency>
       <groupId>io.micronaut.gcp</groupId>
       <artifactId>micronaut-gcp-pubsub</artifactId>
+
+      <exclusions>
+        <!-- Conflicts with pretty much everything in com.google.cloud:*, which has a newer version -->
+        <exclusion>
+          <groupId>org.checkerframework</groupId>
+          <artifactId>checker-qual</artifactId>
+        </exclusion>
+
+        <exclusion>
+          <groupId>com.google.errorprone</groupId>
+          <artifactId>error_prone_annotations</artifactId>
+        </exclusion>
+
+        <exclusion>
+          <groupId>org.threeten</groupId>
+          <artifactId>threetenbp</artifactId>
+        </exclusion>
+      </exclusions>
     </dependency>
     <dependency>
       <groupId>io.micronaut.grpc</groupId>
       <artifactId>micronaut-grpc-runtime</artifactId>
 
       <exclusions>
-        <!-- The version of these annotations from Micronaut conflicts with the version(s) from various Google libraries
-        (like Firestore); we're excluding this declaration from Micronaut in favor of the newer one from Google. -->
+        <!-- Conflicts with pretty much everything in com.google.cloud:*, which has a newer version -->
         <exclusion>
           <groupId>com.google.errorprone</groupId>
           <artifactId>error_prone_annotations</artifactId>
-        </exclusion>
-        <exclusion>
-          <groupId>io.perfmark</groupId>
-          <artifactId>perfmark-api</artifactId>
         </exclusion>
       </exclusions>
     </dependency>
     <dependency>
       <groupId>io.grpc</groupId>
       <artifactId>grpc-services</artifactId>
+
       <exclusions>
-        <!-- grpc-services appears to depend on a slightly older version of these. -->
+        <!-- Conflicts with pretty much everything in com.google.cloud:*, which has a newer version -->
         <exclusion>
           <groupId>com.google.errorprone</groupId>
           <artifactId>error_prone_annotations</artifactId>
-        </exclusion>
-        <exclusion>
-          <groupId>com.google.j2objc</groupId>
-          <artifactId>j2objc-annotations</artifactId>
         </exclusion>
       </exclusions>
     </dependency>
@@ -250,19 +270,6 @@
       <groupId>io.micronaut</groupId>
       <artifactId>micronaut-jackson-databind</artifactId>
       <version>4.4.6</version>
-    </dependency>
-
-    <!-- required to fix transitive exclusion by google-cloud-bigtable -->
-    <dependency>
-      <groupId>org.apache.httpcomponents</groupId>
-      <artifactId>httpclient</artifactId>
-      <version>4.5.14</version>
-      <exclusions>
-        <exclusion>
-          <groupId>commons-codec</groupId>
-          <artifactId>commons-codec</artifactId>
-        </exclusion>
-      </exclusions>
     </dependency>
 
     <!-- Test dependencies -->
