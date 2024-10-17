@@ -103,7 +103,7 @@
     <dependency>
       <groupId>com.messagebird</groupId>
       <artifactId>messagebird-api</artifactId>
-      <version>6.1.7</version>
+      <version>6.2.1</version>
     </dependency>
 
     <dependency>
@@ -121,9 +121,7 @@
     <dependency>
       <groupId>com.twilio.sdk</groupId>
       <artifactId>twilio</artifactId>
-      <!-- 10.4.0+ depends on com.auth0:java-jwt:4, which has breaking changes, so this must be held until messagebird-api
-        updates its com.auth0:java-jwt dependency -->
-      <version>10.3.0</version>
+      <version>10.6.1</version>
 
       <!-- Conflicts with pretty much everything in com.google.cloud:* -->
       <exclusions>
