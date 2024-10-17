@@ -7,21 +7,20 @@ package org.signal.registration.cli.bigtable;
 
 import com.google.cloud.bigtable.data.v2.BigtableDataClient;
 import com.google.cloud.bigtable.data.v2.models.BulkMutation;
-import com.google.cloud.bigtable.data.v2.models.Row;
 import com.google.cloud.bigtable.data.v2.models.Mutation;
+import com.google.cloud.bigtable.data.v2.models.Row;
+import com.google.cloud.bigtable.data.v2.models.TableId;
 import jakarta.inject.Singleton;
-import org.signal.registration.cli.KeyAndPrice;
-
 import java.math.BigDecimal;
-import java.util.List;
 import java.util.Optional;
 import java.util.stream.Stream;
+import org.signal.registration.cli.KeyAndPrice;
 
 @Singleton
 public class BigtableInfobipDefaultSmsPricesRepository {
   private final BigtableDataClient bigtableDataClient;
 
-  private final String tableId;
+  private final TableId tableId;
   private final String columnFamilyName;
 
   private static final String PRICE_COLUMN_NAME = "P";
@@ -30,7 +29,7 @@ public class BigtableInfobipDefaultSmsPricesRepository {
       final BigtableDataClient bigtableDataClient,
       final BigtableInfobipDefaultSmsPricesRepositoryConfiguration configuration) {
     this.bigtableDataClient = bigtableDataClient;
-    this.tableId = configuration.tableId();
+    this.tableId = TableId.of(configuration.tableId());
     this.columnFamilyName = configuration.columnFamilyName();
   }
 

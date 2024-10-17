@@ -13,6 +13,7 @@ import com.google.cloud.bigtable.data.v2.models.Query;
 import com.google.cloud.bigtable.data.v2.models.Row;
 import com.google.cloud.bigtable.data.v2.models.RowCell;
 import com.google.cloud.bigtable.data.v2.models.RowMutation;
+import com.google.cloud.bigtable.data.v2.models.TableId;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.i18n.phonenumbers.PhoneNumberUtil;
 import com.google.i18n.phonenumbers.Phonenumber;
@@ -73,8 +74,10 @@ class BigtableSessionRepository implements SessionRepository {
   private final BigtableDataClient bigtableDataClient;
   private final Executor executor;
   private final ApplicationEventPublisher<SessionCompletedEvent> sessionCompletedEventPublisher;
-  private final BigtableSessionRepositoryConfiguration configuration;
   private final Clock clock;
+  
+  private final TableId tableId;
+  private final String columnFamilyName;
 
   private final Timer createSessionTimer;
   private final Timer getSessionTimer;
@@ -106,8 +109,10 @@ class BigtableSessionRepository implements SessionRepository {
     this.bigtableDataClient = bigtableDataClient;
     this.executor = executor;
     this.sessionCompletedEventPublisher = sessionCompletedEventPublisher;
-    this.configuration = configuration;
     this.clock = clock;
+    
+    this.tableId = TableId.of(configuration.tableName());
+    this.columnFamilyName = configuration.columnFamilyName();
 
     this.createSessionTimer = meterRegistry.timer(MetricsUtil.name(getClass(), "createSession"));
     this.getSessionTimer = meterRegistry.timer(MetricsUtil.name(getClass(), "getSession"));
@@ -140,9 +145,9 @@ class BigtableSessionRepository implements SessionRepository {
         EPOCH_BYTE_STRING,
         instantToByteString(clock.instant().plus(REMOVAL_TTL_PADDING)));
     return ReactiveResponseObserver.<Row>asFlux(responseObserver -> bigtableDataClient.readRowsAsync(
-        Query.create(configuration.tableName())
+        Query.create(tableId)
         .filter(Filters.FILTERS.condition(Filters.FILTERS.chain()
-                .filter(Filters.FILTERS.family().exactMatch(configuration.columnFamilyName()))
+                .filter(Filters.FILTERS.family().exactMatch(columnFamilyName))
                 .filter(Filters.FILTERS.qualifier().exactMatch(REMOVAL_COLUMN_NAME))
                 .filter(removalTimeRange))
             .then(Filters.FILTERS.chain()
@@ -166,9 +171,9 @@ class BigtableSessionRepository implements SessionRepository {
 
     return Mono.fromFuture(GoogleApiUtil.toCompletableFuture(
             bigtableDataClient.checkAndMutateRowAsync(
-                ConditionalRowMutation.create(configuration.tableName(), session.getId())
+                ConditionalRowMutation.create(tableId, session.getId())
                     .condition(Filters.FILTERS.chain()
-                        .filter(Filters.FILTERS.family().exactMatch(configuration.columnFamilyName()))
+                        .filter(Filters.FILTERS.family().exactMatch(columnFamilyName))
                         .filter(Filters.FILTERS.qualifier().exactMatch(DATA_COLUMN_NAME))
                         .filter(Filters.FILTERS.value().exactMatch(session.toByteString())))
                     .then(Mutation.create().deleteRow())),
@@ -196,9 +201,9 @@ class BigtableSessionRepository implements SessionRepository {
 
     return GoogleApiUtil.toCompletableFuture(
             bigtableDataClient.mutateRowAsync(
-                RowMutation.create(configuration.tableName(), UUIDUtil.uuidToByteString(sessionId))
-                    .setCell(configuration.columnFamilyName(), DATA_COLUMN_NAME, session.toByteString())
-                    .setCell(configuration.columnFamilyName(), REMOVAL_COLUMN_NAME, instantToByteString(expiration.plus(REMOVAL_TTL_PADDING)))),
+                RowMutation.create(tableId, UUIDUtil.uuidToByteString(sessionId))
+                    .setCell(columnFamilyName, DATA_COLUMN_NAME, session.toByteString())
+                    .setCell(columnFamilyName, REMOVAL_COLUMN_NAME, instantToByteString(expiration.plus(REMOVAL_TTL_PADDING)))),
             executor)
         .thenApply(ignored -> session)
         .whenComplete((ignored, throwable) -> sample.stop(createSessionTimer));
@@ -209,7 +214,7 @@ class BigtableSessionRepository implements SessionRepository {
     final Timer.Sample sample = Timer.start();
 
     return GoogleApiUtil.toCompletableFuture(
-        bigtableDataClient.readRowAsync(configuration.tableName(),
+        bigtableDataClient.readRowAsync(tableId,
             UUIDUtil.uuidToByteString(sessionId),
             Filters.FILTERS.limit().cellsPerColumn(1)), executor)
         .thenApply(row -> {
@@ -249,14 +254,14 @@ class BigtableSessionRepository implements SessionRepository {
           final Instant expiration = Instant.ofEpochMilli(updatedSession.getExpirationEpochMillis());
 
           return GoogleApiUtil.toCompletableFuture(bigtableDataClient.checkAndMutateRowAsync(
-                      ConditionalRowMutation.create(configuration.tableName(), UUIDUtil.uuidToByteString(sessionId))
+                      ConditionalRowMutation.create(tableId, UUIDUtil.uuidToByteString(sessionId))
                           .condition(Filters.FILTERS.chain()
-                              .filter(Filters.FILTERS.family().exactMatch(configuration.columnFamilyName()))
+                              .filter(Filters.FILTERS.family().exactMatch(columnFamilyName))
                               .filter(Filters.FILTERS.qualifier().exactMatch(DATA_COLUMN_NAME))
                               .filter(Filters.FILTERS.value().exactMatch(session.toByteString())))
                           .then(Mutation.create()
-                              .setCell(configuration.columnFamilyName(), DATA_COLUMN_NAME, updatedSession.toByteString())
-                              .setCell(configuration.columnFamilyName(), REMOVAL_COLUMN_NAME, instantToByteString(expiration.plus(REMOVAL_TTL_PADDING))))),
+                              .setCell(columnFamilyName, DATA_COLUMN_NAME, updatedSession.toByteString())
+                              .setCell(columnFamilyName, REMOVAL_COLUMN_NAME, instantToByteString(expiration.plus(REMOVAL_TTL_PADDING))))),
                   executor)
               .thenCompose(success -> {
                 if (success) {
@@ -277,7 +282,7 @@ class BigtableSessionRepository implements SessionRepository {
       throw new SessionNotFoundException();
     }
 
-    final List<RowCell> cells = row.getCells(configuration.columnFamilyName(), DATA_COLUMN_NAME);
+    final List<RowCell> cells = row.getCells(columnFamilyName, DATA_COLUMN_NAME);
 
     if (cells.isEmpty()) {
       logger.error("Row did not contain any session data cells");

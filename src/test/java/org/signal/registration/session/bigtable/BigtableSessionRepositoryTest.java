@@ -7,10 +7,9 @@ package org.signal.registration.session.bigtable;
 
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
@@ -24,9 +23,12 @@ import com.google.cloud.bigtable.data.v2.BigtableDataClient;
 import com.google.cloud.bigtable.data.v2.BigtableDataSettings;
 import com.google.cloud.bigtable.data.v2.models.Row;
 import com.google.cloud.bigtable.data.v2.models.RowCell;
+import com.google.cloud.bigtable.data.v2.models.TableId;
 import com.google.cloud.bigtable.emulator.v2.Emulator;
 import com.google.i18n.phonenumbers.PhoneNumberUtil;
 import com.google.protobuf.ByteString;
+import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
+import io.micronaut.context.event.ApplicationEventPublisher;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
@@ -36,8 +38,6 @@ import java.util.concurrent.CompletionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
-import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
-import io.micronaut.context.event.ApplicationEventPublisher;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -124,7 +124,7 @@ class BigtableSessionRepositoryTest extends AbstractSessionRepositoryTest {
     final CompletionException completionException = assertThrows(CompletionException.class,
         () -> sessionRepository.getSession(UUIDUtil.uuidFromByteString(expiredSession.getId())).join());
 
-    assertTrue(CompletionExceptions.unwrap(completionException) instanceof SessionNotFoundException);
+    assertInstanceOf(SessionNotFoundException.class, CompletionExceptions.unwrap(completionException));
   }
 
   @Test
@@ -146,7 +146,7 @@ class BigtableSessionRepositoryTest extends AbstractSessionRepositoryTest {
 
     final Row row = buildRowForSession(session);
 
-    when(mockBigtableClient.readRowAsync(anyString(), any(ByteString.class), any()))
+    when(mockBigtableClient.readRowAsync(any(TableId.class), any(ByteString.class), any()))
         .thenReturn(ApiFutures.immediateFuture(row));
 
     when(mockBigtableClient.checkAndMutateRowAsync(any()))
@@ -177,7 +177,7 @@ class BigtableSessionRepositoryTest extends AbstractSessionRepositoryTest {
 
     final Row row = buildRowForSession(session);
 
-    when(mockBigtableClient.readRowAsync(anyString(), any(ByteString.class), any()))
+    when(mockBigtableClient.readRowAsync(any(TableId.class), any(ByteString.class), any()))
         .thenReturn(ApiFutures.immediateFuture(row));
 
     when(mockBigtableClient.checkAndMutateRowAsync(any()))
@@ -228,7 +228,7 @@ class BigtableSessionRepositoryTest extends AbstractSessionRepositoryTest {
     final CompletionException completionException = assertThrows(CompletionException.class,
         () -> sessionRepository.getSession(UUIDUtil.uuidFromByteString(expiredSession.getId())).join());
 
-    assertTrue(CompletionExceptions.unwrap(completionException) instanceof SessionNotFoundException);
+    assertInstanceOf(SessionNotFoundException.class, CompletionExceptions.unwrap(completionException));
 
     verify(sessionCompletedEventPublisher).publishEvent(new SessionCompletedEvent(expiredSession));
   }

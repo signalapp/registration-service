@@ -10,6 +10,7 @@ import com.google.cloud.bigtable.data.v2.models.Query;
 import com.google.cloud.bigtable.data.v2.models.Row;
 import com.google.cloud.bigtable.data.v2.models.RowCell;
 import com.google.cloud.bigtable.data.v2.models.RowMutation;
+import com.google.cloud.bigtable.data.v2.models.TableId;
 import com.google.protobuf.ByteString;
 import com.google.protobuf.InvalidProtocolBufferException;
 import io.micrometer.core.instrument.MeterRegistry;
@@ -41,7 +42,7 @@ public class BigtableAttemptPendingAnalysisRepository implements AttemptPendingA
   private final Executor executor;
   private final MeterRegistry meterRegistry;
 
-  private final String tableId;
+  private final TableId tableId;
   private final String columnFamilyName;
 
   private static final ByteString DATA_COLUMN_NAME = ByteString.copyFromUtf8("D");
@@ -69,7 +70,7 @@ public class BigtableAttemptPendingAnalysisRepository implements AttemptPendingA
     this.bigtableDataClient = bigtableDataClient;
     this.executor = executor;
 
-    this.tableId = configuration.tableId();
+    this.tableId = TableId.of(configuration.tableId());
     this.columnFamilyName = configuration.columnFamilyName();
     this.meterRegistry = meterRegistry;
   }
@@ -149,7 +150,7 @@ public class BigtableAttemptPendingAnalysisRepository implements AttemptPendingA
     }
 
     try {
-      return AttemptPendingAnalysis.parseFrom(cells.get(0).getValue());
+      return AttemptPendingAnalysis.parseFrom(cells.getFirst().getValue());
     } catch (final InvalidProtocolBufferException e) {
       throw new UncheckedIOException(e);
     }
