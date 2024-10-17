@@ -25,7 +25,7 @@
     <release.version>21</release.version>
     <exec.mainClass>org.signal.registration.Application</exec.mainClass>
 
-    <firestore.emulator.version>483.0.0-emulators</firestore.emulator.version>
+    <firestore.emulator.version>489.0.0-emulators</firestore.emulator.version>
     <reactive.grpc.version>1.2.4</reactive.grpc.version>
     <testcontainers.version>1.20.2</testcontainers.version>
   </properties>
