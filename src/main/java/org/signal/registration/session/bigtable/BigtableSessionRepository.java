@@ -287,10 +287,12 @@ class BigtableSessionRepository implements SessionRepository {
     if (cells.isEmpty()) {
       logger.error("Row did not contain any session data cells");
       throw new SessionNotFoundException();
+    } else if (cells.size() > 1) {
+      logger.warn("Row contained multiple session data cells: {}", row);
     }
 
     try {
-      return RegistrationSession.parseFrom(cells.get(0).getValue());
+      return RegistrationSession.parseFrom(cells.getFirst().getValue());
     } catch (final InvalidProtocolBufferException e) {
       logger.error("Failed to parse registration session", e);
       throw new UncheckedIOException(e);
