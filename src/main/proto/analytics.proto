@@ -24,8 +24,9 @@ message AttemptPendingAnalysis {
   string sender_name = 3;
 
   /**
-   * A unique, sender-specific identifier for this attempt; may be empty if the
-   * sender does not produce unique identifiers for each attempt.
+   * A sender-specific identifier for this attempt; may be empty if the sender
+   * does not produce identifiers for each attempt. Sender-specific identifiers
+   are not guaranteed to be unique.
    */
   string remote_id = 4;
 

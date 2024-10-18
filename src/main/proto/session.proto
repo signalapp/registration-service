@@ -157,10 +157,11 @@ message RegistrationAttempt {
   uint64 expiration_epoch_millis = 5;
 
   /**
-   * A unique, sender-specific identifier for this attempt. This may be an
-   * upstream session identifier, for example. The interpretation of this value
+   * A sender-specific identifier for this attempt. This may be an upstream
+   * session identifier, for example. The interpretation of this value
    * will vary by sender. Senders that do not have remote session identifiers
-   * may leave this field blank.
+   * may leave this field blank. Remote session identifiers are not guaranteed
+   * to be unique.
    */
   string remote_id = 6;
 
