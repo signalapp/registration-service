@@ -1,0 +1,3 @@
+gcp:
+  pubsub:
+    publishing-executor: "blocking"

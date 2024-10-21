@@ -31,15 +31,15 @@ import org.signal.registration.util.UUIDUtil;
 
 class GcpPubSubAttemptAnalyzedEventListenerTest {
 
-  private AttemptAnalyzedPubSubMessageClient pubSubClient;
+  private AttemptAnalyzedPubSubClient pubSubClient;
   private GcpPubSubAttemptAnalyzedEventListener listener;
 
   private static final BigDecimal ONE_MILLION = new BigDecimal("1e6");
 
   @BeforeEach
   void setUp() {
-    pubSubClient = mock(AttemptAnalyzedPubSubMessageClient.class);
-    listener = new GcpPubSubAttemptAnalyzedEventListener(pubSubClient, new SimpleMeterRegistry());
+    pubSubClient = mock(AttemptAnalyzedPubSubClient.class);
+    listener = new GcpPubSubAttemptAnalyzedEventListener(pubSubClient, Runnable::run, new SimpleMeterRegistry());
   }
 
   @Test

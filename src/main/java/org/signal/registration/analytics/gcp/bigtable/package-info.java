@@ -4,7 +4,7 @@
  */
 
 @Configuration
-@Requires(property = "gcp.bigtable.project-id")
+@Requires(property = "gcp.project-id")
 @Requires(property = "gcp.bigtable.instance-id")
 @Requires(property = "analytics.bigtable.table-id")
 @Requires(property = "analytics.bigtable.column-family-name")

@@ -8,10 +8,13 @@ package org.signal.registration.analytics.gcp.pubsub;
 import com.google.common.annotations.VisibleForTesting;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micronaut.context.event.ApplicationEventListener;
+import io.micronaut.scheduling.TaskExecutors;
+import jakarta.inject.Named;
 import jakarta.inject.Singleton;
 
 import java.math.BigDecimal;
 import java.time.Instant;
+import java.util.concurrent.Executor;
 
 import org.signal.registration.analytics.AttemptAnalyzedEvent;
 import org.signal.registration.metrics.MetricsUtil;
@@ -24,9 +27,10 @@ import org.slf4j.LoggerFactory;
  * listener use a schema that is compatible with a BigQuery subscriber.
  */
 @Singleton
-public class GcpPubSubAttemptAnalyzedEventListener implements ApplicationEventListener<AttemptAnalyzedEvent> {
+class GcpPubSubAttemptAnalyzedEventListener implements ApplicationEventListener<AttemptAnalyzedEvent> {
 
-  private final AttemptAnalyzedPubSubMessageClient pubSubClient;
+  private final AttemptAnalyzedPubSubClient pubSubClient;
+  private final Executor executor;
   private final MeterRegistry meterRegistry;
 
   private static final String COUNTER_NAME =
@@ -36,27 +40,32 @@ public class GcpPubSubAttemptAnalyzedEventListener implements ApplicationEventLi
 
   private static final Logger logger = LoggerFactory.getLogger(GcpPubSubAttemptAnalyzedEventListener.class);
 
-  public GcpPubSubAttemptAnalyzedEventListener(final AttemptAnalyzedPubSubMessageClient pubSubClient,
+  public GcpPubSubAttemptAnalyzedEventListener(final AttemptAnalyzedPubSubClient pubSubClient,
+      final @Named(TaskExecutors.BLOCKING) Executor executor,
       final MeterRegistry meterRegistry) {
+
     this.pubSubClient = pubSubClient;
+    this.executor = executor;
     this.meterRegistry = meterRegistry;
   }
 
   @Override
   public void onApplicationEvent(final AttemptAnalyzedEvent event) {
-    boolean success = false;
+    executor.execute(() -> {
+      boolean success = false;
 
-    try {
-      pubSubClient.send(buildPubSubMessage(event).toByteArray());
-      success = true;
-    } catch (final Exception e) {
-      logger.warn("Failed to send pub/sub message", e);
-    } finally {
-      meterRegistry.counter(COUNTER_NAME,
-              MetricsUtil.SUCCESS_TAG_NAME, String.valueOf(success),
-              MetricsUtil.SENDER_TAG_NAME, event.attemptPendingAnalysis().getSenderName())
-          .increment();
-    }
+      try {
+        pubSubClient.send(buildPubSubMessage(event).toByteArray());
+        success = true;
+      } catch (final Exception e) {
+        logger.warn("Failed to send pub/sub message", e);
+      } finally {
+        meterRegistry.counter(COUNTER_NAME,
+                MetricsUtil.SUCCESS_TAG_NAME, String.valueOf(success),
+                MetricsUtil.SENDER_TAG_NAME, event.attemptPendingAnalysis().getSenderName())
+            .increment();
+      }
+    });
   }
 
   @VisibleForTesting

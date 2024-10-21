@@ -15,12 +15,12 @@ import java.io.IOException;
 
 @Factory
 @Requires(env = {Environment.GOOGLE_COMPUTE, Environment.CLI})
-@Requires(property = "gcp.bigtable.project-id")
+@Requires(property = "gcp.project-id")
 @Requires(property = "gcp.bigtable.instance-id")
 public class BigtableDataClientFactory {
 
   @Singleton
-  BigtableDataClient bigtableDataClient(@Value("${gcp.bigtable.project-id}") final String projectId,
+  BigtableDataClient bigtableDataClient(@Value("${gcp.project-id}") final String projectId,
       @Value("${gcp.bigtable.instance-id}") final String instanceId) throws IOException {
 
     return BigtableDataClient.create(projectId, instanceId);
