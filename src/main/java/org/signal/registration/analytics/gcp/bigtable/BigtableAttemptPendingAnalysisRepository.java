@@ -11,7 +11,6 @@ import com.google.cloud.bigtable.data.v2.models.Row;
 import com.google.cloud.bigtable.data.v2.models.RowCell;
 import com.google.cloud.bigtable.data.v2.models.RowMutation;
 import com.google.cloud.bigtable.data.v2.models.TableId;
-import com.google.common.annotations.VisibleForTesting;
 import com.google.protobuf.ByteString;
 import com.google.protobuf.InvalidProtocolBufferException;
 import io.micrometer.core.instrument.MeterRegistry;
@@ -89,22 +88,6 @@ public class BigtableAttemptPendingAnalysisRepository implements AttemptPendingA
         });
   }
 
-  @VisibleForTesting
-  CompletableFuture<Void> storeWithLegacyKey(final AttemptPendingAnalysis attemptPendingAnalysis) {
-    return GoogleApiUtil.toCompletableFuture(bigtableDataClient.mutateRowAsync(
-        RowMutation.create(tableId, getLegacyKey(attemptPendingAnalysis))
-            .setCell(columnFamilyName, DATA_COLUMN_NAME, attemptPendingAnalysis.toByteString())), executor)
-        .whenComplete((ignored, throwable) -> {
-          meterRegistry.counter(STORE_ATTEMPT_COUNTER_NAME,
-              SENDER_TAG_NAME, attemptPendingAnalysis.getSenderName())
-              .increment();
-
-          if (throwable != null) {
-            logger.warn("Failed to store attempt pending analysis", throwable);
-          }
-        });
-  }
-
   @Override
   public Publisher<AttemptPendingAnalysis> getBySender(final String senderName) {
     return ReactiveResponseObserver.<Row>asFlux(responseObserver ->
@@ -116,17 +99,11 @@ public class BigtableAttemptPendingAnalysisRepository implements AttemptPendingA
 
   @Override
   public CompletableFuture<Void> remove(final AttemptPendingAnalysis attemptPendingAnalysis) {
-    return CompletableFuture.allOf(
-        remove(getKey(attemptPendingAnalysis), attemptPendingAnalysis.getSenderName()),
-        remove(getLegacyKey(attemptPendingAnalysis), attemptPendingAnalysis.getSenderName()));
-  }
-
-  private CompletableFuture<Void> remove(final ByteString key, final String senderName) {
     return GoogleApiUtil.toCompletableFuture(bigtableDataClient.mutateRowAsync(
-            RowMutation.create(tableId, key).deleteRow()), executor)
+            RowMutation.create(tableId, getKey(attemptPendingAnalysis)).deleteRow()), executor)
         .whenComplete((ignored, throwable) -> {
           meterRegistry.counter(REMOVE_ATTEMPT_COUNTER_NAME,
-                  SENDER_TAG_NAME, senderName)
+                  SENDER_TAG_NAME, attemptPendingAnalysis.getSenderName())
               .increment();
 
           if (throwable != null) {
@@ -155,14 +132,6 @@ public class BigtableAttemptPendingAnalysisRepository implements AttemptPendingA
     return ByteString.copyFromUtf8(attemptPendingAnalysis.getSenderName() +
         "/" + UUIDUtil.uuidFromByteString(attemptPendingAnalysis.getSessionId()) +
         "/" + attemptPendingAnalysis.getAttemptId());
-  }
-
-  private static ByteString getLegacyKey(final AttemptPendingAnalysis attemptPendingAnalysis) {
-    return getLegacyKey(attemptPendingAnalysis.getSenderName(), attemptPendingAnalysis.getRemoteId());
-  }
-
-  private static ByteString getLegacyKey(final String senderName, final String remoteId) {
-    return ByteString.copyFromUtf8(senderName + "/" + remoteId);
   }
 
   private static ByteString getPrefix(final String senderName) {

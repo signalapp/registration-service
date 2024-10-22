@@ -104,22 +104,6 @@ class BigtableAttemptPendingAnalysisRepositoryTest {
   }
 
   @Test
-  void storeAndGetBySenderLegacy() {
-    final String senderName = "test";
-    final AttemptPendingAnalysis attemptPendingAnalysis = buildAttemptPendingAnalysis(senderName);
-    final AttemptPendingAnalysis legacyAttemptPendingAnalysis = buildAttemptPendingAnalysis(senderName);
-
-    assertEquals(Collections.emptyList(), Flux.from(repository.getBySender(senderName)).collectList().block());
-
-    repository.store(attemptPendingAnalysis).join();
-    repository.storeWithLegacyKey(legacyAttemptPendingAnalysis).join();
-
-    //noinspection DataFlowIssue
-    assertEquals(Set.of(attemptPendingAnalysis, legacyAttemptPendingAnalysis),
-        new HashSet<>(Flux.from(repository.getBySender(senderName)).collectList().block()));
-  }
-
-  @Test
   void storeDuplicateEvent() {
     final String senderName = "test";
     final AttemptPendingAnalysis attemptPendingAnalysis = buildAttemptPendingAnalysis(senderName);
@@ -162,30 +146,6 @@ class BigtableAttemptPendingAnalysisRepositoryTest {
     repository.store(remainingAttempt).join();
 
     assertDoesNotThrow(() -> repository.remove(removedAttempt).join());
-
-    assertEquals(List.of(remainingAttempt), Flux.from(repository.getBySender(senderName)).collectList().block());
-  }
-
-  @Test
-  void removeLegacy() {
-    final String senderName = "test";
-    final AttemptPendingAnalysis removedAttempt = buildAttemptPendingAnalysis(senderName);
-    final AttemptPendingAnalysis legacyRemovedAttempt = buildAttemptPendingAnalysis(senderName);
-    final AttemptPendingAnalysis remainingAttempt = buildAttemptPendingAnalysis(senderName);
-
-    assertDoesNotThrow(() -> repository.remove(remainingAttempt).join());
-
-    repository.store(removedAttempt).join();
-    repository.storeWithLegacyKey(legacyRemovedAttempt).join();
-    repository.store(remainingAttempt).join();
-
-    assertDoesNotThrow(() -> repository.remove(removedAttempt).join());
-
-    //noinspection DataFlowIssue
-    assertEquals(Set.of(remainingAttempt, legacyRemovedAttempt),
-        new HashSet<>(Flux.from(repository.getBySender(senderName)).collectList().block()));
-
-    assertDoesNotThrow(() -> repository.remove(legacyRemovedAttempt).join());
 
     assertEquals(List.of(remainingAttempt), Flux.from(repository.getBySender(senderName)).collectList().block());
   }
