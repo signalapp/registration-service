@@ -6,9 +6,7 @@
 package org.signal.registration.analytics;
 
 import org.reactivestreams.Publisher;
-import org.signal.registration.sender.AttemptData;
 import org.signal.registration.sender.VerificationCodeSender;
-import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 
 /**
@@ -29,21 +27,6 @@ public interface AttemptPendingAnalysisRepository {
   CompletableFuture<Void> store(AttemptPendingAnalysis attemptPendingAnalysis);
 
   /**
-   * Attempts to retrieve a specific attempt pending analysis by its sender name (see
-   * {@link VerificationCodeSender#getName()}) and remote ID (see {@link AttemptData#remoteId()}.
-   *
-   * @param senderName the name of the {@link VerificationCodeSender} that produced the attempt pending analysis
-   * @param remoteId the remote ID of the attempt pending analysis
-   *
-   * @return a future that yields the attempt pending analysis if available or an empty {@code Optional} if no attempt
-   * pending analysis was found for the given sender name and remote ID
-   *
-   * @see VerificationCodeSender#getName()
-   * @see AttemptData#remoteId()
-   */
-  CompletableFuture<Optional<AttemptPendingAnalysis>> getByRemoteIdentifier(String senderName, String remoteId);
-
-  /**
    * Returns a publisher that yields all attempts pending analysis for the given sender.
    *
    * @param senderName the name of the sender for which to retrieve attempts pending analysis
@@ -55,17 +38,13 @@ public interface AttemptPendingAnalysisRepository {
   Publisher<AttemptPendingAnalysis> getBySender(String senderName);
 
   /**
-   * Removes an individual attempt pending analysis from this repository. Has no effect if no attempt pending analysis
-   * exists with the given sender name/remote ID.
+   * Removes an individual attempt pending analysis from this repository. Has no effect if the given attempt does not
+   * exist within this repository.
    *
-   * @param senderName the name of the {@link VerificationCodeSender} that produced the attempt pending analysis
-   * @param remoteId the remote ID of the attempt pending analysis
+   * @param attemptPendingAnalysis the attempt to remove from this repository
    *
    * @return a future that completes when the identified attempt pending analysis is no longer present in this
    * repository
-   *
-   * @see VerificationCodeSender#getName()
-   * @see AttemptData#remoteId()
    */
-  CompletableFuture<Void> remove(String senderName, String remoteId);
+  CompletableFuture<Void> remove(AttemptPendingAnalysis attemptPendingAnalysis);
 }

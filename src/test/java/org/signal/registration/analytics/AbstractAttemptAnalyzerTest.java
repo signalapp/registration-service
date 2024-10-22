@@ -100,7 +100,7 @@ class AbstractAttemptAnalyzerTest {
 
     attemptAnalyzer.analyzeAttempts();
 
-    verify(repository).remove(TEST_SENDER_NAME, remoteId);
+    verify(repository).remove(attemptPendingAnalysis);
     verify(attemptAnalyzedEventPublisher).publishEvent(new AttemptAnalyzedEvent(attemptPendingAnalysis, attemptAnalysis));
   }
 
@@ -117,7 +117,7 @@ class AbstractAttemptAnalyzerTest {
 
     attemptAnalyzer.analyzeAttempts();
 
-    verify(repository, never()).remove(any(), any());
+    verify(repository, never()).remove(any());
     verify(attemptAnalyzedEventPublisher, never()).publishEvent(any());
   }
 
@@ -136,7 +136,7 @@ class AbstractAttemptAnalyzerTest {
 
     attemptAnalyzer.analyzeAttempts();
 
-    verify(repository).remove(TEST_SENDER_NAME, remoteId);
+    verify(repository).remove(attemptPendingAnalysis);
     verify(attemptAnalyzedEventPublisher).publishEvent(new AttemptAnalyzedEvent(attemptPendingAnalysis, AttemptAnalysis.EMPTY));
   }
 
@@ -153,7 +153,7 @@ class AbstractAttemptAnalyzerTest {
 
     attemptAnalyzer.analyzeAttempts();
 
-    verify(repository, never()).remove(any(), any());
+    verify(repository, never()).remove(any());
     verify(attemptAnalyzedEventPublisher, never()).publishEvent(any());
   }
 }

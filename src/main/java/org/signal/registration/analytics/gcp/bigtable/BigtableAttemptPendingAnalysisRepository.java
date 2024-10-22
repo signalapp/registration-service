@@ -11,6 +11,7 @@ import com.google.cloud.bigtable.data.v2.models.Row;
 import com.google.cloud.bigtable.data.v2.models.RowCell;
 import com.google.cloud.bigtable.data.v2.models.RowMutation;
 import com.google.cloud.bigtable.data.v2.models.TableId;
+import com.google.common.annotations.VisibleForTesting;
 import com.google.protobuf.ByteString;
 import com.google.protobuf.InvalidProtocolBufferException;
 import io.micrometer.core.instrument.MeterRegistry;
@@ -18,7 +19,6 @@ import io.micronaut.scheduling.TaskExecutors;
 import jakarta.inject.Named;
 import java.io.UncheckedIOException;
 import java.util.List;
-import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
 import jakarta.inject.Singleton;
@@ -28,6 +28,7 @@ import org.signal.registration.analytics.AttemptPendingAnalysisRepository;
 import org.signal.registration.metrics.MetricsUtil;
 import org.signal.registration.util.GoogleApiUtil;
 import org.signal.registration.util.ReactiveResponseObserver;
+import org.signal.registration.util.UUIDUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -49,9 +50,6 @@ public class BigtableAttemptPendingAnalysisRepository implements AttemptPendingA
 
   private static final String STORE_ATTEMPT_COUNTER_NAME =
       MetricsUtil.name(BigtableAttemptPendingAnalysisRepository.class, "store");
-
-  private static final String GET_ATTEMPT_BY_REMOTE_IDENTIFIER_COUNTER_NAME =
-      MetricsUtil.name(BigtableAttemptPendingAnalysisRepository.class, "getByRemoteId");
 
   private static final String GET_ATTEMPTS_BY_SENDER_COUNTER_NAME =
       MetricsUtil.name(BigtableAttemptPendingAnalysisRepository.class, "getBySender");
@@ -78,11 +76,11 @@ public class BigtableAttemptPendingAnalysisRepository implements AttemptPendingA
   @Override
   public CompletableFuture<Void> store(final AttemptPendingAnalysis attemptPendingAnalysis) {
     return GoogleApiUtil.toCompletableFuture(bigtableDataClient.mutateRowAsync(
-        RowMutation.create(tableId, getKey(attemptPendingAnalysis))
-            .setCell(columnFamilyName, DATA_COLUMN_NAME, attemptPendingAnalysis.toByteString())), executor)
+            RowMutation.create(tableId, getKey(attemptPendingAnalysis))
+                .setCell(columnFamilyName, DATA_COLUMN_NAME, attemptPendingAnalysis.toByteString())), executor)
         .whenComplete((ignored, throwable) -> {
           meterRegistry.counter(STORE_ATTEMPT_COUNTER_NAME,
-              SENDER_TAG_NAME, attemptPendingAnalysis.getSenderName())
+                  SENDER_TAG_NAME, attemptPendingAnalysis.getSenderName())
               .increment();
 
           if (throwable != null) {
@@ -91,27 +89,18 @@ public class BigtableAttemptPendingAnalysisRepository implements AttemptPendingA
         });
   }
 
-  @Override
-  public CompletableFuture<Optional<AttemptPendingAnalysis>> getByRemoteIdentifier(final String senderName, final String remoteId) {
-    return GoogleApiUtil.toCompletableFuture(bigtableDataClient.readRowAsync(tableId, getKey(senderName, remoteId)), executor)
-        .thenApply(maybeRow -> Optional.ofNullable(maybeRow)
-            .flatMap(row -> row.getCells(columnFamilyName, DATA_COLUMN_NAME)
-                .stream()
-                .findFirst()
-                .map(dataCell -> {
-                  try {
-                    return AttemptPendingAnalysis.parseFrom(dataCell.getValue());
-                  } catch (final InvalidProtocolBufferException e) {
-                    throw new UncheckedIOException(e);
-                  }
-                })))
-        .whenComplete((maybeAttemptPendingAnalysis, throwable) -> {
-          meterRegistry.counter(GET_ATTEMPT_BY_REMOTE_IDENTIFIER_COUNTER_NAME,
-              SENDER_TAG_NAME, senderName)
+  @VisibleForTesting
+  CompletableFuture<Void> storeWithLegacyKey(final AttemptPendingAnalysis attemptPendingAnalysis) {
+    return GoogleApiUtil.toCompletableFuture(bigtableDataClient.mutateRowAsync(
+        RowMutation.create(tableId, getLegacyKey(attemptPendingAnalysis))
+            .setCell(columnFamilyName, DATA_COLUMN_NAME, attemptPendingAnalysis.toByteString())), executor)
+        .whenComplete((ignored, throwable) -> {
+          meterRegistry.counter(STORE_ATTEMPT_COUNTER_NAME,
+              SENDER_TAG_NAME, attemptPendingAnalysis.getSenderName())
               .increment();
 
           if (throwable != null) {
-            logger.warn("Failed to retrieve attempt pending analysis", throwable);
+            logger.warn("Failed to store attempt pending analysis", throwable);
           }
         });
   }
@@ -126,12 +115,18 @@ public class BigtableAttemptPendingAnalysisRepository implements AttemptPendingA
   }
 
   @Override
-  public CompletableFuture<Void> remove(final String senderName, final String remoteId) {
+  public CompletableFuture<Void> remove(final AttemptPendingAnalysis attemptPendingAnalysis) {
+    return CompletableFuture.allOf(
+        remove(getKey(attemptPendingAnalysis), attemptPendingAnalysis.getSenderName()),
+        remove(getLegacyKey(attemptPendingAnalysis), attemptPendingAnalysis.getSenderName()));
+  }
+
+  private CompletableFuture<Void> remove(final ByteString key, final String senderName) {
     return GoogleApiUtil.toCompletableFuture(bigtableDataClient.mutateRowAsync(
-        RowMutation.create(tableId, getKey(senderName, remoteId)).deleteRow()), executor)
+            RowMutation.create(tableId, key).deleteRow()), executor)
         .whenComplete((ignored, throwable) -> {
           meterRegistry.counter(REMOVE_ATTEMPT_COUNTER_NAME,
-              SENDER_TAG_NAME, senderName)
+                  SENDER_TAG_NAME, senderName)
               .increment();
 
           if (throwable != null) {
@@ -157,10 +152,16 @@ public class BigtableAttemptPendingAnalysisRepository implements AttemptPendingA
   }
 
   private static ByteString getKey(final AttemptPendingAnalysis attemptPendingAnalysis) {
-    return getKey(attemptPendingAnalysis.getSenderName(), attemptPendingAnalysis.getRemoteId());
+    return ByteString.copyFromUtf8(attemptPendingAnalysis.getSenderName() +
+        "/" + UUIDUtil.uuidFromByteString(attemptPendingAnalysis.getSessionId()) +
+        "/" + attemptPendingAnalysis.getAttemptId());
   }
 
-  private static ByteString getKey(final String senderName, final String remoteId) {
+  private static ByteString getLegacyKey(final AttemptPendingAnalysis attemptPendingAnalysis) {
+    return getLegacyKey(attemptPendingAnalysis.getSenderName(), attemptPendingAnalysis.getRemoteId());
+  }
+
+  private static ByteString getLegacyKey(final String senderName, final String remoteId) {
     return ByteString.copyFromUtf8(senderName + "/" + remoteId);
   }
 

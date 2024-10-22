@@ -124,7 +124,7 @@ class InfobipSmsAttemptAnalyzer {
         .subscribe(attemptAnalyzedEvent -> {
           meterRegistry.counter(MetricsUtil.name(getClass(), "attemptAnalyzed"),
               "hasPrice", String.valueOf(attemptAnalyzedEvent.attemptAnalysis().price().isPresent())).increment();
-          repository.remove(InfobipSmsSender.SENDER_NAME, attemptAnalyzedEvent.attemptPendingAnalysis().getRemoteId());
+          repository.remove(attemptAnalyzedEvent.attemptPendingAnalysis());
           attemptAnalyzedEventPublisher.publishEvent(attemptAnalyzedEvent);
         });
   }

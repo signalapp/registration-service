@@ -58,7 +58,7 @@ public abstract class AbstractAttemptAnalyzer {
           return attemptAnalyzedEvent.attemptAnalysis().price().isPresent() || pricingDeadlinePassed;
         })
         .subscribe(attemptAnalyzedEvent -> {
-          repository.remove(attemptAnalyzedEvent.attemptPendingAnalysis().getSenderName(), attemptAnalyzedEvent.attemptPendingAnalysis().getRemoteId());
+          repository.remove(attemptAnalyzedEvent.attemptPendingAnalysis());
           attemptAnalyzedEventPublisher.publishEvent(attemptAnalyzedEvent);
         });
   }

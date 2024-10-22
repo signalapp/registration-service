@@ -16,8 +16,9 @@ import com.google.cloud.bigtable.data.v2.BigtableDataSettings;
 import com.google.cloud.bigtable.emulator.v2.Emulator;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import java.io.IOException;
+import java.util.Collections;
 import java.util.HashSet;
-import java.util.Optional;
+import java.util.List;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ExecutorService;
@@ -25,6 +26,7 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 import org.apache.commons.lang3.RandomStringUtils;
 import org.junit.jupiter.api.AfterEach;
@@ -49,6 +51,8 @@ class BigtableAttemptPendingAnalysisRepositoryTest {
 
   private static final String TABLE_ID = "attempts-pending-analysis";
   private static final String COLUMN_FAMILY_NAME = "A";
+
+  private static final AtomicInteger ATTEMPT_ID_COUNTER = new AtomicInteger();
 
   @BeforeEach
   void setUp() throws IOException, InterruptedException, TimeoutException {
@@ -88,27 +92,42 @@ class BigtableAttemptPendingAnalysisRepositoryTest {
   }
 
   @Test
-  void storeAndGetByRemoteIdentifier() {
-    final AttemptPendingAnalysis attemptPendingAnalysis = buildAttemptPendingAnalysis("test");
+  void storeAndGetBySender() {
+    final String senderName = "test";
+    final AttemptPendingAnalysis attemptPendingAnalysis = buildAttemptPendingAnalysis(senderName);
 
-    assertEquals(Optional.empty(),
-        repository.getByRemoteIdentifier(attemptPendingAnalysis.getSenderName(), attemptPendingAnalysis.getRemoteId()).join());
+    assertEquals(Collections.emptyList(), Flux.from(repository.getBySender(senderName)).collectList().block());
 
     repository.store(attemptPendingAnalysis).join();
 
-    assertEquals(Optional.of(attemptPendingAnalysis),
-        repository.getByRemoteIdentifier(attemptPendingAnalysis.getSenderName(), attemptPendingAnalysis.getRemoteId()).join());
+    assertEquals(List.of(attemptPendingAnalysis), Flux.from(repository.getBySender(senderName)).collectList().block());
+  }
+
+  @Test
+  void storeAndGetBySenderLegacy() {
+    final String senderName = "test";
+    final AttemptPendingAnalysis attemptPendingAnalysis = buildAttemptPendingAnalysis(senderName);
+    final AttemptPendingAnalysis legacyAttemptPendingAnalysis = buildAttemptPendingAnalysis(senderName);
+
+    assertEquals(Collections.emptyList(), Flux.from(repository.getBySender(senderName)).collectList().block());
+
+    repository.store(attemptPendingAnalysis).join();
+    repository.storeWithLegacyKey(legacyAttemptPendingAnalysis).join();
+
+    //noinspection DataFlowIssue
+    assertEquals(Set.of(attemptPendingAnalysis, legacyAttemptPendingAnalysis),
+        new HashSet<>(Flux.from(repository.getBySender(senderName)).collectList().block()));
   }
 
   @Test
   void storeDuplicateEvent() {
-    final AttemptPendingAnalysis attemptPendingAnalysis = buildAttemptPendingAnalysis("test");
+    final String senderName = "test";
+    final AttemptPendingAnalysis attemptPendingAnalysis = buildAttemptPendingAnalysis(senderName);
 
     assertDoesNotThrow(() -> repository.store(attemptPendingAnalysis).join());
     assertDoesNotThrow(() -> repository.store(attemptPendingAnalysis).join());
 
-    assertEquals(Optional.of(attemptPendingAnalysis),
-        repository.getByRemoteIdentifier(attemptPendingAnalysis.getSenderName(), attemptPendingAnalysis.getRemoteId()).join());
+    assertEquals(List.of(attemptPendingAnalysis), Flux.from(repository.getBySender(senderName)).collectList().block());
   }
 
   @Test
@@ -133,30 +152,48 @@ class BigtableAttemptPendingAnalysisRepositoryTest {
 
   @Test
   void remove() {
-    assertDoesNotThrow(() -> repository.remove("does-not-exist", "does-not-exist"));
+    final String senderName = "test";
+    final AttemptPendingAnalysis removedAttempt = buildAttemptPendingAnalysis(senderName);
+    final AttemptPendingAnalysis remainingAttempt = buildAttemptPendingAnalysis(senderName);
 
-    final AttemptPendingAnalysis removedAttempt = buildAttemptPendingAnalysis("test");
-    final AttemptPendingAnalysis remainingAttempt = buildAttemptPendingAnalysis("test");
+    assertDoesNotThrow(() -> repository.remove(remainingAttempt).join());
 
     repository.store(removedAttempt).join();
     repository.store(remainingAttempt).join();
 
-    assertEquals(Optional.of(removedAttempt),
-        repository.getByRemoteIdentifier(removedAttempt.getSenderName(), removedAttempt.getRemoteId()).join());
+    assertDoesNotThrow(() -> repository.remove(removedAttempt).join());
 
-    repository.remove(removedAttempt.getSenderName(), removedAttempt.getRemoteId()).join();
+    assertEquals(List.of(remainingAttempt), Flux.from(repository.getBySender(senderName)).collectList().block());
+  }
 
-    assertEquals(Optional.empty(),
-        repository.getByRemoteIdentifier(removedAttempt.getSenderName(), removedAttempt.getRemoteId()).join());
+  @Test
+  void removeLegacy() {
+    final String senderName = "test";
+    final AttemptPendingAnalysis removedAttempt = buildAttemptPendingAnalysis(senderName);
+    final AttemptPendingAnalysis legacyRemovedAttempt = buildAttemptPendingAnalysis(senderName);
+    final AttemptPendingAnalysis remainingAttempt = buildAttemptPendingAnalysis(senderName);
 
-    assertEquals(Optional.of(remainingAttempt),
-        repository.getByRemoteIdentifier(remainingAttempt.getSenderName(), remainingAttempt.getRemoteId()).join());
+    assertDoesNotThrow(() -> repository.remove(remainingAttempt).join());
+
+    repository.store(removedAttempt).join();
+    repository.storeWithLegacyKey(legacyRemovedAttempt).join();
+    repository.store(remainingAttempt).join();
+
+    assertDoesNotThrow(() -> repository.remove(removedAttempt).join());
+
+    //noinspection DataFlowIssue
+    assertEquals(Set.of(remainingAttempt, legacyRemovedAttempt),
+        new HashSet<>(Flux.from(repository.getBySender(senderName)).collectList().block()));
+
+    assertDoesNotThrow(() -> repository.remove(legacyRemovedAttempt).join());
+
+    assertEquals(List.of(remainingAttempt), Flux.from(repository.getBySender(senderName)).collectList().block());
   }
 
   private static AttemptPendingAnalysis buildAttemptPendingAnalysis(final String senderName) {
     return AttemptPendingAnalysis.newBuilder()
         .setSessionId(UUIDUtil.uuidToByteString(UUID.randomUUID()))
-        .setAttemptId(ThreadLocalRandom.current().nextInt(0, 100))
+        .setAttemptId(ATTEMPT_ID_COUNTER.incrementAndGet())
         .setSenderName(senderName)
         .setRemoteId(RandomStringUtils.randomAlphanumeric(16))
         .setMessageTransport(ThreadLocalRandom.current().nextBoolean() ? MessageTransport.MESSAGE_TRANSPORT_SMS : MessageTransport.MESSAGE_TRANSPORT_VOICE)
