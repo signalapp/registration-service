@@ -34,7 +34,7 @@ public abstract class AbstractAttemptAnalyzer {
   private final Logger logger = LoggerFactory.getLogger(getClass());
 
   @VisibleForTesting
-  public static final Duration PRICING_DEADLINE = Duration.ofHours(36);
+  public static final Duration DEFAULT_PRICING_DEADLINE = Duration.ofHours(36);
 
   protected AbstractAttemptAnalyzer(final AttemptPendingAnalysisRepository repository,
       final ApplicationEventPublisher<AttemptAnalyzedEvent> attemptAnalyzedEventPublisher,
@@ -53,7 +53,7 @@ public abstract class AbstractAttemptAnalyzer {
                 .map(analysis -> new AttemptAnalyzedEvent(attemptPendingAnalysis, analysis)))
         .filter(attemptAnalyzedEvent -> {
           final Instant attemptTimestamp = Instant.ofEpochMilli(attemptAnalyzedEvent.attemptPendingAnalysis().getTimestampEpochMillis());
-          final boolean pricingDeadlinePassed = clock.instant().isAfter(attemptTimestamp.plus(PRICING_DEADLINE));
+          final boolean pricingDeadlinePassed = clock.instant().isAfter(attemptTimestamp.plus(getPricingDeadline()));
 
           return attemptAnalyzedEvent.attemptAnalysis().price().isPresent() || pricingDeadlinePassed;
         })
@@ -70,6 +70,14 @@ public abstract class AbstractAttemptAnalyzer {
    * @return the name of the verification code sender whose attempts pending analysis will be processed by this analyzer
    */
   protected abstract String getSenderName();
+
+  /**
+   * Returns the age of an attempt pending analysis after which we presume the provider will not be able to provide
+   * pricing data, and the analyzer should proceed without pricing data from the provider.
+   */
+  protected Duration getPricingDeadline() {
+    return DEFAULT_PRICING_DEADLINE;
+  }
 
   /**
    * Attempts to retrieve additional details (presumably from an external service provider) about an attempt pending

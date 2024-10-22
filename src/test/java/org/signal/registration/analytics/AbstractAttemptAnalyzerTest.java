@@ -128,7 +128,7 @@ class AbstractAttemptAnalyzerTest {
     final AttemptPendingAnalysis attemptPendingAnalysis = AttemptPendingAnalysis.newBuilder()
         .setSenderName(TEST_SENDER_NAME)
         .setRemoteId(remoteId)
-        .setTimestampEpochMillis(clock.instant().minus(AbstractAttemptAnalyzer.PRICING_DEADLINE).minusSeconds(1).toEpochMilli())
+        .setTimestampEpochMillis(clock.instant().minus(AbstractAttemptAnalyzer.DEFAULT_PRICING_DEADLINE).minusSeconds(1).toEpochMilli())
         .build();
 
     when(repository.getBySender(TEST_SENDER_NAME)).thenReturn(Mono.just(attemptPendingAnalysis));

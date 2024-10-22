@@ -17,7 +17,6 @@ import io.micronaut.scheduling.annotation.Scheduled;
 import jakarta.inject.Named;
 import jakarta.inject.Singleton;
 import org.apache.arrow.util.VisibleForTesting;
-import org.signal.registration.analytics.AbstractAttemptAnalyzer;
 import org.signal.registration.analytics.AttemptAnalysis;
 import org.signal.registration.analytics.AttemptAnalyzedEvent;
 import org.signal.registration.analytics.AttemptPendingAnalysis;
@@ -60,6 +59,7 @@ class InfobipSmsAttemptAnalyzer {
   private static final int MAX_RETRIES = 10;
   private static final Duration MIN_BACKOFF = Duration.ofMillis(500);
   private static final Duration MAX_BACKOFF = Duration.ofSeconds(60);
+  private static final Duration PRICING_DEADLINE = Duration.ofHours(36);
   private static final int HTTP_TOO_MANY_REQUESTS_CODE = 429;
 
   protected InfobipSmsAttemptAnalyzer(
@@ -117,8 +117,7 @@ class InfobipSmsAttemptAnalyzer {
                 })), Runtime.getRuntime().availableProcessors())
         .filter(attemptAnalyzedEvent -> {
           final Instant attemptTimestamp = Instant.ofEpochMilli(attemptAnalyzedEvent.attemptPendingAnalysis().getTimestampEpochMillis());
-          final boolean pricingDeadlineExpired =
-              clock.instant().isAfter(attemptTimestamp.plus(AbstractAttemptAnalyzer.PRICING_DEADLINE));
+          final boolean pricingDeadlineExpired = clock.instant().isAfter(attemptTimestamp.plus(PRICING_DEADLINE));
 
           return attemptAnalyzedEvent.attemptAnalysis().price().isPresent() || pricingDeadlineExpired;
         })
