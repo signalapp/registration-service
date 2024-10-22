@@ -5,66 +5,61 @@
 
 package org.signal.registration.analytics.twilio;
 
-import com.google.common.annotations.VisibleForTesting;
-import io.micrometer.core.instrument.Counter;
-import io.micrometer.core.instrument.MeterRegistry;
 import io.micronaut.context.event.ApplicationEventPublisher;
 import io.micronaut.scheduling.annotation.Scheduled;
 import jakarta.inject.Singleton;
+import java.time.Clock;
+import java.time.Duration;
 import java.util.Optional;
+import java.util.concurrent.CompletableFuture;
+import org.signal.registration.analytics.AbstractAttemptAnalyzer;
 import org.signal.registration.analytics.AttemptAnalysis;
 import org.signal.registration.analytics.AttemptAnalyzedEvent;
 import org.signal.registration.analytics.AttemptPendingAnalysis;
 import org.signal.registration.analytics.AttemptPendingAnalysisRepository;
-import org.signal.registration.metrics.MetricsUtil;
 import org.signal.registration.sender.twilio.verify.TwilioVerifySender;
-import reactor.core.publisher.Flux;
 
 /**
  * Analyzes verification attempts from {@link TwilioVerifySender}.
  */
 @Singleton
-class TwilioVerifyAttemptAnalyzer {
+class TwilioVerifyAttemptAnalyzer extends AbstractAttemptAnalyzer {
 
-  private final AttemptPendingAnalysisRepository repository;
   private final TwilioVerifyPriceEstimator twilioVerifyPriceEstimator;
 
-  private final ApplicationEventPublisher<AttemptAnalyzedEvent> attemptAnalyzedEventPublisher;
-
-  private final Counter attemptEstimatedCounter;
-
-  public TwilioVerifyAttemptAnalyzer(final AttemptPendingAnalysisRepository repository,
+  TwilioVerifyAttemptAnalyzer(final AttemptPendingAnalysisRepository repository,
       final TwilioVerifyPriceEstimator twilioVerifyPriceEstimator,
       final ApplicationEventPublisher<AttemptAnalyzedEvent> attemptAnalyzedEventPublisher,
-      final MeterRegistry meterRegistry) {
+      final Clock clock) {
 
-    this.repository = repository;
+    super(repository, attemptAnalyzedEventPublisher, clock);
+
     this.twilioVerifyPriceEstimator = twilioVerifyPriceEstimator;
-    this.attemptAnalyzedEventPublisher = attemptAnalyzedEventPublisher;
-
-    this.attemptEstimatedCounter = meterRegistry.counter(MetricsUtil.name(getClass(), "attemptAnalyzed"));
   }
 
-  @Scheduled(fixedDelay = "${analytics.twilio.verify.analysis-interval:5m}")
-  void analyzeAttempts() {
+  @Override
+  @Scheduled(fixedDelay = "${analytics.twilio.verify.analysis-interval:5m}",
+      initialDelay = "${analytics.twilio.verify.analysis-initial-delay:5m}")
+  protected void analyzeAttempts() {
+    super.analyzeAttempts();
+  }
+
+  @Override
+  protected String getSenderName() {
+    return TwilioVerifySender.SENDER_NAME;
+  }
+
+  @Override
+  protected Duration getPricingDeadline() {
     // Always use estimated prices for Twilio Verify
-    estimatePricingForAttempts(Flux.from(repository.getBySender(TwilioVerifySender.SENDER_NAME)));
+    return Duration.ZERO;
   }
 
-  @VisibleForTesting
-  void estimatePricingForAttempts(final Flux<AttemptPendingAnalysis> attemptsPendingAnalysis) {
-    attemptsPendingAnalysis
-        .map(attempt -> new AttemptAnalyzedEvent(attempt, new AttemptAnalysis(Optional.empty(),
-            twilioVerifyPriceEstimator.estimatePrice(attempt, null, null),
-            Optional.empty(),
-            Optional.empty())))
-        .doOnNext(attemptAnalyzedEvent -> {
-          attemptEstimatedCounter.increment();
-
-          repository.remove(TwilioVerifySender.SENDER_NAME, attemptAnalyzedEvent.attemptPendingAnalysis().getRemoteId());
-          attemptAnalyzedEventPublisher.publishEvent(attemptAnalyzedEvent);
-        })
-        .then()
-        .block();
+  @Override
+  protected CompletableFuture<AttemptAnalysis> analyzeAttempt(final AttemptPendingAnalysis attemptPendingAnalysis) {
+    return CompletableFuture.completedFuture(new AttemptAnalysis(Optional.empty(),
+        twilioVerifyPriceEstimator.estimatePrice(attemptPendingAnalysis, null, null),
+        Optional.empty(),
+        Optional.empty()));
   }
 }
