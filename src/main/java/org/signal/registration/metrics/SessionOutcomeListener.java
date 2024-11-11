@@ -78,7 +78,7 @@ public class SessionOutcomeListener implements ApplicationEventListener<SessionC
           tags.add(Tag.of(MetricsUtil.SENDER_TAG_NAME, failedAttempt.getSenderName()));
           tags.add(Tag.of(MetricsUtil.TRANSPORT_TAG_NAME, MetricsUtil.getMessageTransportTagValue(failedAttempt.getMessageTransport())));
         }
-        meterRegistry.counter(COUNTER_NAME, tags);
+        meterRegistry.counter(COUNTER_NAME, tags).increment();
       } else {
         for (int i = 0; i < session.getRegistrationAttemptsCount(); i++) {
           // Assume that all verification attempts before the last one were not successfully verified
