@@ -61,6 +61,9 @@ public class SessionOutcomeListener implements ApplicationEventListener<SessionC
             .increment();
       }
 
+      // NOTE: we do not count sessions that have no attempts or only failed attempts; these could happen because the
+      // attempts were blocked due to suspected fraud (among other reasons). Regardless of the cause, we only want to
+      // measure sessions that actually triggered an attempt to deliver a verification code with this counter.
       for (int i = 0; i < session.getRegistrationAttemptsCount(); i++) {
         // Assume that all verification attempts before the last one were not successfully verified
         final boolean attemptVerified = StringUtils.isNotBlank(session.getVerifiedCode()) &&
