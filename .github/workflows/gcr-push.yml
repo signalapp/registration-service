@@ -20,8 +20,6 @@ jobs:
     steps:
       - name: Checkout main project
         uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
-        with:
-          path: registration
 
       - name: Set up JDK 21
         uses: actions/setup-java@99b8673ff64fbf99d8d325f52d9a5bdedb8483e9 # v4.2.1
@@ -37,24 +35,12 @@ jobs:
           workload_identity_provider: ${{ inputs.workload_identity_provider }}
           service_account: ${{ inputs.service_account }}
 
-      - name: Log in to gcloud
+      - name: Log in to Docker
         run: |-
           gcloud auth login --brief --cred-file="${{ steps.auth.outputs.credentials_file_path }}"
-
-      # The current version of micronaut-maven-plugin has an issue with Docker credential helpers that
-      # don’t respond to `get` with a `serverURL`. We work around that by ensuring we only hit Jib’s
-      # CredentialRetrieverFactory, which uses well-known helpers (in this case, docker-credential-gcr) for
-      # certain repositories. However, the action only has docker-credential-gcloud available to it,
-      # so we add a symlink-alias to our path, since it implements the same interface.
-      - name: Docker credential helper workaround
-        run: |-
-          mkdir bin && \
-          cd bin && \
-          ln -s $(which docker-credential-gcloud) docker-credential-gcr && \
-          echo "$(pwd)" >> $GITHUB_PATH
+          gcloud auth configure-docker
 
       - name: Build and push container image
-        working-directory: registration
         run: |
           ./mvnw -e -B deploy \
             -Dpackaging=docker \
