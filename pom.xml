@@ -25,12 +25,13 @@
     <release.version>21</release.version>
     <exec.mainClass>org.signal.registration.Application</exec.mainClass>
 
-    <firestore.emulator.version>489.0.0-emulators</firestore.emulator.version>
+    <!-- See https://console.cloud.google.com/artifacts/docker/google.com:cloudsdktool/us/gcr.io/google-cloud-cli -->
+    <firestore.emulator.version>505.0.0-emulators</firestore.emulator.version>
     <reactive.grpc.version>1.2.4</reactive.grpc.version>
     <testcontainers.version>1.20.4</testcontainers.version>
 
-    <!-- 21-jre (note: always use the multi-arch manifest *LIST* here) -->
-    <docker.image.sha256>34bea064231cf397c4c9fed7f258761e8861fc5889dd3cbaf7477b3de82cf3ea</docker.image.sha256>
+    <!-- eclipse-temurin:21-jre (note: always use the multi-arch manifest *LIST* here); see https://hub.docker.com/_/eclipse-temurin -->
+    <docker.image.sha256>8e201486c2c51c07f0c1e33bf3841a03b2d624cd3dd8a734a1ece02ac48b795a</docker.image.sha256>
   </properties>
 
   <repositories>
@@ -45,7 +46,7 @@
       <dependency>
         <groupId>com.google.cloud</groupId>
         <artifactId>libraries-bom</artifactId>
-        <version>26.49.0</version>
+        <version>26.52.0</version>
         <type>pom</type>
         <scope>import</scope>
       </dependency>
@@ -106,7 +107,7 @@
     <dependency>
       <groupId>com.messagebird</groupId>
       <artifactId>messagebird-api</artifactId>
-      <version>6.2.1</version>
+      <version>6.2.2</version>
     </dependency>
 
     <dependency>
@@ -267,7 +268,7 @@
     <dependency>
       <groupId>org.apache.commons</groupId>
       <artifactId>commons-csv</artifactId>
-      <version>1.10.0</version>
+      <version>1.12.0</version>
     </dependency>
 
     <dependency>
@@ -285,7 +286,6 @@
     <dependency>
       <groupId>io.micronaut</groupId>
       <artifactId>micronaut-jackson-databind</artifactId>
-      <version>4.4.6</version>
     </dependency>
 
     <!-- Test dependencies -->
@@ -371,7 +371,7 @@
       <extension>
         <groupId>kr.motd.maven</groupId>
         <artifactId>os-maven-plugin</artifactId>
-        <version>1.7.0</version>
+        <version>1.7.1</version>
       </extension>
     </extensions>
 
@@ -446,7 +446,7 @@
               <rules>
                 <dependencyConvergence/>
                 <requireMavenVersion>
-                  <version>3.8.6</version>
+                  <version>3.9.9</version>
                 </requireMavenVersion>
               </rules>
             </configuration>

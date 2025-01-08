@@ -29,7 +29,7 @@ class FirestorePrescribedVerificationCodeRepositoryTest {
   private Firestore firestore;
   private FirestorePrescribedVerificationCodeRepository repository;
 
-
+  // See https://console.cloud.google.com/artifacts/docker/google.com:cloudsdktool/us/gcr.io/google-cloud-cli
   private static final String FIRESTORE_EMULATOR_IMAGE_NAME = "gcr.io/google.com/cloudsdktool/cloud-sdk:" +
       System.getProperty("firestore.emulator.version", "emulators");
 
