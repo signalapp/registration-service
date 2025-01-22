@@ -21,7 +21,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.stream.Stream;
 
 @Singleton
-@Named("send-voice-verification-code")
+@Named("send-voice-verification-code-per-session")
 public class SendVoiceVerificationCodeRateLimiter extends FixedDelayRegistrationSessionRateLimiter {
 
   private final Duration delayAfterFirstSms;

@@ -21,7 +21,7 @@ import org.signal.registration.session.FailedSendReason;
 import org.signal.registration.session.RegistrationSession;
 
 @Singleton
-@Named("send-sms-verification-code")
+@Named("send-sms-verification-code-per-session")
 public class SendSmsVerificationCodeRateLimiter extends FixedDelayRegistrationSessionRateLimiter {
 
   public SendSmsVerificationCodeRateLimiter(

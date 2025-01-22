@@ -64,9 +64,9 @@ public class RegistrationService {
   private final SenderSelectionStrategy senderSelectionStrategy;
   private final SessionRepository sessionRepository;
   private final RateLimiter<Pair<Phonenumber.PhoneNumber, String>> sessionCreationRateLimiter;
-  private final RateLimiter<RegistrationSession> sendSmsVerificationCodeRateLimiter;
-  private final RateLimiter<RegistrationSession> sendVoiceVerificationCodeRateLimiter;
-  private final RateLimiter<RegistrationSession> checkVerificationCodeRateLimiter;
+  private final RateLimiter<RegistrationSession> sendSmsVerificationCodePerSessionRateLimiter;
+  private final RateLimiter<RegistrationSession> sendVoiceVerificationCodePerSessionRateLimiter;
+  private final RateLimiter<RegistrationSession> checkVerificationCodePerSessionRateLimiter;
   private final Clock clock;
 
   private final Map<String, VerificationCodeSender> sendersByName;
@@ -84,33 +84,35 @@ public class RegistrationService {
    * Constructs a new registration service that chooses verification code senders with the given strategy and stores
    * session data with the given session repository.
    *
-   * @param senderSelectionStrategy              the strategy to use to choose verification code senders
-   * @param sessionRepository                    the repository to use to store session data
-   * @param sessionCreationRateLimiter           a rate limiter that controls the rate at which sessions may be created
-   *                                             for individual phone numbers
-   * @param sendSmsVerificationCodeRateLimiter   a rate limiter that controls the rate at which callers may request
-   *                                             verification codes via SMS for a given session
-   * @param sendVoiceVerificationCodeRateLimiter a rate limiter that controls the rate at which callers may request
-   * @param checkVerificationCodeRateLimiter     a rate limiter that controls the rate and number of times a caller may
-   *                                             check a verification code for a given session
-   * @param verificationCodeSenders              a list of verification code senders that may be used by this service
-   * @param clock                                the time source for this registration service
+   * @param senderSelectionStrategy                        the strategy to use to choose verification code senders
+   * @param sessionRepository                              the repository to use to store session data
+   * @param sessionCreationRateLimiter                     a rate limiter that controls the rate at which sessions may
+   *                                                       be created for individual phone numbers
+   * @param sendSmsVerificationCodePerSessionRateLimiter   a rate limiter that controls the rate at which callers may
+   *                                                       request verification codes via SMS for a given session
+   * @param sendVoiceVerificationCodePerSessionRateLimiter a rate limiter that controls the rate at which callers may
+   *                                                       request verification codes via voice call for a given session
+   * @param checkVerificationCodePerSessionRateLimiter     a rate limiter that controls the rate and number of times a
+   *                                                       caller may check a verification code for a given session
+   * @param verificationCodeSenders                        a list of verification code senders that may be used by this
+   *                                                       service
+   * @param clock                                          the time source for this registration service
    */
   public RegistrationService(final SenderSelectionStrategy senderSelectionStrategy,
       final SessionRepository sessionRepository,
       @Named("session-creation") final RateLimiter<Pair<Phonenumber.PhoneNumber, String>> sessionCreationRateLimiter,
-      @Named("send-sms-verification-code") final RateLimiter<RegistrationSession> sendSmsVerificationCodeRateLimiter,
-      @Named("send-voice-verification-code") final RateLimiter<RegistrationSession> sendVoiceVerificationCodeRateLimiter,
-      @Named("check-verification-code") final RateLimiter<RegistrationSession> checkVerificationCodeRateLimiter,
+      @Named("send-sms-verification-code-per-session") final RateLimiter<RegistrationSession> sendSmsVerificationCodePerSessionRateLimiter,
+      @Named("send-voice-verification-code-per-session") final RateLimiter<RegistrationSession> sendVoiceVerificationCodePerSessionRateLimiter,
+      @Named("check-verification-code-per-session") final RateLimiter<RegistrationSession> checkVerificationCodePerSessionRateLimiter,
       final List<VerificationCodeSender> verificationCodeSenders,
       final Clock clock) {
 
     this.senderSelectionStrategy = senderSelectionStrategy;
     this.sessionRepository = sessionRepository;
     this.sessionCreationRateLimiter = sessionCreationRateLimiter;
-    this.sendSmsVerificationCodeRateLimiter = sendSmsVerificationCodeRateLimiter;
-    this.sendVoiceVerificationCodeRateLimiter = sendVoiceVerificationCodeRateLimiter;
-    this.checkVerificationCodeRateLimiter = checkVerificationCodeRateLimiter;
+    this.sendSmsVerificationCodePerSessionRateLimiter = sendSmsVerificationCodePerSessionRateLimiter;
+    this.sendVoiceVerificationCodePerSessionRateLimiter = sendVoiceVerificationCodePerSessionRateLimiter;
+    this.checkVerificationCodePerSessionRateLimiter = checkVerificationCodePerSessionRateLimiter;
     this.clock = clock;
 
     this.sendersByName = verificationCodeSenders.stream()
@@ -166,8 +168,8 @@ public class RegistrationService {
       final ClientType clientType) {
 
     final RateLimiter<RegistrationSession> rateLimiter = switch (messageTransport) {
-      case SMS -> sendSmsVerificationCodeRateLimiter;
-      case VOICE -> sendVoiceVerificationCodeRateLimiter;
+      case SMS -> sendSmsVerificationCodePerSessionRateLimiter;
+      case VOICE -> sendVoiceVerificationCodePerSessionRateLimiter;
     };
 
     return sessionRepository.getSession(sessionId)
@@ -317,7 +319,7 @@ public class RegistrationService {
     if (session.getRegistrationAttemptsCount() == 0) {
       return CompletableFuture.failedFuture(new NoVerificationCodeSentException(session));
     } else {
-      return checkVerificationCodeRateLimiter.checkRateLimit(session).thenCompose(ignored -> {
+      return checkVerificationCodePerSessionRateLimiter.checkRateLimit(session).thenCompose(ignored -> {
         final RegistrationAttempt currentRegistrationAttempt =
             session.getRegistrationAttempts(session.getRegistrationAttemptsCount() - 1);
 
@@ -459,13 +461,13 @@ public class RegistrationService {
                 .getExpirationEpochMillis());
 
         if (!clock.instant().isAfter(currentAttemptExpiration)) {
-          nextCodeCheck = checkVerificationCodeRateLimiter.getTimeOfNextAction(session).join();
+          nextCodeCheck = checkVerificationCodePerSessionRateLimiter.getTimeOfNextAction(session).join();
         }
       }
 
       // Callers can't request more verification codes if they've exhausted their check attempts (since they can't check
       // any new codes they might receive)
-      nextSms = sendSmsVerificationCodeRateLimiter.getTimeOfNextAction(session).join();
+      nextSms = sendSmsVerificationCodePerSessionRateLimiter.getTimeOfNextAction(session).join();
 
       // Callers may not request codes via phone call until they've attempted an SMS
       final boolean hasAttemptedSms = session.getRegistrationAttemptsList().stream().anyMatch(attempt ->
@@ -476,7 +478,7 @@ public class RegistrationService {
                       && attempt.getFailedSendReason() != FailedSendReason.FAILED_SEND_REASON_SUSPECTED_FRAUD);
 
       if (hasAttemptedSms) {
-        nextVoiceCall = sendVoiceVerificationCodeRateLimiter.getTimeOfNextAction(session).join();
+        nextVoiceCall = sendVoiceVerificationCodePerSessionRateLimiter.getTimeOfNextAction(session).join();
       }
     }
 

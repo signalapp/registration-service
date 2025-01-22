@@ -16,7 +16,7 @@ import java.util.List;
 import java.util.Optional;
 
 @Singleton
-@Named("check-verification-code")
+@Named("check-verification-code-per-session")
 public class CheckVerificationCodeRateLimiter extends FixedDelayRegistrationSessionRateLimiter {
 
   public CheckVerificationCodeRateLimiter(
