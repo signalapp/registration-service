@@ -25,6 +25,21 @@ public class JsonMapperInjectionIntegrationTest {
   @Named("session-creation")
   RateLimiter<Pair<Phonenumber.PhoneNumber, String>> sessionCreationRateLimiter = mock(RateLimiter.class);
 
+  @SuppressWarnings("unchecked")
+  @MockBean(named = "send-sms-verification-code-per-number")
+  @Named("send-sms-verification-code-per-number")
+  RateLimiter<Phonenumber.PhoneNumber> sendSmsVerificationCodePerNumberRateLimiter = mock(RateLimiter.class);
+
+  @SuppressWarnings("unchecked")
+  @MockBean(named = "send-voice-verification-code-per-number")
+  @Named("send-voice-verification-code-per-number")
+  RateLimiter<Phonenumber.PhoneNumber> sendVoiceVerificationCodePerNumberRateLimiter = mock(RateLimiter.class);
+
+  @SuppressWarnings("unchecked")
+  @MockBean(named = "check-verification-code-per-number")
+  @Named("check-verification-code-per-number")
+  RateLimiter<Phonenumber.PhoneNumber> checkVerificationCodePerNumberRateLimiter = mock(RateLimiter.class);
+
   @Inject
   JsonMapper jsonMapper;
 

@@ -75,6 +75,9 @@ class RegistrationServiceTest {
   private RateLimiter<RegistrationSession> sendSmsVerificationCodePerSessionRateLimiter;
   private RateLimiter<RegistrationSession> sendVoiceVerificationCodePerSessionRateLimiter;
   private RateLimiter<RegistrationSession> checkVerificationCodePerSessionRateLimiter;
+  private RateLimiter<Phonenumber.PhoneNumber> sendSmsVerificationCodePerNumberRateLimiter;
+  private RateLimiter<Phonenumber.PhoneNumber> sendVoiceVerificationCodePerNumberRateLimiter;
+  private RateLimiter<Phonenumber.PhoneNumber> checkVerificationCodeRatePerNumberLimiter;
   private Clock clock;
   private SenderSelectionStrategy senderSelectionStrategy;
 
@@ -127,12 +130,27 @@ class RegistrationServiceTest {
     when(checkVerificationCodePerSessionRateLimiter.getTimeOfNextAction(any()))
         .thenReturn(CompletableFuture.completedFuture(Optional.of(CURRENT_TIME)));
 
+    //noinspection unchecked
+    sendSmsVerificationCodePerNumberRateLimiter = mock(RateLimiter.class);
+    when(sendSmsVerificationCodePerNumberRateLimiter.checkRateLimit(any())).thenReturn(CompletableFuture.completedFuture(null));
+
+    //noinspection unchecked
+    sendVoiceVerificationCodePerNumberRateLimiter = mock(RateLimiter.class);
+    when(sendVoiceVerificationCodePerNumberRateLimiter.checkRateLimit(any())).thenReturn(CompletableFuture.completedFuture(null));
+
+    //noinspection unchecked
+    checkVerificationCodeRatePerNumberLimiter = mock(RateLimiter.class);
+    when(checkVerificationCodeRatePerNumberLimiter.checkRateLimit(any())).thenReturn(CompletableFuture.completedFuture(null));
+
     registrationService = new RegistrationService(senderSelectionStrategy,
         sessionRepository,
         sessionCreationRateLimiter,
         sendSmsVerificationCodePerSessionRateLimiter,
         sendVoiceVerificationCodePerSessionRateLimiter,
         checkVerificationCodePerSessionRateLimiter,
+        sendSmsVerificationCodePerNumberRateLimiter,
+        sendVoiceVerificationCodePerNumberRateLimiter,
+        checkVerificationCodeRatePerNumberLimiter,
         List.of(sender),
         clock);
   }
