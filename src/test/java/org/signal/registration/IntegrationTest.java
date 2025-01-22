@@ -25,6 +25,7 @@ import io.micronaut.test.extensions.junit5.annotation.MicronautTest;
 import jakarta.inject.Inject;
 import jakarta.inject.Named;
 import java.nio.charset.StandardCharsets;
+import java.time.Instant;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
@@ -84,9 +85,17 @@ public class IntegrationTest {
   @BeforeEach
   void setUp() {
     when(sessionCreationRateLimiter.checkRateLimit(any())).thenReturn(CompletableFuture.completedFuture(null));
+
     when(sendSmsVerificationCodePerNumberRateLimiter.checkRateLimit(any())).thenReturn(CompletableFuture.completedFuture(null));
+    when(sendSmsVerificationCodePerNumberRateLimiter.getTimeOfNextAction(any()))
+        .thenReturn(CompletableFuture.completedFuture(Optional.of(Instant.now())));
     when(sendVoiceVerificationCodePerNumberRateLimiter.checkRateLimit(any())).thenReturn(CompletableFuture.completedFuture(null));
+    when(sendVoiceVerificationCodePerNumberRateLimiter.getTimeOfNextAction(any()))
+        .thenReturn(CompletableFuture.completedFuture(Optional.of(Instant.now())));
     when(checkVerificationCodePerNumberRateLimiter.checkRateLimit(any())).thenReturn(CompletableFuture.completedFuture(null));
+    when(checkVerificationCodePerNumberRateLimiter.getTimeOfNextAction(any()))
+        .thenReturn(CompletableFuture.completedFuture(Optional.of(Instant.now())));
+
 
     when(senderSelectionStrategy.chooseVerificationCodeSender(any(), any(), any(), any(), any(), any()))
         .thenReturn(new SenderSelectionStrategy.SenderSelection(

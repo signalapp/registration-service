@@ -133,14 +133,20 @@ class RegistrationServiceTest {
     //noinspection unchecked
     sendSmsVerificationCodePerNumberRateLimiter = mock(RateLimiter.class);
     when(sendSmsVerificationCodePerNumberRateLimiter.checkRateLimit(any())).thenReturn(CompletableFuture.completedFuture(null));
+    when(sendSmsVerificationCodePerNumberRateLimiter.getTimeOfNextAction(any()))
+        .thenReturn(CompletableFuture.completedFuture(Optional.of(CURRENT_TIME)));
 
     //noinspection unchecked
     sendVoiceVerificationCodePerNumberRateLimiter = mock(RateLimiter.class);
     when(sendVoiceVerificationCodePerNumberRateLimiter.checkRateLimit(any())).thenReturn(CompletableFuture.completedFuture(null));
+    when(sendVoiceVerificationCodePerNumberRateLimiter.getTimeOfNextAction(any()))
+        .thenReturn(CompletableFuture.completedFuture(Optional.of(CURRENT_TIME)));
 
     //noinspection unchecked
     checkVerificationCodeRatePerNumberLimiter = mock(RateLimiter.class);
     when(checkVerificationCodeRatePerNumberLimiter.checkRateLimit(any())).thenReturn(CompletableFuture.completedFuture(null));
+    when(checkVerificationCodeRatePerNumberLimiter.getTimeOfNextAction(any()))
+        .thenReturn(CompletableFuture.completedFuture(Optional.of(CURRENT_TIME)));
 
     registrationService = new RegistrationService(senderSelectionStrategy,
         sessionRepository,
@@ -605,13 +611,25 @@ class RegistrationServiceTest {
         .thenReturn(CompletableFuture.completedFuture(allowSms
             ? Optional.of(CURRENT_TIME.plusSeconds(nextSmsSeconds))
             : Optional.empty()));
+    when(sendSmsVerificationCodePerNumberRateLimiter.getTimeOfNextAction(any()))
+        .thenReturn(CompletableFuture.completedFuture(allowSms
+            ? Optional.of(CURRENT_TIME.plusSeconds(nextSmsSeconds))
+            : Optional.empty()));
 
     when(sendVoiceVerificationCodePerSessionRateLimiter.getTimeOfNextAction(any()))
         .thenReturn(CompletableFuture.completedFuture(allowVoiceCall
             ? Optional.of(CURRENT_TIME.plusSeconds(nextVoiceCallSeconds))
             : Optional.empty()));
+    when(sendVoiceVerificationCodePerNumberRateLimiter.getTimeOfNextAction(any()))
+        .thenReturn(CompletableFuture.completedFuture(allowVoiceCall
+            ? Optional.of(CURRENT_TIME.plusSeconds(nextVoiceCallSeconds))
+            : Optional.empty()));
 
     when(checkVerificationCodePerSessionRateLimiter.getTimeOfNextAction(any()))
+        .thenReturn(CompletableFuture.completedFuture(allowCodeCheck
+            ? Optional.of(CURRENT_TIME.plusSeconds(nextCodeCheckSeconds))
+            : Optional.empty()));
+    when(checkVerificationCodeRatePerNumberLimiter.getTimeOfNextAction(any()))
         .thenReturn(CompletableFuture.completedFuture(allowCodeCheck
             ? Optional.of(CURRENT_TIME.plusSeconds(nextCodeCheckSeconds))
             : Optional.empty()));
@@ -846,8 +864,11 @@ class RegistrationServiceTest {
 
     when(sendSmsVerificationCodePerSessionRateLimiter.getTimeOfNextAction(any()))
         .thenReturn(CompletableFuture.completedFuture(nextSms));
+    when(sendSmsVerificationCodePerNumberRateLimiter.getTimeOfNextAction(any()))
+        .thenReturn(CompletableFuture.completedFuture(nextSms));
 
     final RegistrationSession.Builder sessionBuilder = RegistrationSession.newBuilder()
+        .setPhoneNumber(PhoneNumberUtil.getInstance().format(PHONE_NUMBER, PhoneNumberUtil.PhoneNumberFormat.E164))
         .setCreatedEpochMillis(sessionCreation.toEpochMilli())
         .setExpirationEpochMillis(sessionCreation.plus(RegistrationService.SESSION_TTL_AFTER_LAST_ACTION).toEpochMilli())
         .setLastCheckCodeAttemptEpochMillis(lastCodeCheck.toEpochMilli());
@@ -919,6 +940,26 @@ class RegistrationServiceTest {
             List.of(),
             CURRENT_TIME.plus(RegistrationService.SESSION_TTL_AFTER_LAST_ACTION)
         )
+    );
+  }
+
+  @SuppressWarnings("OptionalUsedAsFieldOrParameterType")
+  @ParameterizedTest
+  @MethodSource
+  void testGetLaterInstant(final Optional<Instant> t1, final Optional<Instant> t2, final Optional<Instant> expected) {
+
+    assertEquals(expected, RegistrationService.getLaterInstant(t1, t2));
+  }
+
+  static Stream<Arguments> testGetLaterInstant() {
+    final Instant earlier = Instant.now();
+    final Instant later = Instant.now().plusSeconds(5);
+
+    return Stream.of(
+        Arguments.of(Optional.empty(), Optional.empty(), Optional.empty()),
+        Arguments.of(Optional.of(earlier), Optional.empty(), Optional.empty()),
+        Arguments.of(Optional.empty(), Optional.of(later), Optional.empty()),
+        Arguments.of(Optional.of(earlier), Optional.of(later), Optional.of(later))
     );
   }
 }
