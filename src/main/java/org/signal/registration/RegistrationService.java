@@ -31,6 +31,7 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 import javax.annotation.Nullable;
 import org.apache.commons.lang3.StringUtils;
+import org.apache.commons.lang3.tuple.Pair;
 import org.signal.registration.ratelimit.RateLimitExceededException;
 import org.signal.registration.ratelimit.RateLimiter;
 import org.signal.registration.rpc.RegistrationSessionMetadata;
@@ -62,7 +63,7 @@ public class RegistrationService {
 
   private final SenderSelectionStrategy senderSelectionStrategy;
   private final SessionRepository sessionRepository;
-  private final RateLimiter<Phonenumber.PhoneNumber> sessionCreationRateLimiter;
+  private final RateLimiter<Pair<Phonenumber.PhoneNumber, String>> sessionCreationRateLimiter;
   private final RateLimiter<RegistrationSession> sendSmsVerificationCodeRateLimiter;
   private final RateLimiter<RegistrationSession> sendVoiceVerificationCodeRateLimiter;
   private final RateLimiter<RegistrationSession> checkVerificationCodeRateLimiter;
@@ -97,7 +98,7 @@ public class RegistrationService {
    */
   public RegistrationService(final SenderSelectionStrategy senderSelectionStrategy,
       final SessionRepository sessionRepository,
-      @Named("session-creation") final RateLimiter<Phonenumber.PhoneNumber> sessionCreationRateLimiter,
+      @Named("session-creation") final RateLimiter<Pair<Phonenumber.PhoneNumber, String>> sessionCreationRateLimiter,
       @Named("send-sms-verification-code") final RateLimiter<RegistrationSession> sendSmsVerificationCodeRateLimiter,
       @Named("send-voice-verification-code") final RateLimiter<RegistrationSession> sendVoiceVerificationCodeRateLimiter,
       @Named("check-verification-code") final RateLimiter<RegistrationSession> checkVerificationCodeRateLimiter,
@@ -126,9 +127,9 @@ public class RegistrationService {
    * {@link org.signal.registration.ratelimit.RateLimitExceededException}
    */
   public CompletableFuture<RegistrationSession> createRegistrationSession(final Phonenumber.PhoneNumber phoneNumber,
-      final SessionMetadata sessionMetadata) {
+      final String rateLimitCollationKey, final SessionMetadata sessionMetadata) {
 
-    return sessionCreationRateLimiter.checkRateLimit(phoneNumber)
+    return sessionCreationRateLimiter.checkRateLimit(Pair.of(phoneNumber, rateLimitCollationKey))
         .thenCompose(ignored ->
             sessionRepository.createSession(phoneNumber, sessionMetadata, clock.instant().plus(SESSION_TTL_AFTER_LAST_ACTION)));
   }

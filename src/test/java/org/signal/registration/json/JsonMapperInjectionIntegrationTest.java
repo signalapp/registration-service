@@ -9,6 +9,7 @@ import io.micronaut.test.annotation.MockBean;
 import io.micronaut.test.extensions.junit5.annotation.MicronautTest;
 import jakarta.inject.Inject;
 import jakarta.inject.Named;
+import org.apache.commons.lang3.tuple.Pair;
 import org.junit.jupiter.api.Test;
 import org.signal.registration.ratelimit.RateLimiter;
 import org.signal.registration.sender.SenderSelectionStrategy;
@@ -22,7 +23,7 @@ public class JsonMapperInjectionIntegrationTest {
   @SuppressWarnings("unchecked")
   @MockBean(named = "session-creation")
   @Named("session-creation")
-  RateLimiter<Phonenumber.PhoneNumber> sessionCreationRateLimiter = mock(RateLimiter.class);
+  RateLimiter<Pair<Phonenumber.PhoneNumber, String>> sessionCreationRateLimiter = mock(RateLimiter.class);
 
   @Inject
   JsonMapper jsonMapper;

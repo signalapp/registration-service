@@ -51,7 +51,7 @@ public class RegistrationServiceGrpcEndpoint extends ReactorRegistrationServiceG
   public Mono<CreateRegistrationSessionResponse> createSession(final CreateRegistrationSessionRequest request) {
     return Mono.fromCallable(() -> PhoneNumberUtil.getInstance().parse("+" + request.getE164(), null))
         .flatMap(phoneNumber -> Mono.fromFuture(
-            registrationService.createRegistrationSession(phoneNumber, SessionMetadata.newBuilder()
+            registrationService.createRegistrationSession(phoneNumber, request.getRateLimitCollationKey(), SessionMetadata.newBuilder()
                 .setAccountExistsWithE164(request.getAccountExistsWithE164())
                 .build())))
         .map(session -> CreateRegistrationSessionResponse.newBuilder()

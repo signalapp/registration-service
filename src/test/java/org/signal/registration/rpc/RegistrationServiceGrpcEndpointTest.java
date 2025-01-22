@@ -9,6 +9,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
@@ -77,7 +78,7 @@ class RegistrationServiceGrpcEndpointTest {
         .setPhoneNumber("+" + e164)
         .build();
 
-    when(registrationService.createRegistrationSession(any(), any()))
+    when(registrationService.createRegistrationSession(any(), anyString(), any()))
         .thenReturn(CompletableFuture.completedFuture(session));
 
     final CreateRegistrationSessionResponse response =
@@ -93,7 +94,7 @@ class RegistrationServiceGrpcEndpointTest {
   void createSessionRateLimited() {
     final Duration retryAfter = Duration.ofSeconds(60);
 
-    when(registrationService.createRegistrationSession(any(), any()))
+    when(registrationService.createRegistrationSession(any(), anyString(), any()))
         .thenReturn(CompletableFuture.failedFuture(new RateLimitExceededException(retryAfter)));
 
     final CreateRegistrationSessionResponse response =

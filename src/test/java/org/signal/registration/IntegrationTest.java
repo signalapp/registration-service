@@ -28,6 +28,7 @@ import java.nio.charset.StandardCharsets;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import org.apache.commons.lang3.tuple.Pair;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.signal.registration.ratelimit.RateLimiter;
@@ -60,7 +61,7 @@ public class IntegrationTest {
   @SuppressWarnings("unchecked")
   @MockBean(named = "session-creation")
   @Named("session-creation")
-  RateLimiter<Phonenumber.PhoneNumber> sessionCreationRateLimiter = mock(RateLimiter.class);
+  RateLimiter<Pair<Phonenumber.PhoneNumber, String>> sessionCreationRateLimiter = mock(RateLimiter.class);
 
   @Inject
   private RegistrationServiceGrpc.RegistrationServiceBlockingStub blockingStub;
