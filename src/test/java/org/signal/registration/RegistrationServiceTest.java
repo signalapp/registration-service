@@ -43,6 +43,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.ArgumentCaptor;
 import org.signal.registration.ratelimit.RateLimitExceededException;
 import org.signal.registration.ratelimit.RateLimiter;
@@ -78,7 +79,7 @@ class RegistrationServiceTest {
   private RateLimiter<RegistrationSession> checkVerificationCodePerSessionRateLimiter;
   private RateLimiter<Phonenumber.PhoneNumber> sendSmsVerificationCodePerNumberRateLimiter;
   private RateLimiter<Phonenumber.PhoneNumber> sendVoiceVerificationCodePerNumberRateLimiter;
-  private RateLimiter<Phonenumber.PhoneNumber> checkVerificationCodeRatePerNumberLimiter;
+  private RateLimiter<Phonenumber.PhoneNumber> checkVerificationCodePerNumberRateLimiter;
   private Clock clock;
   private SenderSelectionStrategy senderSelectionStrategy;
 
@@ -144,9 +145,9 @@ class RegistrationServiceTest {
         .thenReturn(CompletableFuture.completedFuture(Optional.of(CURRENT_TIME)));
 
     //noinspection unchecked
-    checkVerificationCodeRatePerNumberLimiter = mock(RateLimiter.class);
-    when(checkVerificationCodeRatePerNumberLimiter.checkRateLimit(any())).thenReturn(CompletableFuture.completedFuture(null));
-    when(checkVerificationCodeRatePerNumberLimiter.getTimeOfNextAction(any()))
+    checkVerificationCodePerNumberRateLimiter = mock(RateLimiter.class);
+    when(checkVerificationCodePerNumberRateLimiter.checkRateLimit(any())).thenReturn(CompletableFuture.completedFuture(null));
+    when(checkVerificationCodePerNumberRateLimiter.getTimeOfNextAction(any()))
         .thenReturn(CompletableFuture.completedFuture(Optional.of(CURRENT_TIME)));
 
     registrationService = new RegistrationService(senderSelectionStrategy,
@@ -157,7 +158,7 @@ class RegistrationServiceTest {
         checkVerificationCodePerSessionRateLimiter,
         sendSmsVerificationCodePerNumberRateLimiter,
         sendVoiceVerificationCodePerNumberRateLimiter,
-        checkVerificationCodeRatePerNumberLimiter,
+        checkVerificationCodePerNumberRateLimiter,
         List.of(sender),
         clock);
   }
@@ -270,16 +271,22 @@ class RegistrationServiceTest {
     assertEquals(Set.of("sender1", "sender3"), previouslyFailedSenderListCaptor.getValue());
   }
 
-  @Test
-  void sendVerificationCodeSmsRateLimited() {
+  @ParameterizedTest
+  @ValueSource(booleans = {true, false})
+  void sendVerificationCodeSmsRateLimited(final boolean sessionRateLimited) {
     final UUID sessionId;
     {
       final RegistrationSession session = registrationService.createRegistrationSession(PHONE_NUMBER, "", SESSION_METADATA).join();
       sessionId = UUIDUtil.uuidFromByteString(session.getId());
     }
 
-    when(sendSmsVerificationCodePerSessionRateLimiter.checkRateLimit(any()))
-        .thenReturn(CompletableFuture.failedFuture(new RateLimitExceededException(null, null)));
+    if (sessionRateLimited) {
+      when(sendSmsVerificationCodePerSessionRateLimiter.checkRateLimit(any()))
+          .thenReturn(CompletableFuture.failedFuture(new RateLimitExceededException(null, null)));
+    } else {
+      when(sendSmsVerificationCodePerNumberRateLimiter.checkRateLimit(any()))
+          .thenReturn(CompletableFuture.failedFuture(new RateLimitExceededException(null, null)));
+    }
 
     final CompletionException completionException = assertThrows(CompletionException.class,
         () -> registrationService.sendVerificationCode(MessageTransport.SMS, sessionId, SENDER_NAME, LANGUAGE_RANGES, CLIENT_TYPE).join());
@@ -292,16 +299,22 @@ class RegistrationServiceTest {
     verify(sessionRepository, never()).updateSession(any(), any());
   }
 
-  @Test
-  void sendVerificationCodeVoiceRateLimited() {
+  @ParameterizedTest
+  @ValueSource(booleans = {true, false})
+  void sendVerificationCodeVoiceRateLimited(final boolean sessionRateLimited) {
     final UUID sessionId;
     {
       final RegistrationSession session = registrationService.createRegistrationSession(PHONE_NUMBER, "", SESSION_METADATA).join();
       sessionId = UUIDUtil.uuidFromByteString(session.getId());
     }
 
-    when(sendVoiceVerificationCodePerSessionRateLimiter.checkRateLimit(any()))
-        .thenReturn(CompletableFuture.failedFuture(new RateLimitExceededException(null, null)));
+    if (sessionRateLimited) {
+      when(sendVoiceVerificationCodePerSessionRateLimiter.checkRateLimit(any()))
+          .thenReturn(CompletableFuture.failedFuture(new RateLimitExceededException(null, null)));
+    } else {
+      when(sendVoiceVerificationCodePerNumberRateLimiter.checkRateLimit(any()))
+          .thenReturn(CompletableFuture.failedFuture(new RateLimitExceededException(null, null)));
+    }
 
     final CompletionException completionException = assertThrows(CompletionException.class,
         () -> registrationService.sendVerificationCode(MessageTransport.VOICE, sessionId, SENDER_NAME, LANGUAGE_RANGES, CLIENT_TYPE).join());
@@ -530,8 +543,9 @@ class RegistrationServiceTest {
     verify(sessionRepository, never()).updateSession(any(), any());
   }
 
-  @Test
-  void checkVerificationCodeRateLimited() {
+  @ParameterizedTest
+  @ValueSource(booleans = {true, false})
+  void checkVerificationCodeRateLimited(final boolean sessionLimitExceeded) {
     final UUID sessionId = UUID.randomUUID();
 
     final RegistrationSession session = RegistrationSession.newBuilder()
@@ -550,8 +564,13 @@ class RegistrationServiceTest {
 
     final Duration retryAfterDuration = Duration.ofMinutes(17);
 
-    when(checkVerificationCodePerSessionRateLimiter.checkRateLimit(session))
-        .thenReturn(CompletableFuture.failedFuture(new RateLimitExceededException(retryAfterDuration, session)));
+    if (sessionLimitExceeded) {
+      when(checkVerificationCodePerSessionRateLimiter.checkRateLimit(session))
+          .thenReturn(CompletableFuture.failedFuture(new RateLimitExceededException(retryAfterDuration, session)));
+    } else {
+      when(checkVerificationCodePerNumberRateLimiter.checkRateLimit(PHONE_NUMBER))
+          .thenReturn(CompletableFuture.failedFuture(new RateLimitExceededException(retryAfterDuration)));
+    }
 
     final CompletionException completionException = assertThrows(CompletionException.class,
         () -> registrationService.checkVerificationCode(sessionId, VERIFICATION_CODE).join());
@@ -630,7 +649,7 @@ class RegistrationServiceTest {
         .thenReturn(CompletableFuture.completedFuture(allowCodeCheck
             ? Optional.of(CURRENT_TIME.plusSeconds(nextCodeCheckSeconds))
             : Optional.empty()));
-    when(checkVerificationCodeRatePerNumberLimiter.getTimeOfNextAction(any()))
+    when(checkVerificationCodePerNumberRateLimiter.getTimeOfNextAction(any()))
         .thenReturn(CompletableFuture.completedFuture(allowCodeCheck
             ? Optional.of(CURRENT_TIME.plusSeconds(nextCodeCheckSeconds))
             : Optional.empty()));

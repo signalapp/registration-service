@@ -338,6 +338,15 @@ public class RegistrationService {
 
       return checkVerificationCodePerSessionRateLimiter.checkRateLimit(session)
           .thenCompose(ignored -> checkVerificationCodePerNumberRateLimiter.checkRateLimit(getPhoneNumberFromSession(session)))
+          .exceptionally(throwable -> {
+            final Throwable unwrapped = CompletionExceptions.unwrap(throwable);
+            if (unwrapped instanceof RateLimitExceededException e) {
+              // the number-keyed limiter doesn't know about the session, so enrich the exception, if necessary
+              e = new RateLimitExceededException(e.getRetryAfterDuration().orElse(null), e.getRegistrationSession().orElse(session));
+              throw new CompletionException(e);
+            }
+            throw new CompletionException(unwrapped);
+          })
           .thenCompose(ignored -> {
         final RegistrationAttempt currentRegistrationAttempt =
             session.getRegistrationAttempts(session.getRegistrationAttemptsCount() - 1);
