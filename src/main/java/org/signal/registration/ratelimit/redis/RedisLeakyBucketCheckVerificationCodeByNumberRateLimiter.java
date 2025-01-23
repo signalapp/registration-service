@@ -31,7 +31,7 @@ public class RedisLeakyBucketCheckVerificationCodeByNumberRateLimiter extends Re
 
   @Override
   protected String getBucketName(final Phonenumber.PhoneNumber phoneNumber) {
-    return PhoneNumberUtil.getInstance().format(phoneNumber, PhoneNumberUtil.PhoneNumberFormat.E164);
+    return "check-verification-code-per-number::" + PhoneNumberUtil.getInstance().format(phoneNumber, PhoneNumberUtil.PhoneNumberFormat.E164);
   }
 
   @Override

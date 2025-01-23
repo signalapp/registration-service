@@ -30,7 +30,7 @@ public class RedisLeakyBucketSendVoiceVerificationCodeByNumberRateLimiter extend
 
   @Override
   protected String getBucketName(final Phonenumber.PhoneNumber phoneNumber) {
-    return PhoneNumberUtil.getInstance().format(phoneNumber, PhoneNumberUtil.PhoneNumberFormat.E164);
+    return "send-voice-verification-code-per-number::" + PhoneNumberUtil.getInstance().format(phoneNumber, PhoneNumberUtil.PhoneNumberFormat.E164);
   }
 
   @Override
