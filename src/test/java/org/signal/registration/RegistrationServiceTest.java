@@ -7,6 +7,7 @@ package org.signal.registration;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
@@ -283,7 +284,7 @@ class RegistrationServiceTest {
     final CompletionException completionException = assertThrows(CompletionException.class,
         () -> registrationService.sendVerificationCode(MessageTransport.SMS, sessionId, SENDER_NAME, LANGUAGE_RANGES, CLIENT_TYPE).join());
 
-    assertTrue(CompletionExceptions.unwrap(completionException) instanceof RateLimitExceededException);
+    assertInstanceOf(RateLimitExceededException.class, CompletionExceptions.unwrap(completionException));
 
     verify(sender, never()).sendVerificationCode(any(), any(), any(), any());
     verify(sendSmsVerificationCodePerSessionRateLimiter).checkRateLimit(any());
@@ -305,7 +306,7 @@ class RegistrationServiceTest {
     final CompletionException completionException = assertThrows(CompletionException.class,
         () -> registrationService.sendVerificationCode(MessageTransport.VOICE, sessionId, SENDER_NAME, LANGUAGE_RANGES, CLIENT_TYPE).join());
 
-    assertTrue(CompletionExceptions.unwrap(completionException) instanceof RateLimitExceededException);
+    assertInstanceOf(RateLimitExceededException.class, CompletionExceptions.unwrap(completionException));
 
     verify(sender, never()).sendVerificationCode(any(), any(), any(), any());
     verify(sendSmsVerificationCodePerSessionRateLimiter, never()).checkRateLimit(any());
@@ -328,7 +329,7 @@ class RegistrationServiceTest {
       registrationService.sendVerificationCode(MessageTransport.SMS, sessionId, SENDER_NAME, LANGUAGE_RANGES, CLIENT_TYPE).join();
     });
 
-    assertTrue(completionException.getCause() instanceof TransportNotAllowedException);
+    assertInstanceOf(TransportNotAllowedException.class, completionException.getCause());
 
     final TransportNotAllowedException transportNotAllowedException =
         (TransportNotAllowedException) completionException.getCause();
@@ -504,7 +505,7 @@ class RegistrationServiceTest {
     final CompletionException completionException = assertThrows(CompletionException.class,
         () -> registrationService.checkVerificationCode(sessionId, VERIFICATION_CODE).join());
 
-    assertTrue(CompletionExceptions.unwrap(completionException) instanceof SessionNotFoundException);
+    assertInstanceOf(SessionNotFoundException.class, CompletionExceptions.unwrap(completionException));
 
     verify(sessionRepository).getSession(sessionId);
     verify(sender, never()).checkVerificationCode(any(), any());
@@ -586,7 +587,7 @@ class RegistrationServiceTest {
     final CompletionException completionException = assertThrows(CompletionException.class,
         () -> registrationService.checkVerificationCode(sessionId, VERIFICATION_CODE).join());
 
-    assertTrue(CompletionExceptions.unwrap(completionException) instanceof AttemptExpiredException);
+    assertInstanceOf(AttemptExpiredException.class, CompletionExceptions.unwrap(completionException));
 
     verify(sessionRepository).getSession(sessionId);
     verify(sender, never()).checkVerificationCode(any(), any());
