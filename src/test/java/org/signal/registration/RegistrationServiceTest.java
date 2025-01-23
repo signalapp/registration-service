@@ -282,7 +282,8 @@ class RegistrationServiceTest {
 
     if (sessionRateLimited) {
       when(sendSmsVerificationCodePerSessionRateLimiter.checkRateLimit(any()))
-          .thenReturn(CompletableFuture.failedFuture(new RateLimitExceededException(null, null)));
+          .thenAnswer(answer -> CompletableFuture.failedFuture(
+              new RateLimitExceededException(null, answer.getArgument(0, RegistrationSession.class))));
     } else {
       when(sendSmsVerificationCodePerNumberRateLimiter.checkRateLimit(any()))
           .thenReturn(CompletableFuture.failedFuture(new RateLimitExceededException(null, null)));
@@ -291,7 +292,8 @@ class RegistrationServiceTest {
     final CompletionException completionException = assertThrows(CompletionException.class,
         () -> registrationService.sendVerificationCode(MessageTransport.SMS, sessionId, SENDER_NAME, LANGUAGE_RANGES, CLIENT_TYPE).join());
 
-    assertInstanceOf(RateLimitExceededException.class, CompletionExceptions.unwrap(completionException));
+    final RateLimitExceededException e = assertInstanceOf(RateLimitExceededException.class, CompletionExceptions.unwrap(completionException));
+    assertTrue(e.getRegistrationSession().isPresent());
 
     verify(sender, never()).sendVerificationCode(any(), any(), any(), any());
     verify(sendSmsVerificationCodePerSessionRateLimiter).checkRateLimit(any());
@@ -310,7 +312,8 @@ class RegistrationServiceTest {
 
     if (sessionRateLimited) {
       when(sendVoiceVerificationCodePerSessionRateLimiter.checkRateLimit(any()))
-          .thenReturn(CompletableFuture.failedFuture(new RateLimitExceededException(null, null)));
+          .thenAnswer(answer -> CompletableFuture.failedFuture(
+              new RateLimitExceededException(null, answer.getArgument(0, RegistrationSession.class))));
     } else {
       when(sendVoiceVerificationCodePerNumberRateLimiter.checkRateLimit(any()))
           .thenReturn(CompletableFuture.failedFuture(new RateLimitExceededException(null, null)));
@@ -319,7 +322,8 @@ class RegistrationServiceTest {
     final CompletionException completionException = assertThrows(CompletionException.class,
         () -> registrationService.sendVerificationCode(MessageTransport.VOICE, sessionId, SENDER_NAME, LANGUAGE_RANGES, CLIENT_TYPE).join());
 
-    assertInstanceOf(RateLimitExceededException.class, CompletionExceptions.unwrap(completionException));
+    final RateLimitExceededException e = assertInstanceOf(RateLimitExceededException.class, CompletionExceptions.unwrap(completionException));
+    assertTrue(e.getRegistrationSession().isPresent(), "Callers expect the session to be present");
 
     verify(sender, never()).sendVerificationCode(any(), any(), any(), any());
     verify(sendSmsVerificationCodePerSessionRateLimiter, never()).checkRateLimit(any());

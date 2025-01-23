@@ -27,6 +27,7 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
+import java.util.concurrent.CompletionStage;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import javax.annotation.Nullable;
@@ -198,7 +199,8 @@ public class RegistrationService {
           }
 
           return sessionRateLimiter.checkRateLimit(session)
-              .thenCompose(ignored -> numberRateLimiter.checkRateLimit(getPhoneNumberFromSession(session)))
+              .thenCompose(ignored -> numberRateLimiter.checkRateLimit(getPhoneNumberFromSession(session))
+                  .exceptionallyCompose(addSessionToRateLimitExceededExceptionIfNecessary(session)))
               .thenApply(ignored -> session);
         })
         .thenCompose(session -> {
@@ -338,15 +340,7 @@ public class RegistrationService {
 
       return checkVerificationCodePerSessionRateLimiter.checkRateLimit(session)
           .thenCompose(ignored -> checkVerificationCodePerNumberRateLimiter.checkRateLimit(getPhoneNumberFromSession(session)))
-          .exceptionally(throwable -> {
-            final Throwable unwrapped = CompletionExceptions.unwrap(throwable);
-            if (unwrapped instanceof RateLimitExceededException e) {
-              // the number-keyed limiter doesn't know about the session, so enrich the exception, if necessary
-              e = new RateLimitExceededException(e.getRetryAfterDuration().orElse(null), e.getRegistrationSession().orElse(session));
-              throw new CompletionException(e);
-            }
-            throw new CompletionException(unwrapped);
-          })
+          .exceptionallyCompose(addSessionToRateLimitExceededExceptionIfNecessary(session))
           .thenCompose(ignored -> {
         final RegistrationAttempt currentRegistrationAttempt =
             session.getRegistrationAttempts(session.getRegistrationAttemptsCount() - 1);
@@ -535,5 +529,19 @@ public class RegistrationService {
   @VisibleForTesting
   static Optional<Instant> getLaterInstant(final Optional<Instant> t1, final Optional<Instant> t2) {
     return t1.flatMap(a -> t2.map(b -> a.isAfter(b) ? a : b));
+  }
+
+  private Function<Throwable, CompletionStage<Void>> addSessionToRateLimitExceededExceptionIfNecessary(
+      final RegistrationSession session) {
+    return throwable -> {
+      Throwable unwrapped = CompletionExceptions.unwrap(throwable);
+      if (unwrapped instanceof RateLimitExceededException e) {
+        // the number-keyed limiter doesn't know about the session, so enrich the exception, if necessary
+        if (e.getRegistrationSession().isEmpty()) {
+          unwrapped = new RateLimitExceededException(e.getRetryAfterDuration().orElse(null), session);
+        }
+      }
+      return CompletableFuture.failedFuture(unwrapped);
+    };
   }
 }
