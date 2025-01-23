@@ -30,8 +30,8 @@
     <reactive.grpc.version>1.2.4</reactive.grpc.version>
     <testcontainers.version>1.20.4</testcontainers.version>
 
-    <!-- eclipse-temurin:21-jre (note: always use the multi-arch manifest *LIST* here); see https://hub.docker.com/_/eclipse-temurin -->
-    <docker.image.sha256>8e201486c2c51c07f0c1e33bf3841a03b2d624cd3dd8a734a1ece02ac48b795a</docker.image.sha256>
+    <!-- eclipse-temurin:21-jre-jammy (note: always use the multi-arch manifest *LIST* here); see https://hub.docker.com/_/eclipse-temurin -->
+    <docker.image.sha256>ebeb51a2a147be42b7d42342fecbeb2d9cb764f7742054024ac9a17bc1c8a21b</docker.image.sha256>
   </properties>
 
   <repositories>
