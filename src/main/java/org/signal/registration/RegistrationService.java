@@ -476,8 +476,6 @@ public class RegistrationService {
     // If the session is already verified, callers can't request or check more verification codes
     if (!verified) {
 
-      final Phonenumber.PhoneNumber phoneNumberFromSession = getPhoneNumberFromSession(session);
-
       // Callers can only check codes if there's an active attempt
       if (session.getRegistrationAttemptsCount() > 0) {
         final Instant currentAttemptExpiration = Instant.ofEpochMilli(
@@ -485,15 +483,13 @@ public class RegistrationService {
                 .getExpirationEpochMillis());
 
         if (!clock.instant().isAfter(currentAttemptExpiration)) {
-          nextCodeCheck = getLaterInstant(checkVerificationCodePerSessionRateLimiter.getTimeOfNextAction(session).join(),
-              checkVerificationCodePerNumberRateLimiter.getTimeOfNextAction(phoneNumberFromSession).join());
+          nextCodeCheck = checkVerificationCodePerSessionRateLimiter.getTimeOfNextAction(session).join();
         }
       }
 
       // Callers can't request more verification codes if they've exhausted their check attempts (since they can't check
       // any new codes they might receive)
-      nextSms = getLaterInstant(sendSmsVerificationCodePerSessionRateLimiter.getTimeOfNextAction(session).join(),
-          sendSmsVerificationCodePerNumberRateLimiter.getTimeOfNextAction(phoneNumberFromSession).join());
+      nextSms = sendSmsVerificationCodePerSessionRateLimiter.getTimeOfNextAction(session).join();
 
       // Callers may not request codes via phone call until they've attempted an SMS
       final boolean hasAttemptedSms = session.getRegistrationAttemptsList().stream().anyMatch(attempt ->
@@ -504,9 +500,7 @@ public class RegistrationService {
                       && attempt.getFailedSendReason() != FailedSendReason.FAILED_SEND_REASON_SUSPECTED_FRAUD);
 
       if (hasAttemptedSms) {
-        nextVoiceCall = getLaterInstant(
-            sendVoiceVerificationCodePerSessionRateLimiter.getTimeOfNextAction(session).join(),
-            sendVoiceVerificationCodePerNumberRateLimiter.getTimeOfNextAction(phoneNumberFromSession).join());
+        nextVoiceCall = sendVoiceVerificationCodePerSessionRateLimiter.getTimeOfNextAction(session).join();
       }
     }
 
@@ -521,14 +515,6 @@ public class RegistrationService {
       // parsed it successfully in the past
       throw new CompletionException(e);
     }
-  }
-
-  /**
-   * Returns the later of the two {@code Instant}s, if both are present. Else, it returns an empty {@code Optional}.
-   */
-  @VisibleForTesting
-  static Optional<Instant> getLaterInstant(final Optional<Instant> t1, final Optional<Instant> t2) {
-    return t1.flatMap(a -> t2.map(b -> a.isAfter(b) ? a : b));
   }
 
   private Function<Throwable, CompletionStage<Void>> addSessionToRateLimitExceededExceptionIfNecessary(
