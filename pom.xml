@@ -15,7 +15,7 @@
   <parent>
     <groupId>io.micronaut.platform</groupId>
     <artifactId>micronaut-parent</artifactId>
-    <version>4.10.11</version>
+    <version>4.10.14</version>
   </parent>
 
   <properties>
@@ -27,12 +27,12 @@
 
     <!-- See https://console.cloud.google.com/artifacts/docker/google.com:cloudsdktool/us/gcr.io/google-cloud-cli -->
     <gcloud.emulator.version>557.0.0-emulators</gcloud.emulator.version>
-    <simple-grpc.version>0.2.0</simple-grpc.version>
+    <simple-grpc.version>0.2.1</simple-grpc.version>
     <testcontainers.version>1.21.4</testcontainers.version>
 
     <!-- must be greater than or equal to the value from Google libraries-bom, see https://protobuf.dev/support/cross-version-runtime-guarantee/ -->
     <!-- the latest 4.x should be fine https://central.sonatype.com/artifact/com.google.protobuf/protobuf-java/versions -->
-    <protobuf.version>4.34.1</protobuf.version>
+    <protobuf.version>4.35.0</protobuf.version>
 
     <!-- Note: always use the multi-arch manifest *LIST* here; see https://hub.docker.com/_/eclipse-temurin -->
     <docker.image>eclipse-temurin:25-jre-noble@sha256:d2975fcad8dc9ac2180c0c278c8ae7b3443d36cb80845cb0811c20d9463f5fee</docker.image>
@@ -50,7 +50,7 @@
       <dependency>
         <groupId>com.google.cloud</groupId>
         <artifactId>libraries-bom</artifactId>
-        <version>26.79.0</version>
+        <version>26.83.0</version>
         <type>pom</type>
         <scope>import</scope>
       </dependency>
@@ -83,7 +83,7 @@
       <dependency>
         <groupId>com.google.api</groupId>
         <artifactId>gax</artifactId>
-        <version>2.77.0</version>
+        <version>2.80.0</version>
       </dependency>
     </dependencies>
   </dependencyManagement>
@@ -155,7 +155,7 @@
     <dependency>
       <groupId>com.googlecode.libphonenumber</groupId>
       <artifactId>libphonenumber</artifactId>
-      <version>9.0.27</version>
+      <version>9.0.31</version>
     </dependency>
 
     <dependency>
@@ -234,7 +234,7 @@
     <dependency>
       <groupId>commons-io</groupId>
       <artifactId>commons-io</artifactId>
-      <version>2.21.0</version>
+      <version>2.22.0</version>
     </dependency>
 
     <!-- Compensate for transitive dependencies knocked out by Twilio's exclusions -->
@@ -396,7 +396,7 @@
     <dependency>
       <groupId>commons-codec</groupId>
       <artifactId>commons-codec</artifactId>
-      <version>1.21.0</version>
+      <version>1.22.0</version>
     </dependency>
 
     <!-- required for YAML configuration files in Micronaut 4 -->
@@ -591,7 +591,7 @@
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-enforcer-plugin</artifactId>
-        <version>3.6.2</version>
+        <version>3.6.3</version>
 
         <executions>
           <execution>
