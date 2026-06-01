@@ -15,7 +15,7 @@
   <parent>
     <groupId>io.micronaut.platform</groupId>
     <artifactId>micronaut-parent</artifactId>
-    <version>4.10.13</version>
+    <version>4.10.15</version>
   </parent>
 
   <properties>
@@ -32,7 +32,7 @@
 
     <!-- must be greater than or equal to the value from Google libraries-bom, see https://protobuf.dev/support/cross-version-runtime-guarantee/ -->
     <!-- the latest 4.x should be fine https://central.sonatype.com/artifact/com.google.protobuf/protobuf-java/versions -->
-    <protobuf.version>4.34.1</protobuf.version>
+    <protobuf.version>4.35.0</protobuf.version>
     <!-- override property from micronaut-parent, as other dependencies need a newer version -->
     <grpc.version>1.81.0</grpc.version>
 
@@ -160,13 +160,13 @@
     <dependency>
       <groupId>com.googlecode.libphonenumber</groupId>
       <artifactId>libphonenumber</artifactId>
-      <version>9.0.29</version>
+      <version>9.0.31</version>
     </dependency>
 
     <dependency>
       <groupId>com.messagebird</groupId>
       <artifactId>messagebird-api</artifactId>
-      <version>6.2.5</version>
+      <version>6.3.0</version>
 
       <exclusions>
         <!-- Conflicts with our direct dependency -->
@@ -602,7 +602,7 @@
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-enforcer-plugin</artifactId>
-        <version>3.6.2</version>
+        <version>3.6.3</version>
 
         <executions>
           <execution>
