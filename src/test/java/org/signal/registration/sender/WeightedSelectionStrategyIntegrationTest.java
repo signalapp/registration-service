@@ -6,6 +6,7 @@
 package org.signal.registration.sender;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
@@ -21,6 +22,7 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.stream.Stream;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
@@ -50,6 +52,7 @@ import org.signal.registration.sender.twilio.verify.TwilioVerifySender;
 @Property(name = "selection.voice.region-overrides.is", value = "messagebird-voice")
 @Property(name = "selection.voice.region-overrides.cn", value = "twilio-verify")
 @Property(name = "selection.voice.region-overrides.mx", value = "twilio-programmable-voice")
+@Property(name = "selection.voice.unavailable-in-regions", value = "sy")
 @Property(name = "adaptive.sms.default-choices", value = "twilio-verify,infobip-sms")
 @Property(name = "adaptive.voice.default-choices", value = "twilio-verify,messagebird-voice")
 @Property(name = "twilio.account-sid", value = "account-sid")
@@ -122,6 +125,9 @@ class WeightedSelectionStrategyIntegrationTest {
   private static final Phonenumber.PhoneNumber USE_INFOBIP_SMS_NUMBER =
       PhoneNumberUtil.getInstance().getExampleNumber("GB");
 
+  private static final Phonenumber.PhoneNumber NO_SENDER_AVAILABLE_NUMBER =
+      PhoneNumberUtil.getInstance().getExampleNumber("SY");
+
   private static final Phonenumber.PhoneNumber FICTITIOUS_PHONE_NUMBER;
 
   static {
@@ -147,7 +153,7 @@ class WeightedSelectionStrategyIntegrationTest {
       final Phonenumber.PhoneNumber phoneNumber,
       final String acceptLanguage,
       final ClientType clientType,
-      final Class<? extends VerificationCodeSender> senderClass) {
+      final Class<? extends VerificationCodeSender> senderClass) throws NoSenderAvailableException {
 
     assertEquals(senderClass,
         selectionStrategy.chooseVerificationCodeSender(
@@ -174,5 +180,12 @@ class WeightedSelectionStrategyIntegrationTest {
         Arguments.of(MessageTransport.VOICE, USE_MB_VOICE_NUMBER,         "en", ClientType.IOS, MessageBirdVoiceSender.class),
         Arguments.of(MessageTransport.SMS,   USE_MB_SMS_NUMBER,           "en", ClientType.IOS, MessageBirdSmsSender.class),
         Arguments.of(MessageTransport.SMS,   USE_INFOBIP_SMS_NUMBER,      "en", ClientType.IOS, InfobipSmsSender.class));
+  }
+
+  @Test
+  void chooseVerificationCodeNoSenderAvailable() {
+    assertThrows(NoSenderAvailableException.class, () -> selectionStrategy.chooseVerificationCodeSender(
+        MessageTransport.VOICE, NO_SENDER_AVAILABLE_NUMBER, Locale.LanguageRange.parse("en"), ClientType.IOS, null,
+        Collections.emptySet()));
   }
 }

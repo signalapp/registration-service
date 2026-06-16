@@ -46,7 +46,7 @@ public class DynamicSenderSelectionStrategy implements SenderSelectionStrategy {
       final List<Locale.LanguageRange> languageRanges,
       final ClientType clientType,
       final @Nullable String preferredSender,
-      final Set<String> previouslyFailedSenders) {
+      final Set<String> previouslyFailedSenders) throws NoSenderAvailableException {
 
     if (prescribedVerificationCodeSender.supportsLanguage(transport, phoneNumber, languageRanges)) {
       return new SenderSelection(prescribedVerificationCodeSender, SelectionReason.CONFIGURED);

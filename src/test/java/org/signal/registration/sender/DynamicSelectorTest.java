@@ -1,5 +1,6 @@
 package org.signal.registration.sender;
 
+import static org.junit.Assert.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
@@ -15,6 +16,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Set;
 import java.util.TreeMap;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -74,7 +76,7 @@ public class DynamicSelectorTest {
       final String region,
       final double randomValue,
       final VerificationCodeSender expected,
-      final SenderSelectionStrategy.SelectionReason expectedReason) {
+      final SenderSelectionStrategy.SelectionReason expectedReason) throws NoSenderAvailableException {
 
     // sort by name for deterministic order
     TreeMap<String, Integer> sortedDefaults = new TreeMap<>(defaults);
@@ -91,7 +93,8 @@ public class DynamicSelectorTest {
         List.of(SENDER_FALLBACK.getName()),
         sortedDefaults,
         sortedOverrides,
-        Collections.emptyMap());
+        Collections.emptyMap(),
+        Collections.emptySet());
     final DynamicSelector ts = fixedRandom(
         randomValue,
         config,
@@ -125,14 +128,15 @@ public class DynamicSelectorTest {
   void override(
       Map<String, String> regionOverrides,
       final Phonenumber.PhoneNumber number,
-      VerificationCodeSender expected) {
+      VerificationCodeSender expected) throws NoSenderAvailableException {
 
     final DynamicSelectorConfiguration config = new DynamicSelectorConfiguration(
         MessageTransport.SMS,
         List.of(SENDER_FALLBACK.getName()),
         Map.of(),
         Map.of(),
-        regionOverrides);
+        regionOverrides,
+        Collections.emptySet());
 
     final DynamicSelector ts = buildSelector(config, SENDERS);
     final SenderSelectionStrategy.SenderSelection actual = ts.chooseVerificationCodeSender(
@@ -163,29 +167,31 @@ public class DynamicSelectorTest {
   public void ranking(
       final @Nullable VerificationCodeSender choice,
       final List<VerificationCodeSender> fallbacks,
-      final VerificationCodeSender expected) {
+      final VerificationCodeSender expected) throws NoSenderAvailableException {
     final DynamicSelectorConfiguration config = new DynamicSelectorConfiguration(
         MessageTransport.SMS,
         fallbacks.stream().map(VerificationCodeSender::getName).toList(),
         choice == null ? Map.of() : Map.of(choice.getName(), 1),
         Map.of(),
-        Map.of());
+        Map.of(),
+        Collections.emptySet());
 
     final DynamicSelector ts = buildSelector(config, SENDERS);
     final Phonenumber.PhoneNumber num = PhoneNumberUtil.getInstance().getExampleNumber("US");
     final VerificationCodeSender actual = ts.chooseVerificationCodeSender(num, Locale.LanguageRange.parse("en-US"),
         ClientType.IOS, null, Collections.emptySet()).sender();
-    assertEquals(actual, expected);
+    assertEquals(expected, actual);
   }
 
   @Test
-  public void preferredSender() {
+  public void preferredSender() throws NoSenderAvailableException {
     final DynamicSelectorConfiguration config = new DynamicSelectorConfiguration(
         MessageTransport.SMS,
         List.of(SENDER_FALLBACK.getName()),
         Map.of(),
         Map.of(),
-        Map.of());
+        Map.of(),
+        Collections.emptySet());
 
     final DynamicSelector ts = buildSelector(config, List.of(SENDER_FALLBACK, SENDER_A));
     final SenderSelectionStrategy.SenderSelection actual = ts.chooseVerificationCodeSender(
@@ -199,13 +205,14 @@ public class DynamicSelectorTest {
   }
 
   @Test
-  public void noLanguages() {
+  public void noLanguages() throws NoSenderAvailableException {
     final DynamicSelectorConfiguration config = new DynamicSelectorConfiguration(
         MessageTransport.SMS,
         List.of(SENDER_FALLBACK.getName()),
         Map.of(UNSUPPORTED.getName(), 100),
         Map.of(),
-        Map.of());
+        Map.of(),
+        Collections.emptySet());
 
     // sender doesn't support any languages, but use it anyway if no language is provided by the user
     final DynamicSelector ts = buildSelector(config, List.of(SENDER_FALLBACK, UNSUPPORTED));
@@ -217,6 +224,25 @@ public class DynamicSelectorTest {
         Collections.emptySet());
     assertEquals(UNSUPPORTED, actual.sender());
     assertEquals(SelectionReason.RANDOM, actual.reason());
+  }
+
+  @Test
+  public void noSenderAvailable() {
+    final DynamicSelectorConfiguration config = new DynamicSelectorConfiguration(
+        MessageTransport.SMS,
+        List.of(SENDER_FALLBACK.getName()),
+        Map.of(UNSUPPORTED.getName(), 100),
+        Map.of(),
+        Map.of(),
+        Set.of("fr"));
+
+    final DynamicSelector ts = buildSelector(config, SENDERS);
+    assertThrows(NoSenderAvailableException.class, () -> ts.chooseVerificationCodeSender(
+        PhoneNumberUtil.getInstance().getExampleNumber("FR"),
+        Locale.LanguageRange.parse("fr-FR"),
+        ClientType.IOS,
+        null,
+        Collections.emptySet()));
   }
 
 

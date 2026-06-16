@@ -46,6 +46,7 @@ import org.signal.registration.rpc.SendVerificationCodeRequest;
 import org.signal.registration.rpc.SendVerificationCodeResponse;
 import org.signal.registration.sender.AttemptData;
 import org.signal.registration.sender.LastDigitsOfPhoneNumberVerificationCodeSender;
+import org.signal.registration.sender.NoSenderAvailableException;
 import org.signal.registration.sender.SenderRejectedRequestException;
 import org.signal.registration.sender.SenderRejectedTransportException;
 import org.signal.registration.sender.SenderSelectionStrategy;
@@ -82,7 +83,7 @@ public class IntegrationTest {
   private RegistrationServiceGrpc.RegistrationServiceBlockingStub blockingStub;
 
   @BeforeEach
-  void setUp() {
+  void setUp() throws NoSenderAvailableException {
     when(senderSelectionStrategy.chooseVerificationCodeSender(any(), any(), any(), any(), any(), any()))
         .thenReturn(new SenderSelectionStrategy.SenderSelection(
             new LastDigitsOfPhoneNumberVerificationCodeSender(),
@@ -146,7 +147,7 @@ public class IntegrationTest {
   }
 
   @Test
-  void registerTransportNotAllowed() throws SenderRejectedRequestException {
+  void registerTransportNotAllowed() throws SenderRejectedRequestException, NoSenderAvailableException {
     final VerificationCodeSender smsNotSupportedSender = mock(VerificationCodeSender.class);
 
     when(smsNotSupportedSender.sendVerificationCode(eq(org.signal.registration.sender.MessageTransport.SMS), any(), any(), any()))

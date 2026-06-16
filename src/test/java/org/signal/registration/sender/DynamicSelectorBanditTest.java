@@ -46,7 +46,7 @@ public class DynamicSelectorBanditTest {
         "ZZ", Map.of(TV, 10, MV, 10, A, 80));
     final Map<String, String> regionOverrides = Map.of();
     final DynamicSelectorConfiguration config = new DynamicSelectorConfiguration(
-        transport, fallbackSenders, defaultWeights, regionWeights, regionOverrides);
+        transport, fallbackSenders, defaultWeights, regionWeights, regionOverrides, Collections.emptySet());
 
     final List<VerificationCodeSender> verificationCodeSenders =
         List.of(
@@ -75,7 +75,8 @@ public class DynamicSelectorBanditTest {
     this.selector = new DynamicSelector(random, new SimpleMeterRegistry(), config, adaptiveStrategy, verificationCodeSenders);
   }
 
-  public String chooseName(final String phoneNumber, final String region, final String language) {
+  public String chooseName(final String phoneNumber, final String region, final String language)
+      throws NoSenderAvailableException {
     try {
       return selector.chooseVerificationCodeSender(
           PhoneNumberUtil.getInstance().parse(phoneNumber, region),
@@ -88,7 +89,8 @@ public class DynamicSelectorBanditTest {
     }
   }
 
-  public Map<String, Integer> chooseNameHistogram(final int count, final String phoneNumber, final String region, final String language) {
+  public Map<String, Integer> chooseNameHistogram(final int count, final String phoneNumber, final String region, final String language)
+      throws NoSenderAvailableException {
     final HashMap<String, Integer> histogram = new HashMap<>();
     for(int i = 0; i < count; i++) {
       final String name = chooseName(phoneNumber, region, language);
@@ -99,7 +101,7 @@ public class DynamicSelectorBanditTest {
 
   // in germany with german language, we will mostly rely on our bandit which has better stats for twilio
   @Test
-  void testDeDe() {
+  void testDeDe() throws NoSenderAvailableException {
     final Map<String, Integer> h = chooseNameHistogram(1000, "+492115684962", "de", "de");
     assertTrue(h.getOrDefault(TV, 0) > 700);
     assertEquals(1000, h.getOrDefault(TV, 0) + h.getOrDefault(MV, 0));
@@ -109,7 +111,7 @@ public class DynamicSelectorBanditTest {
   // because twilio-verify doesn't support french. thus we expect to see a lower percentage of messagebird-verify
   // and expect the rest to be twilio-programmable-messaging.
   @Test
-  void testDeFr() {
+  void testDeFr() throws NoSenderAvailableException {
     final Map<String, Integer> h = chooseNameHistogram(1000, "+492115684962", "de", "fr");
     assertTrue(h.getOrDefault(MV, 0) > 100);
     assertEquals(0, h.getOrDefault(TV, 0));
@@ -118,7 +120,7 @@ public class DynamicSelectorBanditTest {
 
   // in the US with english, we will just use a static 50/50% split with no fallback happening.
   @Test
-  void testUsEn() {
+  void testUsEn() throws NoSenderAvailableException {
     final Map<String, Integer> h = chooseNameHistogram(1000, "+12155551111", "us", "en");
     assertTrue(h.getOrDefault(TV, 0) > 400);
     assertTrue(h.getOrDefault(MV, 0) > 400);

@@ -1,15 +1,16 @@
 package org.signal.registration.sender;
 
-import static org.signal.registration.sender.DynamicSelector.ADAPTIVE_NAME;
-
 import io.micronaut.context.annotation.EachProperty;
 import io.micronaut.context.annotation.Parameter;
+import jakarta.annotation.Nullable;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotEmpty;
-import java.util.HashSet;
+import java.util.Collections;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
+import java.util.stream.Collectors;
 import org.signal.registration.util.MapUtil;
 
 /**
@@ -21,6 +22,7 @@ import org.signal.registration.util.MapUtil;
  * @param defaultWeights  The proportion of each service type to use
  * @param regionWeights   Override of weights by region
  * @param regionOverrides Map from region to service that should always be used for that region
+ * @param unavailableInRegions An optional list of regions where no providers are available for this transport
  */
 @EachProperty("selection")
 public record DynamicSelectorConfiguration(
@@ -28,40 +30,17 @@ public record DynamicSelectorConfiguration(
     @NotEmpty List<@NotBlank String> fallbackSenders,
     Map<@NotBlank String, Integer> defaultWeights,
     Map<@NotBlank String, Map<@NotBlank String, Integer>> regionWeights,
-    Map<@NotBlank String, @NotBlank String> regionOverrides
+    Map<@NotBlank String, @NotBlank String> regionOverrides,
+    @Nullable Set<@NotBlank String> unavailableInRegions
 ) {
 
-  public DynamicSelectorConfiguration(
-      @Parameter MessageTransport transport,
-      @NotEmpty List<@NotBlank String> fallbackSenders,
-      Map<@NotBlank String, Integer> defaultWeights,
-      Map<@NotBlank String, Map<@NotBlank String, Integer>> regionWeights,
-      Map<@NotBlank String, @NotBlank String> regionOverrides) {
-    this.transport = transport;
-    this.fallbackSenders = fallbackSenders;
-    this.defaultWeights = defaultWeights;
-    this.regionWeights = MapUtil.keysToUpperCase(regionWeights);
-    this.regionOverrides = MapUtil.keysToUpperCase(regionOverrides);
+  public DynamicSelectorConfiguration {
+    regionWeights = MapUtil.keysToUpperCase(regionWeights);
+    regionOverrides = MapUtil.keysToUpperCase(regionOverrides);
+    if (unavailableInRegions == null) {
+      unavailableInRegions = Collections.emptySet();
+    }
+    unavailableInRegions = unavailableInRegions.stream().map(r -> r.toUpperCase(Locale.ROOT)).collect(Collectors.toSet());
   }
 
-
-  /**
-   * Determine which regions are configured to use adaptive routing.
-   */
-  public Set<String> computeAdaptiveRegions() {
-    final Set<String> adaptiveRegions = new HashSet<>();
-    this.regionOverrides().forEach((region, senderName) -> {
-      if (senderName.equals(ADAPTIVE_NAME)) {
-        adaptiveRegions.add(region);
-      }
-    });
-    this.regionWeights().forEach((region, dist) -> {
-      dist.forEach((senderName, weight) -> {
-        if (senderName.equals(ADAPTIVE_NAME)) {
-          adaptiveRegions.add(region);
-        }
-      });
-    });
-    return adaptiveRegions;
-  }
 }

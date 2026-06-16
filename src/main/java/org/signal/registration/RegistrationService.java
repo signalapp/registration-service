@@ -37,6 +37,7 @@ import org.signal.registration.rpc.RegistrationSessionMetadata;
 import org.signal.registration.sender.AttemptData;
 import org.signal.registration.sender.ClientType;
 import org.signal.registration.sender.MessageTransport;
+import org.signal.registration.sender.NoSenderAvailableException;
 import org.signal.registration.sender.SenderFraudBlockException;
 import org.signal.registration.sender.SenderRateLimitedRequestException;
 import org.signal.registration.sender.SenderRejectedRequestException;
@@ -187,13 +188,14 @@ public class RegistrationService {
    * @throws RateLimitExceededException if the caller must wait before requesting another verification code
    * @throws SenderRejectedRequestException if the sender received but rejected the request to send a verification code
    * for any reason
+   * @throws NoSenderAvailableException if there are no available senders in the region for the specified transport
    */
   public RegistrationSession sendVerificationCode(final MessageTransport messageTransport,
       final UUID sessionId,
       @Nullable final String senderName,
       final List<Locale.LanguageRange> languageRanges,
       final ClientType clientType)
-      throws TransportNotAllowedException, SessionAlreadyVerifiedException, SessionNotFoundException, RateLimitExceededException, SenderRejectedRequestException {
+      throws TransportNotAllowedException, SessionAlreadyVerifiedException, SessionNotFoundException, RateLimitExceededException, SenderRejectedRequestException, NoSenderAvailableException {
 
     final RateLimiter<RegistrationSession> sessionRateLimiter = switch (messageTransport) {
       case SMS -> sendSmsVerificationCodePerSessionRateLimiter;

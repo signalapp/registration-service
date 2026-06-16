@@ -44,13 +44,14 @@ public interface SenderSelectionStrategy {
    *                                produced a successful verification
    * @return a {@link SenderSelection} appropriate for the given message transport, phone number, language preferences,
    * and client type
+   * @throws NoSenderAvailableException if no sender is available in the region for the specified transport
    */
   SenderSelection chooseVerificationCodeSender(MessageTransport transport,
       Phonenumber.PhoneNumber phoneNumber,
       List<Locale.LanguageRange> languageRanges,
       ClientType clientType,
       @Nullable String preferredSender,
-      Set<String> previouslyFailedSenders);
+      Set<String> previouslyFailedSenders) throws NoSenderAvailableException;
 
   enum SelectionReason {
 

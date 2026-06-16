@@ -35,6 +35,7 @@ import org.signal.registration.TransportNotAllowedException;
 import org.signal.registration.ratelimit.RateLimitExceededException;
 import org.signal.registration.sender.ClientType;
 import org.signal.registration.sender.MessageTransport;
+import org.signal.registration.sender.NoSenderAvailableException;
 import org.signal.registration.sender.SenderRejectedRequestException;
 import org.signal.registration.session.RegistrationSession;
 import org.signal.registration.session.SessionNotFoundException;
@@ -152,7 +153,7 @@ class RegistrationServiceGrpcEndpointTest {
 
   @Test
   void sendVerificationCode()
-      throws SenderRejectedRequestException, SessionAlreadyVerifiedException, RateLimitExceededException, TransportNotAllowedException, SessionNotFoundException {
+      throws SenderRejectedRequestException, SessionAlreadyVerifiedException, RateLimitExceededException, TransportNotAllowedException, SessionNotFoundException, NoSenderAvailableException {
     final UUID sessionUuid = UUID.randomUUID();
 
     when(registrationService.sendVerificationCode(any(), any(), isNull(), any(), any()))
@@ -175,11 +176,12 @@ class RegistrationServiceGrpcEndpointTest {
     assertFalse(response.hasError());
   }
 
-  @Test
-  void sendVerificationCodeSenderRejected()
-      throws SenderRejectedRequestException, SessionAlreadyVerifiedException, RateLimitExceededException, TransportNotAllowedException, SessionNotFoundException {
+  @ParameterizedTest
+  @MethodSource
+  void sendVerificationCodePermanentError(final Throwable throwable, final SendVerificationCodeErrorType expectedErrorType)
+      throws SenderRejectedRequestException, SessionAlreadyVerifiedException, RateLimitExceededException, TransportNotAllowedException, SessionNotFoundException, NoSenderAvailableException {
     when(registrationService.sendVerificationCode(any(), any(), any(), any(), any()))
-        .thenThrow(new SenderRejectedRequestException("Oh no!"));
+        .thenThrow(throwable);
 
     final SendVerificationCodeResponse response =
         blockingStub.sendVerificationCode(SendVerificationCodeRequest.newBuilder()
@@ -190,15 +192,22 @@ class RegistrationServiceGrpcEndpointTest {
 
     assertFalse(response.hasSessionMetadata());
     assertTrue(response.hasError());
-    assertEquals(SendVerificationCodeErrorType.SEND_VERIFICATION_CODE_ERROR_TYPE_SENDER_REJECTED,
-        response.getError().getErrorType());
-
+    assertEquals(expectedErrorType, response.getError().getErrorType());
     assertFalse(response.getError().getMayRetry());
+  }
+
+  static Stream<Arguments> sendVerificationCodePermanentError() {
+    return Stream.of(
+        Arguments.argumentSet("Sender rejected", new SenderRejectedRequestException("Oh no!"),
+            SendVerificationCodeErrorType.SEND_VERIFICATION_CODE_ERROR_TYPE_SENDER_REJECTED),
+        Arguments.argumentSet("No sender available", new NoSenderAvailableException(),
+            SendVerificationCodeErrorType.SEND_VERIFICATION_CODE_ERROR_NO_SENDER_AVAILABLE)
+    );
   }
 
   @Test
   void sendVerificationCodeRateLimited()
-      throws SenderRejectedRequestException, SessionAlreadyVerifiedException, RateLimitExceededException, TransportNotAllowedException, SessionNotFoundException {
+      throws SenderRejectedRequestException, SessionAlreadyVerifiedException, RateLimitExceededException, TransportNotAllowedException, SessionNotFoundException, NoSenderAvailableException {
     final Duration retryAfter = Duration.ofSeconds(79);
 
     when(registrationService.sendVerificationCode(any(), any(), any(), any(), any()))
@@ -222,7 +231,7 @@ class RegistrationServiceGrpcEndpointTest {
 
   @Test
   void sendVerificationCodeSessionNotFound()
-      throws SenderRejectedRequestException, SessionAlreadyVerifiedException, RateLimitExceededException, TransportNotAllowedException, SessionNotFoundException {
+      throws SenderRejectedRequestException, SessionAlreadyVerifiedException, RateLimitExceededException, TransportNotAllowedException, SessionNotFoundException, NoSenderAvailableException {
 
     when(registrationService.sendVerificationCode(any(), any(), any(), any(), any()))
         .thenThrow(new SessionNotFoundException());
@@ -244,7 +253,7 @@ class RegistrationServiceGrpcEndpointTest {
 
   @Test
   void sendVerificationCodeAlreadyVerified()
-      throws SenderRejectedRequestException, SessionAlreadyVerifiedException, RateLimitExceededException, TransportNotAllowedException, SessionNotFoundException {
+      throws SenderRejectedRequestException, SessionAlreadyVerifiedException, RateLimitExceededException, TransportNotAllowedException, SessionNotFoundException, NoSenderAvailableException {
 
     when(registrationService.sendVerificationCode(any(), any(), any(), any(), any()))
         .thenThrow(new SessionAlreadyVerifiedException(RegistrationSession.newBuilder().build()));
@@ -266,7 +275,7 @@ class RegistrationServiceGrpcEndpointTest {
 
   @Test
   void sendVerificationCodeTransportNotAllowed()
-      throws SenderRejectedRequestException, SessionAlreadyVerifiedException, RateLimitExceededException, TransportNotAllowedException, SessionNotFoundException {
+      throws SenderRejectedRequestException, SessionAlreadyVerifiedException, RateLimitExceededException, TransportNotAllowedException, SessionNotFoundException, NoSenderAvailableException {
 
     when(registrationService.sendVerificationCode(any(), any(), any(), any(), any()))
         .thenThrow(new TransportNotAllowedException(new RuntimeException(), RegistrationSession.newBuilder().build()));

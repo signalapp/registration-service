@@ -53,6 +53,7 @@ import org.signal.registration.rpc.RegistrationSessionMetadata;
 import org.signal.registration.sender.AttemptData;
 import org.signal.registration.sender.ClientType;
 import org.signal.registration.sender.MessageTransport;
+import org.signal.registration.sender.NoSenderAvailableException;
 import org.signal.registration.sender.SenderFraudBlockException;
 import org.signal.registration.sender.SenderRateLimitedRequestException;
 import org.signal.registration.sender.SenderRejectedRequestException;
@@ -96,7 +97,7 @@ class RegistrationServiceTest {
   private static final Instant CURRENT_TIME = Instant.now().truncatedTo(ChronoUnit.MILLIS);
 
   @BeforeEach
-  void setUp() {
+  void setUp() throws NoSenderAvailableException {
     sender = mock(VerificationCodeSender.class);
     when(sender.getName()).thenReturn(SENDER_NAME);
     when(sender.getAttemptTtl()).thenReturn(SESSION_TTL);
@@ -177,7 +178,7 @@ class RegistrationServiceTest {
 
   @Test
   void sendVerificationCode()
-      throws SenderRejectedRequestException, RateLimitExceededException, SessionNotFoundException, SessionAlreadyVerifiedException, TransportNotAllowedException {
+      throws SenderRejectedRequestException, RateLimitExceededException, SessionNotFoundException, SessionAlreadyVerifiedException, TransportNotAllowedException, NoSenderAvailableException {
     final String remoteId = UUID.randomUUID().toString();
 
     final UUID sessionId;
@@ -207,7 +208,7 @@ class RegistrationServiceTest {
 
   @Test
   void previouslyFailedSenders()
-      throws SenderRejectedRequestException, RateLimitExceededException, SessionNotFoundException, SessionAlreadyVerifiedException, TransportNotAllowedException {
+      throws SenderRejectedRequestException, RateLimitExceededException, SessionNotFoundException, SessionAlreadyVerifiedException, TransportNotAllowedException, NoSenderAvailableException {
 
     final UUID sessionId;
     {
@@ -415,7 +416,7 @@ class RegistrationServiceTest {
 
   @Test
   void registrationAttempts()
-      throws SenderRejectedRequestException, RateLimitExceededException, SessionAlreadyVerifiedException, TransportNotAllowedException, SessionNotFoundException {
+      throws SenderRejectedRequestException, RateLimitExceededException, SessionAlreadyVerifiedException, TransportNotAllowedException, SessionNotFoundException, NoSenderAvailableException {
     final String firstVerificationCode = "123456";
     final String secondVerificationCode = "234567";
 
@@ -466,7 +467,7 @@ class RegistrationServiceTest {
 
   @Test
   void checkVerificationCode()
-      throws SenderRejectedRequestException, RateLimitExceededException, SessionAlreadyVerifiedException, TransportNotAllowedException, SessionNotFoundException, NoVerificationCodeSentException, AttemptExpiredException {
+      throws SenderRejectedRequestException, RateLimitExceededException, SessionAlreadyVerifiedException, TransportNotAllowedException, SessionNotFoundException, NoVerificationCodeSentException, AttemptExpiredException, NoSenderAvailableException {
     final AttemptData attemptData = new AttemptData(Optional.of("test"), VERIFICATION_CODE_BYTES);
 
     when(sender.sendVerificationCode(MessageTransport.SMS, PHONE_NUMBER, LANGUAGE_RANGES, CLIENT_TYPE))
@@ -494,7 +495,7 @@ class RegistrationServiceTest {
 
   @Test
   void checkVerificationCodeResend()
-      throws SenderRejectedRequestException, RateLimitExceededException, SessionAlreadyVerifiedException, TransportNotAllowedException, SessionNotFoundException, NoVerificationCodeSentException, AttemptExpiredException {
+      throws SenderRejectedRequestException, RateLimitExceededException, SessionAlreadyVerifiedException, TransportNotAllowedException, SessionNotFoundException, NoVerificationCodeSentException, AttemptExpiredException, NoSenderAvailableException {
     final AttemptData attemptData = new AttemptData(Optional.of("test"), VERIFICATION_CODE_BYTES);
 
     final UUID sessionId;
@@ -665,7 +666,7 @@ class RegistrationServiceTest {
 
   @Test
   void checkVerificationCodeSenderRejected()
-      throws SenderRejectedRequestException, RateLimitExceededException, SessionAlreadyVerifiedException, TransportNotAllowedException, SessionNotFoundException, NoVerificationCodeSentException, AttemptExpiredException {
+      throws SenderRejectedRequestException, RateLimitExceededException, SessionAlreadyVerifiedException, TransportNotAllowedException, SessionNotFoundException, NoVerificationCodeSentException, AttemptExpiredException, NoSenderAvailableException {
     final AttemptData attemptData = new AttemptData(Optional.of("test"), VERIFICATION_CODE_BYTES);
 
     when(sender.sendVerificationCode(MessageTransport.SMS, PHONE_NUMBER, LANGUAGE_RANGES, CLIENT_TYPE))
@@ -899,7 +900,7 @@ class RegistrationServiceTest {
 
   @Test
   void checkVerificationCodeSenderException()
-      throws SenderRejectedRequestException, RateLimitExceededException, SessionAlreadyVerifiedException, TransportNotAllowedException, SessionNotFoundException, NoVerificationCodeSentException, AttemptExpiredException {
+      throws SenderRejectedRequestException, RateLimitExceededException, SessionAlreadyVerifiedException, TransportNotAllowedException, SessionNotFoundException, NoVerificationCodeSentException, AttemptExpiredException, NoSenderAvailableException {
     final AttemptData attemptData = new AttemptData(Optional.of("test"), VERIFICATION_CODE_BYTES);
 
     when(sender.sendVerificationCode(any(), any(), any(), any()))
