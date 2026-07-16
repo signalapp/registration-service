@@ -31,7 +31,7 @@ public class RedisLeakyBucketSessionCreationRateLimiter extends RedisLeakyBucket
 
   @Override
   protected String getBucketName(final Pair<Phonenumber.PhoneNumber, String> phoneNumberAndOptionalCollationKey) {
-    return PhoneNumberUtil.getInstance()
+    return "session-creation::" + PhoneNumberUtil.getInstance()
         .format(phoneNumberAndOptionalCollationKey.getLeft(), PhoneNumberUtil.PhoneNumberFormat.E164)
         + ":" + phoneNumberAndOptionalCollationKey.getRight();
   }
