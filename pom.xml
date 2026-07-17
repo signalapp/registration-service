@@ -614,7 +614,7 @@
               <rules>
                 <dependencyConvergence/>
                 <requireMavenVersion>
-                  <version>3.9.14</version>
+                  <version>3.9.16</version>
                 </requireMavenVersion>
               </rules>
             </configuration>
