@@ -39,7 +39,7 @@
     <gax.version>2.81.0</gax.version>
 
     <!-- Note: always use the multi-arch manifest *LIST* here; see https://hub.docker.com/_/eclipse-temurin -->
-    <docker.image>eclipse-temurin:25-jre-noble@sha256:d2975fcad8dc9ac2180c0c278c8ae7b3443d36cb80845cb0811c20d9463f5fee</docker.image>
+    <docker.image>eclipse-temurin:25-jre-noble@sha256:2f1da100788559b397bcf48c736169ea5b070bde84e55f203bbee8e83d87a175</docker.image>
   </properties>
 
   <repositories>
