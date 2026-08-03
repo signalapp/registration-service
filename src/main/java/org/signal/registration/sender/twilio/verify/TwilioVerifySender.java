@@ -134,7 +134,7 @@ public class TwilioVerifySender implements VerificationCodeSender {
     }
     verificationCreator.setLocale(locale);
 
-    if (clientType == ClientType.ANDROID_WITH_FCM) {
+    if (messageTransport == MessageTransport.SMS && clientType == ClientType.ANDROID_WITH_FCM) {
       verificationCreator.setAppHash(configuration.androidAppHash());
     }
 
