@@ -29,4 +29,40 @@ class AllowAllRateLimiterFactory {
   RateLimiter<Pair<Phonenumber.PhoneNumber, String>> sessionCreationRateLimiter() {
     return new AllowAllRateLimiter<>(clock);
   }
+
+  @Singleton
+  @Named("send-sms-verification-code-per-session")
+  RateLimiter<Phonenumber.PhoneNumber> sendSmsVerificationCodePerSessionRateLimiter() {
+    return new AllowAllRateLimiter<>(clock);
+  }
+
+  @Singleton
+  @Named("send-voice-verification-code-per-session")
+  RateLimiter<Phonenumber.PhoneNumber> sendVoiceVerificationCodePerSessionRateLimiter() {
+    return new AllowAllRateLimiter<>(clock);
+  }
+
+  @Singleton
+  @Named("check-verification-code-per-session")
+  RateLimiter<Phonenumber.PhoneNumber> checkVerificationCodePerSessionRateLimiter() {
+    return new AllowAllRateLimiter<>(clock);
+  }
+
+  @Singleton
+  @Named("send-sms-verification-code-per-number")
+  RateLimiter<Phonenumber.PhoneNumber> sendSmsVerificationCodePerNumberRateLimiter() {
+    return new AllowAllRateLimiter<>(clock);
+  }
+
+  @Singleton
+  @Named("send-voice-verification-code-per-number")
+  RateLimiter<Phonenumber.PhoneNumber> sendVoiceVerificationCodePerNumberRateLimiter() {
+    return new AllowAllRateLimiter<>(clock);
+  }
+
+  @Singleton
+  @Named("check-verification-code-per-number")
+  RateLimiter<Phonenumber.PhoneNumber> checkVerificationCodePerNumberRateLimiter() {
+    return new AllowAllRateLimiter<>(clock);
+  }
 }
