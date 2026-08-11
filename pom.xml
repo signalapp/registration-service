@@ -15,7 +15,7 @@
   <parent>
     <groupId>io.micronaut.platform</groupId>
     <artifactId>micronaut-parent</artifactId>
-    <version>4.10.16</version>
+    <version>4.10.17</version>
   </parent>
 
   <properties>
@@ -36,7 +36,7 @@
     <!-- override property from micronaut-parent, as other dependencies need a newer version -->
     <grpc.version>1.81.0</grpc.version>
 
-    <gax.version>2.81.0</gax.version>
+    <gax.version>2.82.0</gax.version>
 
     <!-- Note: always use the multi-arch manifest *LIST* here; see https://hub.docker.com/_/eclipse-temurin -->
     <docker.image>eclipse-temurin:25-jre-noble@sha256:2f1da100788559b397bcf48c736169ea5b070bde84e55f203bbee8e83d87a175</docker.image>
@@ -54,7 +54,7 @@
       <dependency>
         <groupId>com.google.cloud</groupId>
         <artifactId>libraries-bom</artifactId>
-        <version>26.84.0</version>
+        <version>26.85.1</version>
         <type>pom</type>
         <scope>import</scope>
       </dependency>
@@ -160,13 +160,13 @@
     <dependency>
       <groupId>com.googlecode.libphonenumber</groupId>
       <artifactId>libphonenumber</artifactId>
-      <version>9.0.33</version>
+      <version>9.0.35</version>
     </dependency>
 
     <dependency>
       <groupId>com.messagebird</groupId>
       <artifactId>messagebird-api</artifactId>
-      <version>6.3.0</version>
+      <version>6.3.1</version>
 
       <exclusions>
         <!-- Conflicts with our direct dependency -->
@@ -407,7 +407,7 @@
     <dependency>
       <groupId>commons-codec</groupId>
       <artifactId>commons-codec</artifactId>
-      <version>1.22.0</version>
+      <version>1.22.1</version>
     </dependency>
 
     <!-- required for YAML configuration files in Micronaut 4 -->
