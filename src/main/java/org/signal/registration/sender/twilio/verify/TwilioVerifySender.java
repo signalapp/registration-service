@@ -145,6 +145,7 @@ public class TwilioVerifySender implements VerificationCodeSender {
       final Verification verification = verificationCreator.create(twilioRestClient);
 
       final Optional<String> maybeAttemptSid = verification.getSendCodeAttempts().stream()
+          .map(attempt -> (Map<String, Object>) attempt)
           .filter(attempt -> attempt.containsKey("attempt_sid"))
           .findFirst()
           .map(attempt -> attempt.get("attempt_sid").toString());

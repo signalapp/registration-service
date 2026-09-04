@@ -202,7 +202,7 @@
     <dependency>
       <groupId>com.twilio.sdk</groupId>
       <artifactId>twilio</artifactId>
-      <version>10.9.2</version>
+      <version>13.0.0</version>
 
       <exclusions>
         <!-- Conflicts with pretty much everything in com.google.cloud:*, which has a newer version -->
