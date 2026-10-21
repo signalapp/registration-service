@@ -21,8 +21,8 @@
   <properties>
     <packaging>jar</packaging>
 
-    <jdk.version>25</jdk.version>
-    <release.version>25</release.version>
+    <jdk.version>27</jdk.version>
+    <release.version>27</release.version>
     <exec.mainClass>org.signal.registration.Application</exec.mainClass>
 
     <!-- See https://console.cloud.google.com/artifacts/docker/google.com:cloudsdktool/us/gcr.io/google-cloud-cli -->
@@ -39,7 +39,7 @@
     <gax.version>2.81.0</gax.version>
 
     <!-- Note: always use the multi-arch manifest *LIST* here; see https://hub.docker.com/_/eclipse-temurin -->
-    <docker.image>eclipse-temurin:25-jre-noble@sha256:2f1da100788559b397bcf48c736169ea5b070bde84e55f203bbee8e83d87a175</docker.image>
+    <docker.image>eclipse-temurin:27-jre-resolute@sha256:eb52ede2345b29b715dbcbbc0de6f0bda88419d35eaf96f96e18f710b109d7b6</docker.image>
   </properties>
 
   <repositories>
