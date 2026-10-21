@@ -15,7 +15,7 @@
   <parent>
     <groupId>io.micronaut.platform</groupId>
     <artifactId>micronaut-parent</artifactId>
-    <version>4.10.16</version>
+    <version>5.2.3</version>
   </parent>
 
   <properties>
@@ -33,10 +33,15 @@
     <!-- must be greater than or equal to the value from Google libraries-bom, see https://protobuf.dev/support/cross-version-runtime-guarantee/ -->
     <!-- the latest 4.x should be fine https://central.sonatype.com/artifact/com.google.protobuf/protobuf-java/versions -->
     <protobuf.version>4.35.1</protobuf.version>
-    <!-- override property from micronaut-parent, as other dependencies need a newer version -->
-    <grpc.version>1.81.0</grpc.version>
 
-    <gax.version>2.81.0</gax.version>
+    <!-- Override property from micronaut-parent; keep in sync with the gRPC version from libraries-bom.
+        See also: enforcer plugin -->
+    <grpc.version>1.83.0</grpc.version>
+    <!-- Override property from micronaut-parent, keep in sync with the gax version from libraries-bom.
+         See also: enforcer plugin -->
+    <gax.version>2.85.0</gax.version>
+
+    <jackson2.version>2.22.4</jackson2.version>
 
     <!-- Note: always use the multi-arch manifest *LIST* here; see https://hub.docker.com/_/eclipse-temurin -->
     <docker.image>eclipse-temurin:27-jre-resolute@sha256:eb52ede2345b29b715dbcbbc0de6f0bda88419d35eaf96f96e18f710b109d7b6</docker.image>
@@ -54,15 +59,15 @@
       <dependency>
         <groupId>com.google.cloud</groupId>
         <artifactId>libraries-bom</artifactId>
-        <version>26.84.0</version>
+        <version>26.88.1</version>
         <type>pom</type>
         <scope>import</scope>
       </dependency>
 
       <dependency>
-        <groupId>io.projectreactor</groupId>
-        <artifactId>reactor-bom</artifactId>
-        <version>${reactor.bom.version}</version>
+        <groupId>com.fasterxml.jackson</groupId>
+        <artifactId>jackson-bom</artifactId>
+        <version>${jackson2.version}</version>
         <type>pom</type>
         <scope>import</scope>
       </dependency>
@@ -83,11 +88,19 @@
         <scope>import</scope>
       </dependency>
 
-      <!-- Micronaut's parent POM and Google's libraries-bom specify incompatible versions of gax. -->
+      <!-- Twilio declares an older version than the one required by httpclient5 from Micronaut's parent POM -->
       <dependency>
-        <groupId>com.google.api</groupId>
-        <artifactId>gax-bom</artifactId>
-        <version>${gax.version}</version>
+        <groupId>org.apache.httpcomponents.core5</groupId>
+        <artifactId>httpcore5</artifactId>
+        <version>5.4.3</version>
+      </dependency>
+
+      <!-- jackson-module-jakarta-xmlbind-annotations (via Sinch) declares an older version than the one required by
+      jakarta.xml.bind-api from Micronaut's parent POM -->
+      <dependency>
+        <groupId>jakarta.activation</groupId>
+        <artifactId>jakarta.activation-api</artifactId>
+        <version>2.1.4</version>
       </dependency>
 
     </dependencies>
@@ -342,7 +355,7 @@
     </dependency>
     <dependency>
       <groupId>io.micronaut.redis</groupId>
-      <artifactId>micronaut-redis-lettuce</artifactId>
+      <artifactId>micronaut-redis-lettuce-core</artifactId>
     </dependency>
     <dependency>
       <groupId>io.micronaut.validation</groupId>
@@ -440,6 +453,15 @@
         <exclusion>
           <groupId>com.fasterxml.woodstox</groupId>
           <artifactId>woodstox-core</artifactId>
+        </exclusion>
+        <exclusion>
+          <groupId>org.codehaus.woodstox</groupId>
+          <artifactId>stax2-api</artifactId>
+        </exclusion>
+        <!-- conflicts with google-cloud-bigtable -->
+        <exclusion>
+          <groupId>io.opentelemetry.contrib</groupId>
+          <artifactId>opentelemetry-gcp-resources</artifactId>
         </exclusion>
       </exclusions>
     </dependency>
@@ -613,6 +635,29 @@
             <configuration>
               <rules>
                 <dependencyConvergence/>
+                <!-- gax.version and grpc.version override versions from micronaut-parent; make sure all gax and gRPC modules
+                agree and that the overrides never silently downgrade a version requested by one of our dependencies -->
+                <requireSameVersions>
+                  <dependencies>
+                    <dependency>com.google.api:gax</dependency>
+                    <dependency>com.google.api:gax-grpc</dependency>
+                    <dependency>com.google.api:gax-httpjson</dependency>
+                  </dependencies>
+                </requireSameVersions>
+                <requireSameVersions>
+                  <dependencies>
+                    <dependency>io.grpc:*</dependency>
+                  </dependencies>
+                </requireSameVersions>
+                <requireUpperBoundDeps>
+                  <includes>
+                    <include>com.google.api:gax</include>
+                    <include>com.google.api:gax-grpc</include>
+                    <include>com.google.api:gax-httpjson</include>
+                    <!-- wildcards aren't supported, but every gRPC module depends on grpc-api at its own version -->
+                    <include>io.grpc:grpc-api</include>
+                  </includes>
+                </requireUpperBoundDeps>
                 <requireMavenVersion>
                   <version>3.9.16</version>
                 </requireMavenVersion>
