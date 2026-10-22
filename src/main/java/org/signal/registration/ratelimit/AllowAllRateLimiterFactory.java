@@ -6,6 +6,7 @@
 package org.signal.registration.ratelimit;
 
 import com.google.i18n.phonenumbers.Phonenumber;
+import io.lettuce.core.api.StatefulRedisConnection;
 import io.micronaut.context.annotation.Factory;
 import io.micronaut.context.annotation.Requires;
 import jakarta.inject.Named;
@@ -16,6 +17,7 @@ import java.time.Clock;
 
 @Factory
 @Requires(env = Environments.DEVELOPMENT)
+@Requires(missingBeans = StatefulRedisConnection.class)
 class AllowAllRateLimiterFactory {
 
   private final Clock clock;
@@ -27,6 +29,24 @@ class AllowAllRateLimiterFactory {
   @Singleton
   @Named("session-creation")
   RateLimiter<Pair<Phonenumber.PhoneNumber, String>> sessionCreationRateLimiter() {
+    return new AllowAllRateLimiter<>(clock);
+  }
+
+  @Singleton
+  @Named("send-sms-verification-code-per-number")
+  RateLimiter<Phonenumber.PhoneNumber> sendSmsVerificationCodePerNumberRateLimiter() {
+    return new AllowAllRateLimiter<>(clock);
+  }
+
+  @Singleton
+  @Named("send-voice-verification-code-per-number")
+  RateLimiter<Phonenumber.PhoneNumber> sendVoiceVerificationCodePerNumberRateLimiter() {
+    return new AllowAllRateLimiter<>(clock);
+  }
+
+  @Singleton
+  @Named("check-verification-code-per-number")
+  RateLimiter<Phonenumber.PhoneNumber> checkVerificationCodePerNumberRateLimiter() {
     return new AllowAllRateLimiter<>(clock);
   }
 }

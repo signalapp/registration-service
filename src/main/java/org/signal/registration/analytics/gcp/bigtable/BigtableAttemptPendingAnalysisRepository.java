@@ -14,6 +14,7 @@ import com.google.cloud.bigtable.data.v2.models.TableId;
 import com.google.protobuf.ByteString;
 import com.google.protobuf.InvalidProtocolBufferException;
 import io.micrometer.core.instrument.MeterRegistry;
+import io.micronaut.context.annotation.Requires;
 import jakarta.inject.Singleton;
 import java.io.UncheckedIOException;
 import java.util.List;
@@ -30,6 +31,7 @@ import org.slf4j.LoggerFactory;
  * a backing store.
  */
 @Singleton
+@Requires(bean = BigtableDataClient.class)
 public class BigtableAttemptPendingAnalysisRepository implements AttemptPendingAnalysisRepository {
 
   private final BigtableDataClient bigtableDataClient;
