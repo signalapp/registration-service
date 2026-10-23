@@ -28,7 +28,6 @@
     <!-- See https://console.cloud.google.com/artifacts/docker/google.com:cloudsdktool/us/gcr.io/google-cloud-cli -->
     <gcloud.emulator.version>557.0.0-emulators</gcloud.emulator.version>
     <simple-grpc.version>0.2.1</simple-grpc.version>
-    <testcontainers.version>1.21.4</testcontainers.version>
 
     <!-- must be greater than or equal to the value from Google libraries-bom, see https://protobuf.dev/support/cross-version-runtime-guarantee/ -->
     <!-- the latest 4.x should be fine https://central.sonatype.com/artifact/com.google.protobuf/protobuf-java/versions -->
@@ -90,22 +89,6 @@
         <groupId>com.fasterxml.jackson</groupId>
         <artifactId>jackson-bom</artifactId>
         <version>${jackson2.version}</version>
-        <type>pom</type>
-        <scope>import</scope>
-      </dependency>
-
-      <dependency>
-        <groupId>com.google.protobuf</groupId>
-        <artifactId>protobuf-bom</artifactId>
-        <type>pom</type>
-        <scope>import</scope>
-        <version>${protobuf.version}</version>
-      </dependency>
-
-      <dependency>
-        <groupId>org.testcontainers</groupId>
-        <artifactId>testcontainers-bom</artifactId>
-        <version>${testcontainers.version}</version>
         <type>pom</type>
         <scope>import</scope>
       </dependency>
@@ -189,7 +172,6 @@
     <dependency>
       <groupId>ch.qos.logback</groupId>
       <artifactId>logback-core</artifactId>
-      <version>${logback.version}</version>
     </dependency>
 
     <dependency>
@@ -292,7 +274,6 @@
     <dependency>
       <groupId>io.micronaut.picocli</groupId>
       <artifactId>micronaut-picocli</artifactId>
-      <version>${micronaut.picocli.version}</version>
     </dependency>
     <dependency>
       <groupId>io.micronaut.redis</groupId>
@@ -417,15 +398,13 @@
 
     <dependency>
       <groupId>org.testcontainers</groupId>
-      <artifactId>junit-jupiter</artifactId>
-      <version>${testcontainers.version}</version>
+      <artifactId>testcontainers-junit-jupiter</artifactId>
       <scope>test</scope>
     </dependency>
 
     <dependency>
       <groupId>org.testcontainers</groupId>
-      <artifactId>gcloud</artifactId>
-      <version>${testcontainers.version}</version>
+      <artifactId>testcontainers-gcloud</artifactId>
       <scope>test</scope>
     </dependency>
   </dependencies>
