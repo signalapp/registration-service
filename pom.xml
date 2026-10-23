@@ -85,7 +85,7 @@
       <dependency>
         <groupId>com.google.cloud</groupId>
         <artifactId>libraries-bom</artifactId>
-        <version>26.88.1</version>
+        <version>26.90.0</version>
         <type>pom</type>
         <scope>import</scope>
       </dependency>
@@ -211,13 +211,13 @@
     <dependency>
       <groupId>com.googlecode.libphonenumber</groupId>
       <artifactId>libphonenumber</artifactId>
-      <version>9.0.33</version>
+      <version>9.0.41</version>
     </dependency>
 
     <dependency>
       <groupId>com.messagebird</groupId>
       <artifactId>messagebird-api</artifactId>
-      <version>6.3.0</version>
+      <version>6.4.0</version>
     </dependency>
 
     <dependency>
@@ -237,7 +237,7 @@
     <dependency>
       <groupId>com.twilio.sdk</groupId>
       <artifactId>twilio</artifactId>
-      <version>13.0.0</version>
+      <version>13.1.0</version>
     </dependency>
 
     <!-- Required at runtime by httpclient 4 (via Google Cloud libraries), which those libraries exclude -->
