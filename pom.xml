@@ -34,14 +34,18 @@
     <!-- the latest 4.x should be fine https://central.sonatype.com/artifact/com.google.protobuf/protobuf-java/versions -->
     <protobuf.version>4.35.1</protobuf.version>
 
-    <!-- Override property from micronaut-parent; keep in sync with the gRPC version from libraries-bom.
-        See also: enforcer plugin -->
-    <grpc.version>1.83.0</grpc.version>
-    <!-- Override property from micronaut-parent, keep in sync with the gax version from libraries-bom.
-         See also: enforcer plugin -->
-    <gax.version>2.85.0</gax.version>
-
     <jackson2.version>2.22.4</jackson2.version>
+
+    <!-- micronaut-parent overrides -->
+
+    <!-- keep in sync with the gRPC version from libraries-bom -->
+    <grpc.version>1.83.0</grpc.version>
+    <!-- keep in sync with the gax version from libraries-bom -->
+    <gax.version>2.85.0</gax.version>
+    <!-- keep in sync with libraries-bom -->
+    <google.auth.library.oauth2http.version>1.52.0</google.auth.library.oauth2http.version>
+    <!-- micrometer needs a newer version -->
+    <jspecify.version>1.0.1</jspecify.version>
 
     <!-- Note: always use the multi-arch manifest *LIST* here; see https://hub.docker.com/_/eclipse-temurin -->
     <docker.image>eclipse-temurin:27-jre-resolute@sha256:eb52ede2345b29b715dbcbbc0de6f0bda88419d35eaf96f96e18f710b109d7b6</docker.image>
@@ -56,6 +60,24 @@
 
   <dependencyManagement>
     <dependencies>
+      <!-- Keep all gRPC and gax modules on the same version, including those managed by libraries-bom; these must come
+      before libraries-bom, since the first imported BOM takes precedence -->
+      <dependency>
+        <groupId>io.grpc</groupId>
+        <artifactId>grpc-bom</artifactId>
+        <version>${grpc.version}</version>
+        <type>pom</type>
+        <scope>import</scope>
+      </dependency>
+
+      <dependency>
+        <groupId>com.google.api</groupId>
+        <artifactId>gax-bom</artifactId>
+        <version>${gax.version}</version>
+        <type>pom</type>
+        <scope>import</scope>
+      </dependency>
+
       <dependency>
         <groupId>com.google.cloud</groupId>
         <artifactId>libraries-bom</artifactId>
@@ -103,6 +125,57 @@
         <version>2.1.4</version>
       </dependency>
 
+      <!-- Resolve dependency conflicts. requireUpperBoundDeps fails the build if any dependency requests a newer version
+           in the future. -->
+
+      <dependency>
+        <groupId>commons-codec</groupId>
+        <artifactId>commons-codec</artifactId>
+        <version>1.22.0</version>
+      </dependency>
+
+      <!-- Twilio requests a version affected by https://osv.dev/vulnerability/GHSA-78wr-2p64-hpwj -->
+      <dependency>
+        <groupId>commons-io</groupId>
+        <artifactId>commons-io</artifactId>
+        <version>2.22.0</version>
+      </dependency>
+
+      <dependency>
+        <groupId>org.apache.commons</groupId>
+        <artifactId>commons-lang3</artifactId>
+        <version>3.20.0</version>
+      </dependency>
+
+      <dependency>
+        <groupId>com.squareup.okio</groupId>
+        <artifactId>okio-jvm</artifactId>
+        <version>3.17.0</version>
+      </dependency>
+
+      <dependency>
+        <groupId>org.json</groupId>
+        <artifactId>json</artifactId>
+        <version>20250517</version>
+      </dependency>
+
+      <dependency>
+        <groupId>com.fasterxml.woodstox</groupId>
+        <artifactId>woodstox-core</artifactId>
+        <version>7.2.0</version>
+      </dependency>
+
+      <dependency>
+        <groupId>org.codehaus.woodstox</groupId>
+        <artifactId>stax2-api</artifactId>
+        <version>4.3.0</version>
+      </dependency>
+
+      <dependency>
+        <groupId>io.opentelemetry.contrib</groupId>
+        <artifactId>opentelemetry-gcp-resources</artifactId>
+        <version>1.45.0-alpha</version>
+      </dependency>
     </dependencies>
   </dependencyManagement>
 
@@ -128,14 +201,6 @@
     <dependency>
       <groupId>io.micronaut.tracing</groupId>
       <artifactId>micronaut-tracing-opentelemetry-http</artifactId>
-
-      <exclusions>
-        <!-- Conflicts with pretty much everything in com.google.cloud:* -->
-        <exclusion>
-          <groupId>org.checkerframework</groupId>
-          <artifactId>checker-qual</artifactId>
-        </exclusion>
-      </exclusions>
     </dependency>
     <dependency>
       <groupId>io.opentelemetry</groupId>
@@ -149,25 +214,11 @@
     <dependency>
       <groupId>com.google.cloud</groupId>
       <artifactId>google-cloud-bigtable</artifactId>
-      <!-- Our direct import brings in a newer version, so exclude it here. -->
-      <exclusions>
-        <exclusion>
-          <groupId>commons-codec</groupId>
-          <artifactId>commons-codec</artifactId>
-        </exclusion>
-      </exclusions>
     </dependency>
 
     <dependency>
       <groupId>com.google.cloud</groupId>
       <artifactId>google-cloud-firestore</artifactId>
-      <!-- Our direct import brings in a newer version, so exclude it here. -->
-      <exclusions>
-        <exclusion>
-          <groupId>commons-codec</groupId>
-          <artifactId>commons-codec</artifactId>
-        </exclusion>
-      </exclusions>
     </dependency>
 
     <dependency>
@@ -180,14 +231,6 @@
       <groupId>com.messagebird</groupId>
       <artifactId>messagebird-api</artifactId>
       <version>6.3.0</version>
-
-      <exclusions>
-        <!-- Conflicts with our direct dependency -->
-        <exclusion>
-          <groupId>org.apache.commons</groupId>
-          <artifactId>commons-lang3</artifactId>
-        </exclusion>
-      </exclusions>
     </dependency>
 
     <dependency>
@@ -196,14 +239,6 @@
       <!-- Do not upgrade. 5.x and above uses a "send SMS" API that does not return synchronous error responses,
       and our current registration flow depends on synchronous error reporting by message providers. -->
       <version>4.4.0</version>
-
-      <exclusions>
-        <!-- Conflicts with opentelemetry-exporter-otlp, which has a newer version -->
-        <exclusion>
-          <groupId>com.squareup.okio</groupId>
-          <artifactId>okio-jvm</artifactId>
-        </exclusion>
-      </exclusions>
     </dependency>
 
     <dependency>
@@ -216,46 +251,9 @@
       <groupId>com.twilio.sdk</groupId>
       <artifactId>twilio</artifactId>
       <version>13.0.0</version>
-
-      <exclusions>
-        <!-- Conflicts with pretty much everything in com.google.cloud:*, which has a newer version -->
-        <exclusion>
-          <groupId>org.apache.httpcomponents</groupId>
-          <artifactId>httpcore</artifactId>
-        </exclusion>
-
-        <exclusion>
-          <groupId>commons-codec</groupId>
-          <artifactId>commons-codec</artifactId>
-        </exclusion>
-
-        <exclusion>
-          <groupId>org.apache.httpcomponents</groupId>
-          <artifactId>httpclient</artifactId>
-        </exclusion>
-
-        <!-- Temporarily excluded due to https://osv.dev/vulnerability/GHSA-78wr-2p64-hpwj -->
-        <exclusion>
-          <groupId>commons-io</groupId>
-          <artifactId>commons-io</artifactId>
-        </exclusion>
-
-        <!-- conflicts with google-cloud-bigquery, which has a newer version -->
-        <exclusion>
-          <groupId>org.json</groupId>
-          <artifactId>json</artifactId>
-        </exclusion>
-      </exclusions>
     </dependency>
 
-    <!-- Temporary override for Twilio and testcontainers -->
-    <dependency>
-      <groupId>commons-io</groupId>
-      <artifactId>commons-io</artifactId>
-      <version>2.22.0</version>
-    </dependency>
-
-    <!-- Compensate for transitive dependencies knocked out by Twilio's exclusions -->
+    <!-- Required at runtime by httpclient 4 (via Google Cloud libraries), which those libraries exclude -->
     <dependency>
       <groupId>commons-logging</groupId>
       <artifactId>commons-logging</artifactId>
@@ -270,71 +268,14 @@
     <dependency>
       <groupId>io.micronaut.gcp</groupId>
       <artifactId>micronaut-gcp-pubsub</artifactId>
-
-      <exclusions>
-        <!-- Conflicts with pretty much everything in com.google.cloud:*, which has a newer version -->
-        <exclusion>
-          <groupId>com.google.errorprone</groupId>
-          <artifactId>error_prone_annotations</artifactId>
-        </exclusion>
-
-        <exclusion>
-          <groupId>com.google.guava</groupId>
-          <artifactId>failureaccess</artifactId>
-        </exclusion>
-
-        <exclusion>
-          <groupId>com.google.j2objc</groupId>
-          <artifactId>j2objc-annotations</artifactId>
-        </exclusion>
-
-        <exclusion>
-          <groupId>org.threeten</groupId>
-          <artifactId>threetenbp</artifactId>
-        </exclusion>
-
-        <!-- conflicts with com.google.cloud:* which has a newer version -->
-        <exclusion>
-          <groupId>commons-codec</groupId>
-          <artifactId>commons-codec</artifactId>
-        </exclusion>
-
-        <!-- conflicts with com.google.cloud:* which has a newer version -->
-        <exclusion>
-          <groupId>com.google.re2j</groupId>
-          <artifactId>re2j</artifactId>
-        </exclusion>
-
-        <!-- conflicts with com.google.cloud:* which has a newer version -->
-        <exclusion>
-          <groupId>org.codehaus.mojo</groupId>
-          <artifactId>animal-sniffer-annotations</artifactId>
-        </exclusion>
-      </exclusions>
     </dependency>
     <dependency>
       <groupId>io.micronaut.grpc</groupId>
       <artifactId>micronaut-grpc-runtime</artifactId>
-
-      <exclusions>
-        <!-- Conflicts with pretty much everything in com.google.cloud:*, which has a newer version -->
-        <exclusion>
-          <groupId>com.google.errorprone</groupId>
-          <artifactId>error_prone_annotations</artifactId>
-        </exclusion>
-      </exclusions>
     </dependency>
     <dependency>
       <groupId>io.grpc</groupId>
       <artifactId>grpc-services</artifactId>
-
-      <exclusions>
-        <!-- Conflicts with pretty much everything in com.google.cloud:*, which has a newer version -->
-        <exclusion>
-          <groupId>com.google.errorprone</groupId>
-          <artifactId>error_prone_annotations</artifactId>
-        </exclusion>
-      </exclusions>
     </dependency>
     <dependency>
       <groupId>io.micronaut</groupId>
@@ -375,7 +316,6 @@
     <dependency>
       <groupId>org.apache.commons</groupId>
       <artifactId>commons-lang3</artifactId>
-      <version>3.20.0</version>
     </dependency>
 
     <dependency>
@@ -388,39 +328,16 @@
       <groupId>org.apache.commons</groupId>
       <artifactId>commons-csv</artifactId>
       <version>1.14.1</version>
-
-      <exclusions>
-        <!-- conflicts with com.google.cloud:* which has a newer version -->
-        <exclusion>
-          <groupId>commons-codec</groupId>
-          <artifactId>commons-codec</artifactId>
-        </exclusion>
-
-        <exclusion>
-          <groupId>commons-io</groupId>
-          <artifactId>commons-io</artifactId>
-        </exclusion>
-      </exclusions>
     </dependency>
 
     <dependency>
       <groupId>com.google.cloud</groupId>
       <artifactId>google-cloud-bigquery</artifactId>
-      <!-- Our direct import brings in a newer version, so exclude it here. -->
-      <exclusions>
-        <exclusion>
-          <groupId>commons-codec</groupId>
-          <artifactId>commons-codec</artifactId>
-        </exclusion>
-      </exclusions>
     </dependency>
 
-    <!-- Explicitly add a dependency on this version so we can re-examine a bunch of exclusions when it is transitively
-    updated -->
     <dependency>
       <groupId>commons-codec</groupId>
       <artifactId>commons-codec</artifactId>
-      <version>1.22.0</version>
     </dependency>
 
     <!-- required for YAML configuration files in Micronaut 4 -->
@@ -444,26 +361,6 @@
     <dependency>
       <groupId>com.google.cloud</groupId>
       <artifactId>google-cloud-storage</artifactId>
-      <!-- bundles an older version of commons-codec than our direct dependency version of commons-csv -->
-      <exclusions>
-        <exclusion>
-          <groupId>commons-codec</groupId>
-          <artifactId>commons-codec</artifactId>
-        </exclusion>
-        <exclusion>
-          <groupId>com.fasterxml.woodstox</groupId>
-          <artifactId>woodstox-core</artifactId>
-        </exclusion>
-        <exclusion>
-          <groupId>org.codehaus.woodstox</groupId>
-          <artifactId>stax2-api</artifactId>
-        </exclusion>
-        <!-- conflicts with google-cloud-bigtable -->
-        <exclusion>
-          <groupId>io.opentelemetry.contrib</groupId>
-          <artifactId>opentelemetry-gcp-resources</artifactId>
-        </exclusion>
-      </exclusions>
     </dependency>
 
     <!-- Test dependencies -->
@@ -522,29 +419,6 @@
       <groupId>org.testcontainers</groupId>
       <artifactId>junit-jupiter</artifactId>
       <version>${testcontainers.version}</version>
-      <scope>test</scope>
-
-      <exclusions>
-        <!-- Temporarily excluded due to https://osv.dev/vulnerability/GHSA-78wr-2p64-hpwj -->
-        <exclusion>
-          <groupId>commons-io</groupId>
-          <artifactId>commons-io</artifactId>
-        </exclusion>
-
-        <!-- Temporarily excluded due to https://osv.dev/vulnerability/GHSA-4265-ccf5-phj5 and
-        https://osv.dev/vulnerability/GHSA-4g9r-vxhx-9pgx -->
-        <exclusion>
-          <groupId>org.apache.commons</groupId>
-          <artifactId>commons-compress</artifactId>
-        </exclusion>
-      </exclusions>
-    </dependency>
-
-    <!-- Temporary override for testcontainers -->
-    <dependency>
-      <groupId>org.apache.commons</groupId>
-      <artifactId>commons-compress</artifactId>
-      <version>1.28.0</version>
       <scope>test</scope>
     </dependency>
 
@@ -635,29 +509,8 @@
             <configuration>
               <rules>
                 <dependencyConvergence/>
-                <!-- gax.version and grpc.version override versions from micronaut-parent; make sure all gax and gRPC modules
-                agree and that the overrides never silently downgrade a version requested by one of our dependencies -->
-                <requireSameVersions>
-                  <dependencies>
-                    <dependency>com.google.api:gax</dependency>
-                    <dependency>com.google.api:gax-grpc</dependency>
-                    <dependency>com.google.api:gax-httpjson</dependency>
-                  </dependencies>
-                </requireSameVersions>
-                <requireSameVersions>
-                  <dependencies>
-                    <dependency>io.grpc:*</dependency>
-                  </dependencies>
-                </requireSameVersions>
-                <requireUpperBoundDeps>
-                  <includes>
-                    <include>com.google.api:gax</include>
-                    <include>com.google.api:gax-grpc</include>
-                    <include>com.google.api:gax-httpjson</include>
-                    <!-- wildcards aren't supported, but every gRPC module depends on grpc-api at its own version -->
-                    <include>io.grpc:grpc-api</include>
-                  </includes>
-                </requireUpperBoundDeps>
+                <!-- Fail if any managed version is lower than a version requested by a dependency -->
+                <requireUpperBoundDeps/>
                 <requireMavenVersion>
                   <version>3.9.16</version>
                 </requireMavenVersion>
