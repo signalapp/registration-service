@@ -6,6 +6,20 @@ updates:
       - dependency-name: "*"
         update-types:
           - version-update:semver-major
+
+      # Dependency convergence fixes, pinned to specific versions
+      - dependency-name: "io.grpc:grpc-bom"
+      - dependency-name: "com.google.api:gax-bom"
+      - dependency-name: "org.apache.httpcomponents.core5:httpcore5"
+      - dependency-name: "jakarta.activation:jakarta.activation-api"
+      - dependency-name: "commons-io:commons-io"
+      - dependency-name: "com.squareup.okio:okio-jvm"
+      - dependency-name: "org.json:json"
+      - dependency-name: "com.fasterxml.woodstox:woodstox-core"
+      - dependency-name: "org.codehaus.woodstox:stax2-api"
+      - dependency-name: "io.opentelemetry.contrib:opentelemetry-gcp-resources"
+      - dependency-name: "com.google.cloud.opentelemetry:detector-resources-support"
+
     schedule:
       interval: monthly
     groups:

@@ -59,8 +59,13 @@
 
   <dependencyManagement>
     <dependencies>
-      <!-- Keep all gRPC and gax modules on the same version, including those managed by libraries-bom; these must come
-      before libraries-bom, since the first imported BOM takes precedence -->
+      <!--  -->
+      <!-- libraries-bom overrides
+          Keep all modules of these libraries on the version from the corresponding micronaut-parent override,
+          including modules managed by libraries-bom. These must come before libraries-bom, since the first imported BOM
+          takes precedence. libraries-bom doesn't always use a BOM internally, and a flipped order
+          could end up with mixed versions.
+          The artifacts should also be ignored in dependabot.yml. -->
       <dependency>
         <groupId>io.grpc</groupId>
         <artifactId>grpc-bom</artifactId>
@@ -93,6 +98,21 @@
         <scope>import</scope>
       </dependency>
 
+      <dependency>
+        <groupId>commons-codec</groupId>
+        <artifactId>commons-codec</artifactId>
+        <version>1.23.0</version>
+      </dependency>
+
+      <dependency>
+        <groupId>org.apache.commons</groupId>
+        <artifactId>commons-lang3</artifactId>
+        <version>3.21.0</version>
+      </dependency>
+
+      <!-- Resolve dependency conflicts below. requireUpperBoundDeps fails the build if any dependency requests a
+           newer version in the future. They should also be ignored in dependabot.yml. -->
+
       <!-- Twilio declares an older version than the one required by httpclient5 from Micronaut's parent POM -->
       <dependency>
         <groupId>org.apache.httpcomponents.core5</groupId>
@@ -108,26 +128,11 @@
         <version>2.1.4</version>
       </dependency>
 
-      <!-- Resolve dependency conflicts. requireUpperBoundDeps fails the build if any dependency requests a newer version
-           in the future. -->
-
-      <dependency>
-        <groupId>commons-codec</groupId>
-        <artifactId>commons-codec</artifactId>
-        <version>1.22.0</version>
-      </dependency>
-
       <!-- Twilio requests a version affected by https://osv.dev/vulnerability/GHSA-78wr-2p64-hpwj -->
       <dependency>
         <groupId>commons-io</groupId>
         <artifactId>commons-io</artifactId>
         <version>2.22.0</version>
-      </dependency>
-
-      <dependency>
-        <groupId>org.apache.commons</groupId>
-        <artifactId>commons-lang3</artifactId>
-        <version>3.20.0</version>
       </dependency>
 
       <dependency>
