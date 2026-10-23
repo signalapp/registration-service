@@ -40,9 +40,11 @@
     <!-- keep in sync with the gRPC version from libraries-bom -->
     <grpc.version>1.83.0</grpc.version>
     <!-- keep in sync with the gax version from libraries-bom -->
-    <gax.version>2.85.0</gax.version>
+    <gax.version>2.87.0</gax.version>
     <!-- keep in sync with libraries-bom -->
-    <google.auth.library.oauth2http.version>1.52.0</google.auth.library.oauth2http.version>
+    <google.auth.library.oauth2http.version>1.54.0</google.auth.library.oauth2http.version>
+    <!-- keep in sync with libraries-bom -->
+    <google.cloud.core.version>2.77.0</google.cloud.core.version>
     <!-- micrometer needs a newer version -->
     <jspecify.version>1.0.1</jspecify.version>
 
@@ -163,6 +165,12 @@
         <groupId>io.opentelemetry.contrib</groupId>
         <artifactId>opentelemetry-gcp-resources</artifactId>
         <version>1.45.0-alpha</version>
+      </dependency>
+
+      <dependency>
+        <groupId>com.google.cloud.opentelemetry</groupId>
+        <artifactId>detector-resources-support</artifactId>
+        <version>0.33.0</version>
       </dependency>
     </dependencies>
   </dependencyManagement>
