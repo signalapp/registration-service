@@ -49,7 +49,7 @@
     <jspecify.version>1.0.1</jspecify.version>
 
     <!-- Note: always use the multi-arch manifest *LIST* here; see https://hub.docker.com/_/eclipse-temurin -->
-    <docker.image>eclipse-temurin:27-jre-resolute@sha256:eb52ede2345b29b715dbcbbc0de6f0bda88419d35eaf96f96e18f710b109d7b6</docker.image>
+    <docker.image>eclipse-temurin:27-jre-resolute@sha256:16a0cae9bfb17ab4257ac64e3d7585fc49233e7bdf3d376c4545289eaf193929</docker.image>
   </properties>
 
   <repositories>
