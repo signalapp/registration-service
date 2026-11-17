@@ -535,7 +535,6 @@
           <container>
             <jvmFlags>
               <jvmFlag>-XX:MaxRAMPercentage=75</jvmFlag>
-              <jvmFlag>-XX:+UnlockDiagnosticVMOptions</jvmFlag>
               <jvmFlag>-XX:-UseBASE64Intrinsics</jvmFlag>
             </jvmFlags>
 
