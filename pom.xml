@@ -535,6 +535,7 @@
           <container>
             <jvmFlags>
               <jvmFlag>-XX:MaxRAMPercentage=75</jvmFlag>
+              <jvmFlag>-XX:-UseBASE64Intrinsics</jvmFlag>
             </jvmFlags>
 
             <!-- Because we have two executable classes (the service itself and the CLI), we need to specify which
