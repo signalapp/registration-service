@@ -15,7 +15,7 @@
   <parent>
     <groupId>io.micronaut.platform</groupId>
     <artifactId>micronaut-parent</artifactId>
-    <version>5.2.3</version>
+    <version>5.2.7</version>
   </parent>
 
   <properties>
@@ -27,13 +27,13 @@
 
     <!-- See https://console.cloud.google.com/artifacts/docker/google.com:cloudsdktool/us/gcr.io/google-cloud-cli -->
     <gcloud.emulator.version>557.0.0-emulators</gcloud.emulator.version>
-    <simple-grpc.version>0.2.1</simple-grpc.version>
+    <simple-grpc.version>0.3.0</simple-grpc.version>
 
     <!-- must be greater than or equal to the value from Google libraries-bom, see https://protobuf.dev/support/cross-version-runtime-guarantee/ -->
     <!-- the latest 4.x should be fine https://central.sonatype.com/artifact/com.google.protobuf/protobuf-java/versions -->
     <protobuf.version>4.35.1</protobuf.version>
 
-    <jackson2.version>2.22.4</jackson2.version>
+    <jackson2.version>2.23.0</jackson2.version>
 
     <!-- micronaut-parent overrides -->
 
@@ -87,7 +87,7 @@
       <dependency>
         <groupId>com.google.cloud</groupId>
         <artifactId>libraries-bom</artifactId>
-        <version>26.90.0</version>
+        <version>26.94.0</version>
         <type>pom</type>
         <scope>import</scope>
       </dependency>
@@ -109,7 +109,7 @@
       <dependency>
         <groupId>org.apache.commons</groupId>
         <artifactId>commons-lang3</artifactId>
-        <version>3.21.0</version>
+        <version>3.22.0</version>
       </dependency>
 
       <!-- Resolve dependency conflicts below. requireUpperBoundDeps fails the build if any dependency requests a
@@ -219,7 +219,7 @@
     <dependency>
       <groupId>com.googlecode.libphonenumber</groupId>
       <artifactId>libphonenumber</artifactId>
-      <version>9.0.41</version>
+      <version>9.0.44</version>
     </dependency>
 
     <dependency>
@@ -245,7 +245,7 @@
     <dependency>
       <groupId>com.twilio.sdk</groupId>
       <artifactId>twilio</artifactId>
-      <version>13.1.0</version>
+      <version>13.2.1</version>
     </dependency>
 
     <!-- Required at runtime by httpclient 4 (via Google Cloud libraries), which those libraries exclude -->
@@ -490,7 +490,7 @@
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-enforcer-plugin</artifactId>
-        <version>3.6.3</version>
+        <version>3.7.0</version>
 
         <executions>
           <execution>
